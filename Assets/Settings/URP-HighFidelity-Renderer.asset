@@ -52,7 +52,8 @@ MonoBehaviour:
       type: 3}
   m_RendererFeatures:
   - {fileID: -1878332245247344467}
-  m_RendererFeatureMap: adc0de57c6d2eee5
+  - {fileID: 7348728472756104821}
+  m_RendererFeatureMap: adc0de57c6d2eee5752e6d599cedfb65
   m_UseNativeRenderPass: 0
   postProcessData: {fileID: 11400000, guid: 41439944d30ece34e96484bdb6645b55, type: 2}
   xrSystemData: {fileID: 11400000, guid: 60e1133243b97e347b653163a8c01b64, type: 2}
@@ -92,3 +93,26 @@ MonoBehaviour:
   m_CopyDepthMode: 0
   m_AccurateGbufferNormals: 0
   m_IntermediateTextureMode: 0
+--- !u!114 &7348728472756104821
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3be2542c9a9c96240a799ec0ec17561c, type: 3}
+  m_Name: PostProcessFeature
+  m_EditorClassIdentifier: 
+  m_Active: 1
+  m_Settings:
+    m_PostProcessFeatureData: {fileID: 11400000, guid: edde15894e221c3479e6672674dd00be,
+      type: 2}
+    m_RenderersBeforeRenderingGBuffer: []
+    m_RenderersBeforeRenderingDeferredLights:
+    - Game.Core.PostProcessing.ScreenSpaceOcclusionRenderer, Game.Rendering.PostProcessing.Runtime,
+      Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
+    m_RenderersAfterRenderingSkybox: []
+    m_RenderersBeforeRenderingPostProcessing: []
+    m_RenderersAfterRenderingPostProcessing: []
