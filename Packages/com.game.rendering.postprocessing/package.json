@@ -1,0 +1,12 @@
+{
+  "name": "com.game.rendering.postprocessing",
+  "displayName": "Game_Rendering_PostProcessing",
+  "version": "1.0.0",
+  "unity": "2021.4",
+  "description": "\u540e\u5904\u7406\u6a21\u5757",
+  "icon": ".icon.png",
+  "dependencies": {
+    "com.unity.render-pipelines.core": "12.1.11",
+    "com.unity.render-pipelines.universal": "12.1.11"
+  }
+}
