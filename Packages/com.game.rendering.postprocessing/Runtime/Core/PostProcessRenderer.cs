@@ -79,9 +79,14 @@ namespace Game.Core.PostProcessing
             profilingSampler = new ProfilingSampler(attribute?.Name);
         }
 
-        public void Blit(CommandBuffer cmd, RTHandle source, RTHandle destination, Material material = null, int passIndex = 0)
+        public void Blit(CommandBuffer cmd, RTHandle source, RTHandle destination, Material material, int passIndex = 0)
         {
             Blitter.BlitCameraTexture(cmd, source, destination, material, passIndex);
+        }
+
+        public void Blit(CommandBuffer cmd, RTHandle source, RTHandle destination)
+        {
+            Blitter.BlitCameraTexture(cmd, source, destination);
         }
 
         public void DescriptorDownSample(ref RenderTextureDescriptor desc, int downSample)
