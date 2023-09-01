@@ -7,7 +7,7 @@ using UnityEngine.Rendering.Universal;
 
 namespace Game.Core.PostProcessing
 {
-    [Serializable, VolumeComponentMenuForRenderPipeline("Post-processing Custom/TemporalAntialiasingLite", typeof(UniversalRenderPipeline))]
+    [Serializable, VolumeComponentMenu("Post-processing Custom/TemporalAntialiasingLite")]
     public class TemporalAntialiasingLite : VolumeSetting
     {
         // ----------------------------------------------------------------------------------------------------

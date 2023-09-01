@@ -7,7 +7,7 @@ using UnityEngine.Rendering.Universal;
 
 namespace Game.Core.PostProcessing
 {
-    [Serializable, VolumeComponentMenuForRenderPipeline("Settings/GlobalRenderSettings", typeof(UniversalRenderPipeline))]
+    [Serializable, VolumeComponentMenu("Settings/GlobalRenderSettings")]
     public class GlobalRenderSettings : VolumeSetting
     {
         public override bool IsActive() => true;

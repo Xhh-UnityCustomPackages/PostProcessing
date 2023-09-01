@@ -7,7 +7,7 @@ using UnityEngine.Rendering.Universal;
 
 namespace Game.Core.PostProcessing
 {
-    [Serializable, VolumeComponentMenuForRenderPipeline("Post-processing Custom/Volumetric Light", typeof(UniversalRenderPipeline))]
+    [Serializable, VolumeComponentMenu("Post-processing Custom/Volumetric Light")]
     public class VolumetricLight : VolumeSetting
     {
         public enum DownSample

@@ -7,7 +7,7 @@ using UnityEngine.Rendering.Universal;
 
 namespace Game.Core.PostProcessing
 {
-    [Serializable, VolumeComponentMenuForRenderPipeline("Post-processing Custom/Volumetric Cloud", typeof(UniversalRenderPipeline))]
+    [Serializable, VolumeComponentMenu("Post-processing Custom/Volumetric Cloud")]
     public class VolumetricCloud : VolumeSetting
     {
         public MinFloatParameter intensity = new MinFloatParameter(0f, 0f);

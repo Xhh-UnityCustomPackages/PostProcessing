@@ -7,7 +7,7 @@ using UnityEngine.Rendering.Universal;
 
 namespace Game.Core.PostProcessing
 {
-    [Serializable, VolumeComponentMenuForRenderPipeline("Post-processing Custom/ScreenSpaceReflection", typeof(UniversalRenderPipeline))]
+    [Serializable, VolumeComponentMenu("Post-processing Custom/ScreenSpaceReflection")]
     public class ScreenSpaceReflection : VolumeSetting
     {
         public enum Resolution

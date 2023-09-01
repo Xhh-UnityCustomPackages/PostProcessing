@@ -7,7 +7,7 @@ using UnityEngine.Rendering.Universal;
 
 namespace Game.Core.PostProcessing
 {
-    [Serializable, VolumeComponentMenuForRenderPipeline("Post-processing Custom/ScreenSpaceOcclusion", typeof(UniversalRenderPipeline))]
+    [Serializable, VolumeComponentMenu("Post-processing Custom/ScreenSpaceOcclusion")]
     public class ScreenSpaceOcclusion : VolumeSetting
     {
         public enum AOType
