@@ -81,8 +81,9 @@ namespace Game.Core.PostProcessing
 
         public void Blit(CommandBuffer cmd, RTHandle source, RTHandle destination, Material material, int passIndex = 0)
         {
-            cmd.SetGlobalTexture(m_SourceTex, source);
-            cmd.Blit(source, destination, material, passIndex);
+            Blitter.BlitCameraTexture(cmd, source, destination, material, passIndex);
+            // cmd.SetGlobalTexture(m_SourceTex, source);
+            // cmd.Blit(source, destination, material, passIndex);
         }
 
         public void DescriptorDownSample(ref RenderTextureDescriptor desc, int downSample)
