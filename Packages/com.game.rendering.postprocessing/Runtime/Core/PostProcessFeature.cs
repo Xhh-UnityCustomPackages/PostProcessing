@@ -70,7 +70,12 @@ namespace Game.Core.PostProcessing
         {
             if (m_Settings.m_PostProcessFeatureData == null)
             {
+#if UNITY_EDITOR
+                m_Settings.m_PostProcessFeatureData=UnityEditor.AssetDatabase.LoadAssetAtPath<PostProcessFeatureData>(PostProcessingUtils.packagePath + "/Runtime/Core/PostProcessFeatureData.asset");
+#endif
+
                 Debug.LogError("Please Add PostProcessFeatureData To PostProcessFeature");
+
                 return;
             }
 
