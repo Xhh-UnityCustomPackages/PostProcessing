@@ -6,7 +6,7 @@
   "description": "\u540e\u5904\u7406\u6a21\u5757",
   "icon": ".icon.png",
   "dependencies": {
-    "com.unity.render-pipelines.core": "14.0.6",
-    "com.unity.render-pipelines.universal": "14.0.6"
+    "com.unity.render-pipelines.core": "15.0.6",
+    "com.unity.render-pipelines.universal": "15.0.6"
   }
 }
