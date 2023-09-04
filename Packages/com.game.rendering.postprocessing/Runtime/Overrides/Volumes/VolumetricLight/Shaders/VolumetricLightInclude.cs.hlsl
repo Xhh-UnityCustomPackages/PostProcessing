@@ -7,13 +7,14 @@
 // Generated from Game.Core.PostProcessing.VolumetricLightInclude
 // PackingRules = Exact
 CBUFFER_START(VolumetricLightInclude)
-    float _Density;
     float _MaxRayLength;
     int _SampleCount;
     float _Intensity;
-    float2 _RandomNumber;
-    float4 _MieG;
-    float2 _JitterOffset;
+    float _SkyboxExtinction;
+    float _ScatteringCoef;
+    float _ExtinctionCoef;
+    float _MieG;
+    float3 _LightDirection;
 CBUFFER_END
 
 
