@@ -10,6 +10,11 @@ namespace Game.Core.PostProcessing
     [Serializable, VolumeComponentMenu("Post-processing Custom/Volumetric Light")]
     public class VolumetricLight : VolumeSetting
     {
+        public VolumetricLight()
+        {
+            displayName = "体积光 (Volumetric Light)";
+        }
+
         public enum DownSample
         {
             X1 = 1,
@@ -65,6 +70,7 @@ namespace Game.Core.PostProcessing
         RTHandle m_VolumetricLightRT;
         RTHandle m_HalfDepthRT;
         RTHandle m_TempRT;
+        private VolumetricLightInclude m_VolumetricLightInclude;
 
 
         public override void Setup()
@@ -76,29 +82,38 @@ namespace Game.Core.PostProcessing
         private void SetupMaterials(ref RenderingData renderingData)
         {
             var camera = renderingData.cameraData.camera;
-            // m_Material.SetMatrix(ShaderConstants.InvVP, (renderingData.cameraData.GetGPUProjectionMatrix() * camera.worldToCameraMatrix).inverse);
-            float maxRayLength = Mathf.Min(settings.maxRayLength.value, QualitySettings.shadowDistance);
-            m_Material.SetFloat(ShaderConstants.MaxRayLength, maxRayLength);
-            m_Material.SetInt(ShaderConstants.SampleCount, settings.SampleCount.value);
-            m_Material.SetFloat(ShaderConstants.Density, settings.scatterDensity.value);
-            m_Material.SetVector(ShaderConstants.RandomNumber, new Vector2(UnityEngine.Random.Range(0f, 1000f), Vector3.Dot(Vector3.Cross(camera.transform.position, camera.transform.eulerAngles), Vector3.one)));
+
+            m_VolumetricLightInclude._MaxRayLength = Mathf.Min(settings.maxRayLength.value, QualitySettings.shadowDistance);
+            m_VolumetricLightInclude._SampleCount = settings.SampleCount.value;
+            m_VolumetricLightInclude._Density = settings.scatterDensity.value;
+            m_VolumetricLightInclude._RandomNumber = new Vector2(UnityEngine.Random.Range(0f, 1000f), Vector3.Dot(Vector3.Cross(camera.transform.position, camera.transform.eulerAngles), Vector3.one));
+
             float MieG = settings.MieG.value;
-            m_Material.SetVector(ShaderConstants.MieG, new Vector4(1 - (MieG * MieG), 1 + (MieG * MieG), 2 * MieG, 1.0f / (4.0f * Mathf.PI)));
-            m_Material.SetFloat(ShaderConstants.Intensity, settings.intensity.value);
-            SetupDirectionLight(ref renderingData);
+            m_VolumetricLightInclude._MieG = new Vector4(1 - (MieG * MieG), 1 + (MieG * MieG), 2 * MieG, 1.0f / (4.0f * Mathf.PI));
+            m_VolumetricLightInclude._Intensity = settings.intensity.value;
 
             if (settings.jitter.value)
             {
                 Vector2 jitter;
                 jitter.x = 0.1f / camera.pixelWidth;
                 jitter.y = 0.1f / camera.pixelHeight;
-                m_Material.SetVector(ShaderConstants.JitterOffset, jitter);
+                m_VolumetricLightInclude._JitterOffset = jitter;
             }
             else
             {
-                m_Material.SetVector(ShaderConstants.JitterOffset, Vector2.zero);
+                m_VolumetricLightInclude._JitterOffset = Vector2.zero;
             }
 
+
+            m_Material.SetFloat(ShaderConstants.MaxRayLength, m_VolumetricLightInclude._MaxRayLength);
+            m_Material.SetInt(ShaderConstants.SampleCount, m_VolumetricLightInclude._SampleCount);
+            m_Material.SetFloat(ShaderConstants.Density, m_VolumetricLightInclude._Density);
+            m_Material.SetVector(ShaderConstants.RandomNumber, m_VolumetricLightInclude._RandomNumber);
+            m_Material.SetVector(ShaderConstants.MieG, m_VolumetricLightInclude._MieG);
+            m_Material.SetFloat(ShaderConstants.Intensity, m_VolumetricLightInclude._Intensity);
+            m_Material.SetVector(ShaderConstants.JitterOffset, m_VolumetricLightInclude._JitterOffset);
+
+            SetupDirectionLight(ref renderingData);
         }
 
         void SetupDirectionLight(ref RenderingData renderingData)

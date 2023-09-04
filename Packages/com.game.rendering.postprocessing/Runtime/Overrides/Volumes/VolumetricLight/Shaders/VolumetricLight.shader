@@ -6,21 +6,9 @@ Shader "Hidden/PostProcessing/VolumetricLight"
     #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
     #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareNormalsTexture.hlsl"
     #include "Packages/com.unity.render-pipelines.universal/Shaders/PostProcessing/Common.hlsl"
+    #include "VolumetricLightInclude.cs.hlsl"
 
     TEXTURE2D_X(_SourceTex);        float4 _SourceTex_TexelSize;
-
-    // float4x4 _InvVP;
-    float _MaxRayLength;
-    int _SampleCount;
-    
-    float _Intensity;
-
-    //MieScattering
-    float2 _RandomNumber;
-    float _Density;
-    // x: 1 - g^2, y: 1 + g^2, z: 2*g, w: 1/4pi
-    float4 _MieG;
-    float2 _JitterOffset;
 
     //-----------------------------------------------------------------------------------------
     // GetLightAttenuation

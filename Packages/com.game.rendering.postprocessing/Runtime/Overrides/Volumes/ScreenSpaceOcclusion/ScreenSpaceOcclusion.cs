@@ -10,6 +10,11 @@ namespace Game.Core.PostProcessing
     [Serializable, VolumeComponentMenu("Post-processing Custom/ScreenSpaceOcclusion")]
     public class ScreenSpaceOcclusion : VolumeSetting
     {
+        public ScreenSpaceOcclusion()
+        {
+            displayName = "环境光遮蔽 (Screen Space Occlusion)";
+        }
+
         public enum AOType
         {
             HorizonBasedAmbientOcclusion,//HBAO
