@@ -15,12 +15,11 @@ float GetShadowAttenuation(float3 posWS)
 float GetDensity(float3 posWS)
 {
     float density = 1;
-    // if (UseNoise == 1)
-    // {
-    //     float noise = SAMPLE_TEXTURE3D_LOD(_NoiseTexture, sampler_NoiseTexture, float4(frac(posWS * NoiseScale + float3(_Time.y * NoiseVelocity.x, 0, _Time.y * NoiseVelocity.y)), 0), 0);
-    //     noise = saturate(noise - NoiseOffset) * NoiseIntensity;
-    //     density = saturate(noise);
-    // }
+    #ifdef _NOISE
+        // float noise = SAMPLE_TEXTURE3D_LOD(_NoiseTexture, sampler_NoiseTexture, float4(frac(posWS * NoiseScale + float3(_Time.y * NoiseVelocity.x, 0, _Time.y * NoiseVelocity.y)), 0), 0);
+        // noise = saturate(noise - NoiseOffset) * NoiseIntensity;
+        // density = saturate(noise);
+    #endif
     // ApplyHeightFog(posWS, density);
     return density;
 }
@@ -36,11 +35,13 @@ float MieScattering(float cosAngle, float g)
 
 float4 RayMarch(float2 screenPos, float3 rayStart, float3 rayDir, float rayLength)
 {
-    float2 interleavedPos = (fmod(floor(screenPos.xy), 8.0));
-    //take care this
-    // float offset = highQualityRandom((_ScreenParams.y * uv.y + uv.x) * _ScreenParams.x + _RandomNumber) * _JitterOffset;
-    //随机采样偏移
-    float offset = 0;//SAMPLE_TEXTURE2D_LOD(_DitherTexture, sampler_DitherTexture, interleavedPos / 8.0 + float2(0.5 / 8.0, 0.5 / 8.0), 0).w;
+    float offset = 0;
+
+    #ifdef  _JITTER
+        float2 interleavedPos = (fmod(floor(screenPos.xy), 8.0));
+        //随机采样偏移
+        offset = SAMPLE_TEXTURE2D_LOD(_DitherTexture, sampler_DitherTexture, interleavedPos / 8.0 + float2(0.5 / 8.0, 0.5 / 8.0), 0).w;
+    #endif
     int stepCount = _SampleCount;
     float stepSize = rayLength / stepCount;
     float3 step = rayDir * stepSize;//步进步长

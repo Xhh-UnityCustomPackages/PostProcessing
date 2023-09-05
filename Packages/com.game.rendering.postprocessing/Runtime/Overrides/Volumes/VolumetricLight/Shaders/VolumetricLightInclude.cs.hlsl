@@ -15,7 +15,9 @@ CBUFFER_START(VolumetricLightInclude)
     float _ExtinctionCoef;
     float _MieG;
     float3 _LightDirection;
-    float4 _LightColor;
+    float4 _LightColor; // x: r y: g z: b w: a 
+    float _NoiseScale;
+    float2 _NoiseOffset;
 CBUFFER_END
 
 

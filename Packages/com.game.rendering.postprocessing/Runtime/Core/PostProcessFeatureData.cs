@@ -21,7 +21,7 @@ namespace Game.Core.PostProcessing
         [Serializable]
         public sealed class TextureResources
         {
-
+            public Texture2D DitherTexture;
         }
 
         public ShaderResources shaders;

@@ -18,6 +18,10 @@ namespace Game.Core.PostProcessing
         public float _MieG;
 
         public Vector3 _LightDirection;
-        public Vector4 _LightColor;
+        public Color _LightColor;
+
+        // Noise
+        public float _NoiseScale;
+        public Vector2 _NoiseOffset;
     }
 }

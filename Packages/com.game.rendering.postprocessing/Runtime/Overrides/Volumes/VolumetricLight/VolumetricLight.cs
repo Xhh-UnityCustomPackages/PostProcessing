@@ -26,16 +26,30 @@ namespace Game.Core.PostProcessing
         [Serializable]
         public sealed class DownSampleParameter : VolumeParameter<DownSample> { }
 
+        [Header("质量 (Quality)")]
         public MinFloatParameter intensity = new MinFloatParameter(0f, 0f);
         public DownSampleParameter downSample = new DownSampleParameter() { value = DownSample.X1 };
         public ClampedIntParameter SampleCount = new ClampedIntParameter(64, 1, 128);
+        public MinFloatParameter maxRayLength = new MinFloatParameter(100f, 0f);
+
+        [Header("散射 (Scattering)")]
         public ClampedFloatParameter scatteringCoef = new ClampedFloatParameter(0.5f, 0f, 1f);
         public ClampedFloatParameter extinctionCoef = new ClampedFloatParameter(0.01f, 0f, 0.1f);
         public ClampedFloatParameter skyBackgroundExtinctionCoef = new ClampedFloatParameter(0.9f, 0f, 1f);
         public ClampedFloatParameter MieG = new ClampedFloatParameter(0.5f, 0.0f, 0.999f);
-        public MinFloatParameter maxRayLength = new MinFloatParameter(100f, 0f);
+
+        [Header("抖动 (Jitter)")]
+        public BoolParameter useJitter = new BoolParameter(false);
+        public Texture2DParameter jitterTex = new Texture2DParameter(null);
+
+        [Header("噪音 (Noise)")]
+        public BoolParameter useNoise = new BoolParameter(false);
+        public Texture3DParameter noiseTex = new Texture3DParameter(null);
+        public ClampedFloatParameter noiseScale = new ClampedFloatParameter(0.5f, 0f, 1f);
+        public Vector2Parameter noiseOffset = new Vector2Parameter(Vector2.zero);
+
+        [Space(10)]
         public BoolParameter debug = new BoolParameter(false);
-        public BoolParameter jitter = new BoolParameter(false);
 
         public override bool IsActive()
         {
@@ -59,12 +73,16 @@ namespace Game.Core.PostProcessing
             internal static readonly int LightColor = Shader.PropertyToID("_LightColor");
             internal static readonly int LightTex = Shader.PropertyToID("_LightTex");
             internal static readonly int CameraDepthTexture = Shader.PropertyToID("_CameraDepthTexture");//实际使用的是half depth
+
+            // Noise
+            internal static readonly int NoiseTexture = Shader.PropertyToID("_NoiseTexture");
+            internal static readonly int NoiseScale = Shader.PropertyToID("_NoiseScale");
+            internal static readonly int NoiseOffset = Shader.PropertyToID("_NoiseOffset");
         }
 
 
         Material m_Material;
         Material m_BlurMaterial;
-        VisibleLight m_MainLight;
         RenderTextureDescriptor m_Descriptor;
         RenderTextureDescriptor m_DepthDescriptor;
         RTHandle m_VolumetricLightRT;
@@ -85,20 +103,36 @@ namespace Game.Core.PostProcessing
         {
             var camera = renderingData.cameraData.camera;
 
+            // Quality
             m_VolumetricLightInclude._Intensity = settings.intensity.value;
             m_VolumetricLightInclude._MaxRayLength = Mathf.Min(settings.maxRayLength.value, QualitySettings.shadowDistance);
             m_VolumetricLightInclude._SampleCount = settings.SampleCount.value;
+            // 
             m_VolumetricLightInclude._ExtinctionCoef = settings.extinctionCoef.value;
             m_VolumetricLightInclude._ScatteringCoef = settings.scatteringCoef.value;
             m_VolumetricLightInclude._SkyboxExtinction = settings.skyBackgroundExtinctionCoef.value;
             m_VolumetricLightInclude._MieG = settings.MieG.value;
-
+            // Noise
+            m_VolumetricLightInclude._NoiseScale = settings.noiseScale.value;
+            m_VolumetricLightInclude._NoiseOffset = settings.noiseOffset.value;
 
             frustumCorners[0] = camera.ViewportToWorldPoint(new Vector3(0, 0, camera.farClipPlane));
             frustumCorners[2] = camera.ViewportToWorldPoint(new Vector3(0, 1, camera.farClipPlane));
             frustumCorners[3] = camera.ViewportToWorldPoint(new Vector3(1, 1, camera.farClipPlane));
             frustumCorners[1] = camera.ViewportToWorldPoint(new Vector3(1, 0, camera.farClipPlane));
 
+            CoreUtils.SetKeyword(m_Material, "_JITTER", settings.useJitter.value);
+            CoreUtils.SetKeyword(m_Material, "_NOISE", settings.useNoise.value);
+
+            if (settings.useNoise.value)
+            {
+                m_Material.SetTexture(ShaderConstants.NoiseTexture, settings.noiseTex.value);
+                m_Material.SetFloat(ShaderConstants.NoiseScale, m_VolumetricLightInclude._NoiseScale);
+                m_Material.SetVector(ShaderConstants.NoiseOffset, m_VolumetricLightInclude._NoiseOffset);
+            }
+
+            if (settings.useJitter.value)
+                m_Material.SetTexture("_DitherTexture", m_PostProcessFeatureData.textures.DitherTexture);
 
             m_Material.SetVectorArray("_FrustumCorners", frustumCorners);
             m_Material.SetFloat(ShaderConstants.Intensity, m_VolumetricLightInclude._Intensity);
@@ -117,10 +151,9 @@ namespace Game.Core.PostProcessing
             if (renderingData.lightData.mainLightIndex == -1)
                 return;
 
-            m_MainLight = renderingData.cullResults.visibleLights[renderingData.lightData.mainLightIndex];
-            m_Material.SetVector(ShaderConstants.LightDirection, -m_MainLight.localToWorldMatrix.GetColumn(2));
-            m_Material.SetVector(ShaderConstants.LightColor, m_MainLight.finalColor);
-            // m_MainLight.finalColor
+            var mainLight = renderingData.cullResults.visibleLights[renderingData.lightData.mainLightIndex];
+            m_Material.SetVector(ShaderConstants.LightDirection, -mainLight.localToWorldMatrix.GetColumn(2));
+            m_Material.SetVector(ShaderConstants.LightColor, mainLight.finalColor);
         }
 
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)

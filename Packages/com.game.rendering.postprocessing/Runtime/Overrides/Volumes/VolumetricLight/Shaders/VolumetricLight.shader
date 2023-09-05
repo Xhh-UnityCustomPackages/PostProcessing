@@ -7,10 +7,14 @@ Shader "Hidden/PostProcessing/VolumetricLight"
     #include "Packages/com.unity.render-pipelines.universal/Shaders/PostProcessing/Common.hlsl"
 
     #include "VolumetricLightInclude.cs.hlsl"
-    #include "VolumetricLightPass.hlsl"
+    
 
     float4 _BlitTexture_TexelSize;
     TEXTURE2D(_DitherTexture);      SAMPLER(sampler_DitherTexture);
+    TEXTURE2D(_NoiseTexture);       SAMPLER(sampler_NoiseTexture);
+    
+
+    #include "VolumetricLightPass.hlsl"
 
     ENDHLSL
 
@@ -28,6 +32,8 @@ Shader "Hidden/PostProcessing/VolumetricLight"
             // -------------------------------------
             // Universal Pipeline keywords
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
+            #pragma multi_compile _ _JITTER
+            #pragma multi_compile _ _NOISE
 
             #pragma vertex vertDir
             #pragma fragment Frag
