@@ -29,10 +29,6 @@ Shader "Hidden/PostProcessing/VolumetricLight"
             // Universal Pipeline keywords
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
 
-            // -------------------------------------
-            // Material keywords
-            #pragma multi_compile_fragment  SHADOWS_DEPTH_ON
-
             #pragma vertex vertDir
             #pragma fragment Frag
 
@@ -57,42 +53,40 @@ Shader "Hidden/PostProcessing/VolumetricLight"
                 output.positionCS = pos;
                 output.texcoord = uv * _BlitScaleBias.xy + _BlitScaleBias.zw;
                 output.positionWS = _FrustumCorners[output.texcoord.x + output.texcoord.y * 2];
-
                 return output;
             }
 
-            // 重建世界坐标
-            half3 GetWorldPosition(float3 positionHCS)
-            {
-                half2 UV = positionHCS.xy / _ScaledScreenParams;
-                #if UNITY_REVERSED_Z
-                    real depth = SampleSceneDepth(UV);
-                #else
-                    real depth = lerp(UNITY_NEAR_CLIP_VALUE, 1, SampleSceneDepth(UV));
-                #endif
-                return ComputeWorldSpacePosition(UV, depth, UNITY_MATRIX_I_VP);
-            }
 
+            // 重建世界坐标
+            float3 GetWorldPosition(float2 uv, float3 viewVec, out float depth, out float linearDepth)
+            {
+                depth = SAMPLE_TEXTURE2D_X(_CameraDepthTexture, sampler_CameraDepthTexture, uv).r;//采样深度图
+                depth = Linear01Depth(depth, _ZBufferParams); //转换为线性深度
+                linearDepth = LinearEyeDepth(depth, _ZBufferParams);
+                float3 viewPos = viewVec * depth; //获取实际的观察空间坐标（插值后）
+                float3 worldPos = mul(unity_CameraToWorld, float4(viewPos, 1)).xyz; //观察空间-->世界空间坐标
+                return worldPos;
+            }
 
             half4 Frag(varyings input) : SV_Target
             {
                 float2 uv = input.texcoord;
 
-                // return float4(uv, 0, 1);
-                //从顶点获取世界坐标得方法不对 还是得这样
-                
-                
                 //read depth and reconstruct world position
-                float depth = SampleSceneDepth(uv);
-
-                input.positionWS = ComputeWorldSpacePosition(input.positionCS.xy / _ScaledScreenParams, depth, UNITY_MATRIX_I_VP);
+                #if UNITY_REVERSED_Z
+                    float depth = SampleSceneDepth(uv);
+                #else
+                    float depth = lerp(UNITY_NEAR_CLIP_VALUE, 1, SampleSceneDepth(uv));
+                #endif
+                //从顶点获取世界坐标得方法不对 还是得这样
+                float3 positionWS = ComputeWorldSpacePosition(input.positionCS.xy / _ScaledScreenParams, depth, UNITY_MATRIX_I_VP);
 
                 
                 float linear01Depth = Linear01Depth(depth, _ZBufferParams);
                 float3 rayStart = _WorldSpaceCameraPos;
                 // return float4(input.positionWS, 1);
                 
-                float3 rayDir = input.positionWS + _WorldSpaceCameraPos;
+                float3 rayDir = positionWS + _WorldSpaceCameraPos;
                 rayDir *= linear01Depth;
                 // return half4(rayDir, 1);
 
@@ -126,15 +120,15 @@ Shader "Hidden/PostProcessing/VolumetricLight"
                 float2 uv = UnityStereoTransformScreenSpaceTex(input.texcoord);
 
                 // 9-tap gaussian blur on the downsampled source
-                half3 c0 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv - float2(texelSize * 4.0, 0.0));
-                half3 c1 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv - float2(texelSize * 3.0, 0.0));
-                half3 c2 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv - float2(texelSize * 2.0, 0.0));
-                half3 c3 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv - float2(texelSize * 1.0, 0.0));
-                half3 c4 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv);
-                half3 c5 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv + float2(texelSize * 1.0, 0.0));
-                half3 c6 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv + float2(texelSize * 2.0, 0.0));
-                half3 c7 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv + float2(texelSize * 3.0, 0.0));
-                half3 c8 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv + float2(texelSize * 4.0, 0.0));
+                half3 c0 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv - float2(texelSize * 4.0, 0.0)).rgb;
+                half3 c1 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv - float2(texelSize * 3.0, 0.0)).rgb;
+                half3 c2 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv - float2(texelSize * 2.0, 0.0)).rgb;
+                half3 c3 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv - float2(texelSize * 1.0, 0.0)).rgb;
+                half3 c4 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv).rgb;
+                half3 c5 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv + float2(texelSize * 1.0, 0.0)).rgb;
+                half3 c6 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv + float2(texelSize * 2.0, 0.0)).rgb;
+                half3 c7 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv + float2(texelSize * 3.0, 0.0)).rgb;
+                half3 c8 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv + float2(texelSize * 4.0, 0.0)).rgb;
 
                 half3 color = c0 * 0.01621622 + c1 * 0.05405405 + c2 * 0.12162162 + c3 * 0.19459459
                 + c4 * 0.22702703
@@ -161,11 +155,11 @@ Shader "Hidden/PostProcessing/VolumetricLight"
                 float2 uv = UnityStereoTransformScreenSpaceTex(input.texcoord);
 
                 // Optimized bilinear 5-tap gaussian on the same-sized source (9-tap equivalent)
-                half3 c0 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv - float2(0.0, texelSize * 3.23076923));
-                half3 c1 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv - float2(0.0, texelSize * 1.38461538));
-                half3 c2 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv);
-                half3 c3 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv + float2(0.0, texelSize * 1.38461538));
-                half3 c4 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv + float2(0.0, texelSize * 3.23076923));
+                half3 c0 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv - float2(0.0, texelSize * 3.23076923)).rgb;
+                half3 c1 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv - float2(0.0, texelSize * 1.38461538)).rgb;
+                half3 c2 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv).rgb;
+                half3 c3 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv + float2(0.0, texelSize * 1.38461538)).rgb;
+                half3 c4 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv + float2(0.0, texelSize * 3.23076923)).rgb;
 
                 half3 color = c0 * 0.07027027 + c1 * 0.31621622
                 + c2 * 0.22702703
@@ -186,7 +180,7 @@ Shader "Hidden/PostProcessing/VolumetricLight"
             #pragma vertex Vert
             #pragma fragment FragComposite
 
-            TEXTURE2D_X(_LightTex);
+            TEXTURE2D(_LightTex);
 
             float4 FragComposite(Varyings input) : SV_Target
             {

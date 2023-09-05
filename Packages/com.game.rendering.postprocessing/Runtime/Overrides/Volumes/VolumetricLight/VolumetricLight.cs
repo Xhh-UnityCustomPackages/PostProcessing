@@ -135,8 +135,6 @@ namespace Game.Core.PostProcessing
             }
 
             RenderingUtils.ReAllocateIfNeeded(ref m_VolumetricLightRT, m_Descriptor, FilterMode.Bilinear, name: "_VolumetricLightRT");
-            m_Material.SetTexture(ShaderConstants.LightTex, m_VolumetricLightRT);
-
             RenderingUtils.ReAllocateIfNeeded(ref m_TempRT, m_Descriptor, FilterMode.Bilinear, name: "_VolumetricLightTempRT");
 
 
@@ -152,42 +150,35 @@ namespace Game.Core.PostProcessing
         {
             SetupMaterials(ref renderingData);
 
-            if ((int)settings.downSample.value > 1)
-            {
-                //half depth
-                // Blit(cmd, null, m_HalfDepthRT, m_BlurMaterial, 4);
 
-                //计算体积光
-                // m_Material.SetTexture(ShaderConstants.CameraDepthTexture, m_HalfDepthRT);
-                Blit(cmd, source, m_VolumetricLightRT, m_Material, 0);
+            //half depth
+            // Blit(cmd, null, m_HalfDepthRT, m_BlurMaterial, 4);
 
-                //模糊 
-                //TODO 需要使用联合双边 模糊 来保证边缘
-                // m_BlurMaterial.SetTexture("_SourceTex", m_HalfDepthRT);
-                Blit(cmd, m_VolumetricLightRT, m_TempRT, m_BlurMaterial, 1);
-                Blit(cmd, m_TempRT, m_VolumetricLightRT, m_BlurMaterial, 2);
+            //计算体积光
+            // m_Material.SetTexture(ShaderConstants.CameraDepthTexture, m_HalfDepthRT);
+            Blit(cmd, source, m_VolumetricLightRT, m_Material, 0);
 
-                // m_BlurMaterial.SetTexture("_HalfResColor", m_VolumetricLightRT);
-                // Blit(cmd, null, m_VolumetricLightRT, m_BlurMaterial, 5);
+            //模糊 
+            //TODO 需要使用联合双边 模糊 来保证边缘
+            // m_BlurMaterial.SetTexture("_SourceTex", m_HalfDepthRT);
+            // Blit(cmd, m_VolumetricLightRT, m_TempRT, m_BlurMaterial, 1);
+            // Blit(cmd, m_TempRT, m_VolumetricLightRT, m_BlurMaterial, 2);
 
-
-                //暂时使用 高斯模糊
-                // Blit(cmd, m_VolumetricLightRT, m_TempRT, m_Material, 1);
-                // Blit(cmd, m_TempRT, m_VolumetricLightRT, m_Material, 2);
-            }
-            else
-            {
-                Blit(cmd, source, m_VolumetricLightRT, m_Material, 0);
-            }
+            // m_BlurMaterial.SetTexture("_HalfResColor", m_VolumetricLightRT);
+            // Blit(cmd, null, m_VolumetricLightRT, m_BlurMaterial, 5);
 
 
+            //暂时使用 高斯模糊
+            // Blit(cmd, m_VolumetricLightRT, m_TempRT, m_Material, 1);
+            // Blit(cmd, m_TempRT, m_VolumetricLightRT, m_Material, 2);
+
+
+            m_Material.SetTexture(ShaderConstants.LightTex, m_VolumetricLightRT);
             // 合并
             if (settings.debug.value)
-                Blit(cmd, null, target, m_Material, 3);
+                Blit(cmd, target, target, m_Material, 3);
             else
                 Blit(cmd, source, target, m_Material, 3);
-
-            // Blit(cmd, m_VolumetricLightRT, target);
 
         }
 

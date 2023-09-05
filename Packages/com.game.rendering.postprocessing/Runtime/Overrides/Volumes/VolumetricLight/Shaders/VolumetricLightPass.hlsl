@@ -1,17 +1,13 @@
 #ifndef VOLUMETRICLIGHT_PASS_HLSL
 #define VOLUMETRICLIGHT_PASS_HLSL
 
-//-----------------------------------------------------------------------------------------
-// GetLightAttenuation
-//-----------------------------------------------------------------------------------------
+// 获取阴影值
 float GetShadowAttenuation(float3 posWS)
 {
-    float atten = 1;
-    #if SHADOWS_DEPTH_ON
-        // sample cascade shadow map
-        float4 shadowCoord = TransformWorldToShadowCoord(posWS);
-        atten = MainLightRealtimeShadow(shadowCoord);
-    #endif
+    // sample cascade shadow map
+    float4 shadowCoord = TransformWorldToShadowCoord(posWS);
+    float atten = MainLightRealtimeShadow(shadowCoord);
+
     return atten;
 }
 
@@ -43,10 +39,11 @@ float4 RayMarch(float2 screenPos, float3 rayStart, float3 rayDir, float rayLengt
     float2 interleavedPos = (fmod(floor(screenPos.xy), 8.0));
     //take care this
     // float offset = highQualityRandom((_ScreenParams.y * uv.y + uv.x) * _ScreenParams.x + _RandomNumber) * _JitterOffset;
+    //随机采样偏移
     float offset = 0;//SAMPLE_TEXTURE2D_LOD(_DitherTexture, sampler_DitherTexture, interleavedPos / 8.0 + float2(0.5 / 8.0, 0.5 / 8.0), 0).w;
     int stepCount = _SampleCount;
     float stepSize = rayLength / stepCount;
-    float3 step = rayDir * stepSize;
+    float3 step = rayDir * stepSize;//步进步长
     float3 currentPosition = rayStart + offset * step;
     float4 result = 0;
     float cosAngle;
@@ -70,17 +67,20 @@ float4 RayMarch(float2 screenPos, float3 rayStart, float3 rayDir, float rayLengt
         extinction += _ExtinctionCoef * stepSize * density;
         float4 energy = attenuation * scattering * exp(-extinction);
 
+
+        energy = attenuation * density * 0.001;
+
         result += energy;
         currentPosition += step;
     }
 
 
-    result *= MieScattering(cosAngle, _MieG);
-    result *= _LightColor;
-    // result *= _Intensity;
+    // result *= MieScattering(cosAngle, _MieG);
+    // result *= _LightColor;
+    result *= _Intensity;
     result = max(0, result);
     // #if defined(_DIRECTION)
-    result.w = exp(-extinction);
+    // result.w = exp(-extinction);
     // #elif defined(_SPOT) || defined(_POINT)
     //     result.w = 0;
     // #endif
