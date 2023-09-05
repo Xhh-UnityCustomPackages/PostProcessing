@@ -85,7 +85,7 @@ namespace Game.Core.PostProcessing
         public ResolutionParameter resolution = new ResolutionParameter { value = Resolution.Full };
 
         [Tooltip("利用深度重建法线, 可以消除原始法线带来的一些不必要的高频信息, 有额外消耗")]
-        public ReconstructNormalParameter reconstructNormal = new ReconstructNormalParameter { value = ReconstructNormal.Disabled };
+        public ReconstructNormalParameter reconstructNormal = new ReconstructNormalParameter { value = ReconstructNormal.High };
 
 
         [Space(6)]

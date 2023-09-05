@@ -18,5 +18,4 @@ MonoBehaviour:
       type: 3}
     volumetricLightPS: {fileID: 4800000, guid: 4ca734f7de9740d4a8587d8e00b1e353, type: 3}
     volumetricCloudPS: {fileID: 4800000, guid: fb0942d841d0b5a45a9cdeb8023a7e53, type: 3}
-    temporalAntialiasingLitePS: {fileID: 4800000, guid: fe5c277675f22d44fb8e22ba2c68ef8f,
-      type: 3}
+    lightShaftPS: {fileID: 4800000, guid: 7b546a5fc769b2b42b4ec86d8c54e818, type: 3}

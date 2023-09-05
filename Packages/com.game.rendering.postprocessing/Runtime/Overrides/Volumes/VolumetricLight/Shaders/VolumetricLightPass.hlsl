@@ -53,8 +53,6 @@ float4 RayMarch(float2 screenPos, float3 rayStart, float3 rayDir, float rayLengt
     float extinction = 0;
     float attenuation = 0;
 
-
-
     // #if defined(_DIRECTION)
     cosAngle = dot(-_LightDirection.xyz, -rayDir);
     // #elif defined(_SPOT) || defined(_POINT)
@@ -78,7 +76,8 @@ float4 RayMarch(float2 screenPos, float3 rayStart, float3 rayDir, float rayLengt
 
 
     result *= MieScattering(cosAngle, _MieG);
-
+    result *= _LightColor;
+    // result *= _Intensity;
     result = max(0, result);
     // #if defined(_DIRECTION)
     result.w = exp(-extinction);

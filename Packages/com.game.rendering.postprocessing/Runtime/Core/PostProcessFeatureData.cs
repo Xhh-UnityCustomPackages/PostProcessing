@@ -15,7 +15,7 @@ namespace Game.Core.PostProcessing
             public Shader screenSpaceOcclusionPS;
             public Shader volumetricLightPS;
             public Shader volumetricCloudPS;
-            public Shader temporalAntialiasingLitePS;
+            public Shader lightShaftPS;
         }
 
         [Serializable]

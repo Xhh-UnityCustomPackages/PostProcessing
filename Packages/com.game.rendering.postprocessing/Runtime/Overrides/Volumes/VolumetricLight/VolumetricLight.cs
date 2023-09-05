@@ -28,12 +28,12 @@ namespace Game.Core.PostProcessing
 
         public MinFloatParameter intensity = new MinFloatParameter(0f, 0f);
         public DownSampleParameter downSample = new DownSampleParameter() { value = DownSample.X1 };
-        public ClampedIntParameter SampleCount = new ClampedIntParameter(8, 1, 64);
+        public ClampedIntParameter SampleCount = new ClampedIntParameter(64, 1, 128);
         public ClampedFloatParameter scatteringCoef = new ClampedFloatParameter(0.5f, 0f, 1f);
         public ClampedFloatParameter extinctionCoef = new ClampedFloatParameter(0.01f, 0f, 0.1f);
         public ClampedFloatParameter skyBackgroundExtinctionCoef = new ClampedFloatParameter(0.9f, 0f, 1f);
         public ClampedFloatParameter MieG = new ClampedFloatParameter(0.5f, 0.0f, 0.999f);
-        public MinFloatParameter maxRayLength = new MinFloatParameter(400f, 0f);
+        public MinFloatParameter maxRayLength = new MinFloatParameter(100f, 0f);
         public BoolParameter debug = new BoolParameter(false);
         public BoolParameter jitter = new BoolParameter(false);
 
@@ -48,7 +48,6 @@ namespace Game.Core.PostProcessing
     {
         static class ShaderConstants
         {
-            // internal static readonly int InvVP = Shader.PropertyToID("_InvVP");
             internal static readonly int Intensity = Shader.PropertyToID("_Intensity");
             internal static readonly int SampleCount = Shader.PropertyToID("_SampleCount");
             internal static readonly int MaxRayLength = Shader.PropertyToID("_MaxRayLength");
@@ -57,6 +56,7 @@ namespace Game.Core.PostProcessing
             internal static readonly int ExtinctionCoef = Shader.PropertyToID("_ExtinctionCoef");
             internal static readonly int MieG = Shader.PropertyToID("_MieG");
             internal static readonly int LightDirection = Shader.PropertyToID("_LightDirection");
+            internal static readonly int LightColor = Shader.PropertyToID("_LightColor");
             internal static readonly int LightTex = Shader.PropertyToID("_LightTex");
             internal static readonly int CameraDepthTexture = Shader.PropertyToID("_CameraDepthTexture");//实际使用的是half depth
         }
@@ -67,7 +67,6 @@ namespace Game.Core.PostProcessing
         VisibleLight m_MainLight;
         RenderTextureDescriptor m_Descriptor;
         RenderTextureDescriptor m_DepthDescriptor;
-        RTHandle m_VolumetricLightDownRT;
         RTHandle m_VolumetricLightRT;
         RTHandle m_HalfDepthRT;
         RTHandle m_TempRT;
@@ -100,6 +99,7 @@ namespace Game.Core.PostProcessing
             frustumCorners[3] = camera.ViewportToWorldPoint(new Vector3(1, 1, camera.farClipPlane));
             frustumCorners[1] = camera.ViewportToWorldPoint(new Vector3(1, 0, camera.farClipPlane));
 
+
             m_Material.SetVectorArray("_FrustumCorners", frustumCorners);
             m_Material.SetFloat(ShaderConstants.Intensity, m_VolumetricLightInclude._Intensity);
             m_Material.SetFloat(ShaderConstants.MaxRayLength, m_VolumetricLightInclude._MaxRayLength);
@@ -118,7 +118,9 @@ namespace Game.Core.PostProcessing
                 return;
 
             m_MainLight = renderingData.cullResults.visibleLights[renderingData.lightData.mainLightIndex];
-            m_Material.SetVector(ShaderConstants.LightDirection, m_MainLight.localToWorldMatrix.GetColumn(2));
+            m_Material.SetVector(ShaderConstants.LightDirection, -m_MainLight.localToWorldMatrix.GetColumn(2));
+            m_Material.SetVector(ShaderConstants.LightColor, m_MainLight.finalColor);
+            // m_MainLight.finalColor
         }
 
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
@@ -127,20 +129,21 @@ namespace Game.Core.PostProcessing
             m_Descriptor.msaaSamples = 1;
             m_Descriptor.depthBufferBits = 0;
 
-            RenderingUtils.ReAllocateIfNeeded(ref m_VolumetricLightRT, m_Descriptor, FilterMode.Bilinear, name: "_VolumetricLightRT");
-            m_Material.SetTexture(ShaderConstants.LightTex, m_VolumetricLightRT);
-
             if ((int)settings.downSample.value > 1)
             {
                 DescriptorDownSample(ref m_Descriptor, (int)settings.downSample.value);
-
-                m_DepthDescriptor = m_Descriptor;
-                m_DepthDescriptor.colorFormat = RenderTextureFormat.RFloat;
-
-                RenderingUtils.ReAllocateIfNeeded(ref m_VolumetricLightDownRT, m_Descriptor, FilterMode.Bilinear, name: "VolumetricLightRT");
-                RenderingUtils.ReAllocateIfNeeded(ref m_TempRT, m_Descriptor, FilterMode.Bilinear, name: "_VolumetricLightTempRT");
-                RenderingUtils.ReAllocateIfNeeded(ref m_HalfDepthRT, m_DepthDescriptor, FilterMode.Bilinear, name: "_HalfDepthRT");
             }
+
+            RenderingUtils.ReAllocateIfNeeded(ref m_VolumetricLightRT, m_Descriptor, FilterMode.Bilinear, name: "_VolumetricLightRT");
+            m_Material.SetTexture(ShaderConstants.LightTex, m_VolumetricLightRT);
+
+            RenderingUtils.ReAllocateIfNeeded(ref m_TempRT, m_Descriptor, FilterMode.Bilinear, name: "_VolumetricLightTempRT");
+
+
+            m_DepthDescriptor = m_Descriptor;
+            m_DepthDescriptor.colorFormat = RenderTextureFormat.RFloat;
+            // RenderingUtils.ReAllocateIfNeeded(ref m_HalfDepthRT, m_DepthDescriptor, FilterMode.Bilinear, name: "_HalfDepthRT");
+
 
             // m_RenderPass.ConfigureTarget(m_VolumetricLightRT);
         }
@@ -149,24 +152,23 @@ namespace Game.Core.PostProcessing
         {
             SetupMaterials(ref renderingData);
 
-
-
             if ((int)settings.downSample.value > 1)
             {
                 //half depth
-                Blit(cmd, null, m_HalfDepthRT, m_BlurMaterial, 4);
+                // Blit(cmd, null, m_HalfDepthRT, m_BlurMaterial, 4);
 
                 //计算体积光
-                m_Material.SetTexture(ShaderConstants.CameraDepthTexture, m_HalfDepthRT);
-                Blit(cmd, source, m_VolumetricLightDownRT, m_Material, 0);
+                // m_Material.SetTexture(ShaderConstants.CameraDepthTexture, m_HalfDepthRT);
+                Blit(cmd, source, m_VolumetricLightRT, m_Material, 0);
 
-                //模糊 需要使用联合双边 模糊 来保证边缘
-                m_BlurMaterial.SetTexture("_SourceTex", m_HalfDepthRT);
-                Blit(cmd, m_VolumetricLightDownRT, m_HalfDepthRT, m_BlurMaterial, 2);
-                Blit(cmd, m_VolumetricLightDownRT, m_TempRT, m_BlurMaterial, 3);
+                //模糊 
+                //TODO 需要使用联合双边 模糊 来保证边缘
+                // m_BlurMaterial.SetTexture("_SourceTex", m_HalfDepthRT);
+                Blit(cmd, m_VolumetricLightRT, m_TempRT, m_BlurMaterial, 1);
+                Blit(cmd, m_TempRT, m_VolumetricLightRT, m_BlurMaterial, 2);
 
-                m_BlurMaterial.SetTexture("_HalfResColor", m_VolumetricLightDownRT);
-                Blit(cmd, null, m_VolumetricLightRT, m_BlurMaterial, 5);
+                // m_BlurMaterial.SetTexture("_HalfResColor", m_VolumetricLightRT);
+                // Blit(cmd, null, m_VolumetricLightRT, m_BlurMaterial, 5);
 
 
                 //暂时使用 高斯模糊
@@ -179,17 +181,18 @@ namespace Game.Core.PostProcessing
             }
 
 
-            //合并
+            // 合并
             if (settings.debug.value)
                 Blit(cmd, null, target, m_Material, 3);
             else
                 Blit(cmd, source, target, m_Material, 3);
 
+            // Blit(cmd, m_VolumetricLightRT, target);
+
         }
 
         public void Dispose()
         {
-            m_VolumetricLightDownRT?.Release();
             m_VolumetricLightRT?.Release();
             m_TempRT?.Release();
         }

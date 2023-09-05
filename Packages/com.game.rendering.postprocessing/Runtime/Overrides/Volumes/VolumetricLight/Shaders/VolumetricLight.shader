@@ -38,7 +38,6 @@ Shader "Hidden/PostProcessing/VolumetricLight"
 
             float4 _FrustumCorners[4];
 
-
             struct varyings
             {
                 float4 positionCS : SV_POSITION;
@@ -62,20 +61,40 @@ Shader "Hidden/PostProcessing/VolumetricLight"
                 return output;
             }
 
+            // 重建世界坐标
+            half3 GetWorldPosition(float3 positionHCS)
+            {
+                half2 UV = positionHCS.xy / _ScaledScreenParams;
+                #if UNITY_REVERSED_Z
+                    real depth = SampleSceneDepth(UV);
+                #else
+                    real depth = lerp(UNITY_NEAR_CLIP_VALUE, 1, SampleSceneDepth(UV));
+                #endif
+                return ComputeWorldSpacePosition(UV, depth, UNITY_MATRIX_I_VP);
+            }
+
 
             half4 Frag(varyings input) : SV_Target
             {
                 float2 uv = input.texcoord;
+
+                // return float4(uv, 0, 1);
+                //从顶点获取世界坐标得方法不对 还是得这样
+                
                 
                 //read depth and reconstruct world position
                 float depth = SampleSceneDepth(uv);
+
+                input.positionWS = ComputeWorldSpacePosition(input.positionCS.xy / _ScaledScreenParams, depth, UNITY_MATRIX_I_VP);
+
+                
                 float linear01Depth = Linear01Depth(depth, _ZBufferParams);
                 float3 rayStart = _WorldSpaceCameraPos;
-                
-                // return linear01Depth;
                 // return float4(input.positionWS, 1);
-                float3 rayDir = input.positionWS - _WorldSpaceCameraPos;
+                
+                float3 rayDir = input.positionWS + _WorldSpaceCameraPos;
                 rayDir *= linear01Depth;
+                // return half4(rayDir, 1);
 
                 float rayLength = length(rayDir);
                 rayDir /= rayLength;

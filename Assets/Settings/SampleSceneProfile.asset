@@ -12,28 +12,28 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 013f0855c09e7bb4796a16728cb81d69, type: 3}
   m_Name: ScreenSpaceOcclusion
   m_EditorClassIdentifier: 
-  active: 1
+  active: 0
   enabled:
     m_OverrideState: 1
     m_Value: 1
   type:
-    m_OverrideState: 0
+    m_OverrideState: 1
     m_Value: 0
   quality:
-    m_OverrideState: 0
-    m_Value: 2
+    m_OverrideState: 1
+    m_Value: 4
   resolution:
-    m_OverrideState: 0
+    m_OverrideState: 1
     m_Value: 0
   reconstructNormal:
-    m_OverrideState: 0
-    m_Value: 0
+    m_OverrideState: 1
+    m_Value: 3
   intensity:
-    m_OverrideState: 0
-    m_Value: 0
+    m_OverrideState: 1
+    m_Value: 1.14
   radius:
-    m_OverrideState: 0
-    m_Value: 0.8
+    m_OverrideState: 1
+    m_Value: 7.5
   maxRadiusPixels:
     m_OverrideState: 0
     m_Value: 128
@@ -108,6 +108,52 @@ MonoBehaviour:
   dirtIntensity:
     m_OverrideState: 0
     m_Value: 0
+--- !u!114 &-7090679725324693638
+MonoBehaviour:
+  m_ObjectHideFlags: 3
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2a4668833666a0c43bd70dfb9beb3c58, type: 3}
+  m_Name: LightShaft
+  m_EditorClassIdentifier: 
+  active: 1
+  enabled:
+    m_OverrideState: 1
+    m_Value: 1
+  enable:
+    m_OverrideState: 1
+    m_Value: 1
+  mode:
+    m_OverrideState: 1
+    m_Value: 1
+  downSample:
+    m_OverrideState: 1
+    m_Value: 4
+  density:
+    m_OverrideState: 1
+    m_Value: 0.28
+  weight:
+    m_OverrideState: 1
+    m_Value: 0.72
+  decay:
+    m_OverrideState: 1
+    m_Value: 1
+  exposure:
+    m_OverrideState: 1
+    m_Value: 0.65
+  bloomTintAndThreshold:
+    m_OverrideState: 1
+    m_Value: {r: 1, g: 1, b: 1, a: 1}
+  radialBlurPower:
+    m_OverrideState: 1
+    m_Value: 1
+  radialBlurVectorMin:
+    m_OverrideState: 1
+    m_Value: 0.3
 --- !u!114 &-7011558710299706105
 MonoBehaviour:
   m_ObjectHideFlags: 3
@@ -154,6 +200,7 @@ MonoBehaviour:
   - {fileID: -7011558710299706105}
   - {fileID: 5276435325026339162}
   - {fileID: -8669657427775285183}
+  - {fileID: -7090679725324693638}
 --- !u!114 &849379129802519247
 MonoBehaviour:
   m_ObjectHideFlags: 3
@@ -212,28 +259,28 @@ MonoBehaviour:
     m_Value: 1
   intensity:
     m_OverrideState: 1
-    m_Value: 1
+    m_Value: 5.74
   downSample:
     m_OverrideState: 1
     m_Value: 1
   SampleCount:
     m_OverrideState: 1
-    m_Value: 64
+    m_Value: 128
   scatteringCoef:
     m_OverrideState: 1
     m_Value: 0.166
   extinctionCoef:
     m_OverrideState: 1
-    m_Value: 0.0469
+    m_Value: 0.0865
   skyBackgroundExtinctionCoef:
     m_OverrideState: 1
     m_Value: 1
   MieG:
     m_OverrideState: 1
-    m_Value: 0.177
+    m_Value: 0.313
   maxRayLength:
-    m_OverrideState: 0
-    m_Value: 400
+    m_OverrideState: 1
+    m_Value: 40
   debug:
     m_OverrideState: 0
     m_Value: 0
