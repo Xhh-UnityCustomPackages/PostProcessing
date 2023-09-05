@@ -7,7 +7,7 @@ using UnityEngine.Rendering.Universal;
 
 namespace Game.Core.PostProcessing
 {
-    [Serializable, VolumeComponentMenu("Post-processing Custom/ScreenSpaceOcclusion")]
+    [Serializable, VolumeComponentMenu("Post-processing Custom/环境光遮蔽 (Screen Space Occlusion)")]
     public class ScreenSpaceOcclusion : VolumeSetting
     {
         public ScreenSpaceOcclusion()

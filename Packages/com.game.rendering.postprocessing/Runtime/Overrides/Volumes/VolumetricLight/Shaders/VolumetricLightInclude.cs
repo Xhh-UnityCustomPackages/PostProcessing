@@ -16,6 +16,5 @@ namespace Game.Core.PostProcessing
         public float _ScatteringCoef;
         public float _ExtinctionCoef;
         public float _MieG;
-        public Vector3 _LightDirection;
     }
 }

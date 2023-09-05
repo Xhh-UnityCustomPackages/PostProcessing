@@ -18,7 +18,7 @@
 
 float2 GetAOAndDepth(float2 uv, inout half ao, inout float depth)
 {
-    float4 source = SAMPLE_TEXTURE2D_X_LOD(_SourceTex, sampler_PointClamp, uv, 0);
+    float4 source = SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_PointClamp, uv, 0);
 
     // Linear01Depth = LinearEyeDepth / far
     depth = DecodeFloatRG(source.rg);

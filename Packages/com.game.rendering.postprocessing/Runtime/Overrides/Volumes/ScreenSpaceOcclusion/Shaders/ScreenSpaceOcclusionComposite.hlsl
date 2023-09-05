@@ -7,7 +7,7 @@ float4 FragComposite(Varyings input) : SV_Target
 {
     float2 uv = input.texcoord;
 
-    float4 source = SAMPLE_TEXTURE2D_X(_SourceTex, sampler_LinearClamp, uv);
+    float4 source = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv);
     #if DEBUG_VIEWNORMAL
         return source;
     #endif

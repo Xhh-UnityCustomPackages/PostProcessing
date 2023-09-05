@@ -9,7 +9,7 @@ Shader "Hidden/PostProcessing/VolumetricLight"
     #include "VolumetricLightInclude.cs.hlsl"
     #include "VolumetricLightPass.hlsl"
 
-    TEXTURE2D_X(_SourceTex);        float4 _SourceTex_TexelSize;
+    float4 _BlitTexture_TexelSize;
     TEXTURE2D(_DitherTexture);      SAMPLER(sampler_DitherTexture);
 
     ENDHLSL
@@ -17,7 +17,7 @@ Shader "Hidden/PostProcessing/VolumetricLight"
     SubShader
     {
         Tags { "RenderType" = "Opaque" "RenderPipeline" = "UniversalPipeline" }
-        ZTest Off ZWrite Off Cull Off Blend Off
+        ZTest Always ZWrite Off Cull Off Blend Off
 
         Pass
         {
@@ -38,41 +38,42 @@ Shader "Hidden/PostProcessing/VolumetricLight"
 
             float4 _FrustumCorners[4];
 
-            struct appData
-            {
-                float4 positionOS : POSITION;
-                float2 uv : TEXCOORD0;
-                uint vertexID : SV_VertexID;
-            };
 
-            struct vertData
+            struct varyings
             {
                 float4 positionCS : SV_POSITION;
-                float2 uv : TEXCOORD0;
-                float3 positionWS : VAR_POSITION_WS;
+                float2 texcoord : TEXCOORD0;
+                float3 positionWS : TEXCOORD1;
             };
 
-            vertData vertDir(appData input)
+            varyings vertDir(Attributes input)
             {
-                vertData output;
-                output.positionCS = TransformObjectToHClip(input.positionOS);
-                output.uv = input.uv;
-                //SV_VertexId doesn't work on OpenGL for some reason -> reconstruct id from uv
-                output.positionWS = _FrustumCorners[input.uv.x + input.uv.y * 2];
+                varyings output;
+                UNITY_SETUP_INSTANCE_ID(input);
+                UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
+
+                float4 pos = GetFullScreenTriangleVertexPosition(input.vertexID);
+                float2 uv = GetFullScreenTriangleTexCoord(input.vertexID);
+
+                output.positionCS = pos;
+                output.texcoord = uv * _BlitScaleBias.xy + _BlitScaleBias.zw;
+                output.positionWS = _FrustumCorners[output.texcoord.x + output.texcoord.y * 2];
+
                 return output;
             }
 
 
-            float4 Frag(vertData input) : SV_Target
+            half4 Frag(varyings input) : SV_Target
             {
-                float2 uv = input.uv;
+                float2 uv = input.texcoord;
                 
                 //read depth and reconstruct world position
                 float depth = SampleSceneDepth(uv);
                 float linear01Depth = Linear01Depth(depth, _ZBufferParams);
                 float3 rayStart = _WorldSpaceCameraPos;
                 
-                return float4(input.positionWS, 1);
+                // return linear01Depth;
+                // return float4(input.positionWS, 1);
                 float3 rayDir = input.positionWS - _WorldSpaceCameraPos;
                 rayDir *= linear01Depth;
 
@@ -102,19 +103,19 @@ Shader "Hidden/PostProcessing/VolumetricLight"
 
             half4 FragBlurH(Varyings input) : SV_Target
             {
-                float texelSize = _SourceTex_TexelSize.x * 2.0;
+                float texelSize = _BlitTexture_TexelSize.x * 2.0;
                 float2 uv = UnityStereoTransformScreenSpaceTex(input.texcoord);
 
                 // 9-tap gaussian blur on the downsampled source
-                half3 c0 = SAMPLE_TEXTURE2D_X(_SourceTex, sampler_LinearClamp, uv - float2(texelSize * 4.0, 0.0));
-                half3 c1 = SAMPLE_TEXTURE2D_X(_SourceTex, sampler_LinearClamp, uv - float2(texelSize * 3.0, 0.0));
-                half3 c2 = SAMPLE_TEXTURE2D_X(_SourceTex, sampler_LinearClamp, uv - float2(texelSize * 2.0, 0.0));
-                half3 c3 = SAMPLE_TEXTURE2D_X(_SourceTex, sampler_LinearClamp, uv - float2(texelSize * 1.0, 0.0));
-                half3 c4 = SAMPLE_TEXTURE2D_X(_SourceTex, sampler_LinearClamp, uv);
-                half3 c5 = SAMPLE_TEXTURE2D_X(_SourceTex, sampler_LinearClamp, uv + float2(texelSize * 1.0, 0.0));
-                half3 c6 = SAMPLE_TEXTURE2D_X(_SourceTex, sampler_LinearClamp, uv + float2(texelSize * 2.0, 0.0));
-                half3 c7 = SAMPLE_TEXTURE2D_X(_SourceTex, sampler_LinearClamp, uv + float2(texelSize * 3.0, 0.0));
-                half3 c8 = SAMPLE_TEXTURE2D_X(_SourceTex, sampler_LinearClamp, uv + float2(texelSize * 4.0, 0.0));
+                half3 c0 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv - float2(texelSize * 4.0, 0.0));
+                half3 c1 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv - float2(texelSize * 3.0, 0.0));
+                half3 c2 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv - float2(texelSize * 2.0, 0.0));
+                half3 c3 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv - float2(texelSize * 1.0, 0.0));
+                half3 c4 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv);
+                half3 c5 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv + float2(texelSize * 1.0, 0.0));
+                half3 c6 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv + float2(texelSize * 2.0, 0.0));
+                half3 c7 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv + float2(texelSize * 3.0, 0.0));
+                half3 c8 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv + float2(texelSize * 4.0, 0.0));
 
                 half3 color = c0 * 0.01621622 + c1 * 0.05405405 + c2 * 0.12162162 + c3 * 0.19459459
                 + c4 * 0.22702703
@@ -137,15 +138,15 @@ Shader "Hidden/PostProcessing/VolumetricLight"
 
             float4 FragBlurV(Varyings input) : SV_Target
             {
-                float texelSize = _SourceTex_TexelSize.y;
+                float texelSize = _BlitTexture_TexelSize.y;
                 float2 uv = UnityStereoTransformScreenSpaceTex(input.texcoord);
 
                 // Optimized bilinear 5-tap gaussian on the same-sized source (9-tap equivalent)
-                half3 c0 = SAMPLE_TEXTURE2D_X(_SourceTex, sampler_LinearClamp, uv - float2(0.0, texelSize * 3.23076923));
-                half3 c1 = SAMPLE_TEXTURE2D_X(_SourceTex, sampler_LinearClamp, uv - float2(0.0, texelSize * 1.38461538));
-                half3 c2 = SAMPLE_TEXTURE2D_X(_SourceTex, sampler_LinearClamp, uv);
-                half3 c3 = SAMPLE_TEXTURE2D_X(_SourceTex, sampler_LinearClamp, uv + float2(0.0, texelSize * 1.38461538));
-                half3 c4 = SAMPLE_TEXTURE2D_X(_SourceTex, sampler_LinearClamp, uv + float2(0.0, texelSize * 3.23076923));
+                half3 c0 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv - float2(0.0, texelSize * 3.23076923));
+                half3 c1 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv - float2(0.0, texelSize * 1.38461538));
+                half3 c2 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv);
+                half3 c3 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv + float2(0.0, texelSize * 1.38461538));
+                half3 c4 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv + float2(0.0, texelSize * 3.23076923));
 
                 half3 color = c0 * 0.07027027 + c1 * 0.31621622
                 + c2 * 0.22702703
@@ -171,7 +172,7 @@ Shader "Hidden/PostProcessing/VolumetricLight"
             float4 FragComposite(Varyings input) : SV_Target
             {
                 float2 uv = input.texcoord;
-                float4 source = SAMPLE_TEXTURE2D_X(_SourceTex, sampler_LinearClamp, uv);
+                float4 source = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv);
                 float4 light = SAMPLE_TEXTURE2D_X(_LightTex, sampler_LinearClamp, uv);
                 return source + light;
             }

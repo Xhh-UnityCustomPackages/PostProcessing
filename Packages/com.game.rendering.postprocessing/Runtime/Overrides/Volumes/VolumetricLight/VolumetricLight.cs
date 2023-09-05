@@ -7,7 +7,7 @@ using UnityEngine.Rendering.Universal;
 
 namespace Game.Core.PostProcessing
 {
-    [Serializable, VolumeComponentMenu("Post-processing Custom/Volumetric Light")]
+    [Serializable, VolumeComponentMenu("Post-processing Custom/体积光 (Volumetric Light)")]
     public class VolumetricLight : VolumeSetting
     {
         public VolumetricLight()
@@ -21,15 +21,13 @@ namespace Game.Core.PostProcessing
             X2 = 2,
             X3 = 3,
             X4 = 4,
-            X8 = 8,
-            X16 = 16
         }
 
         [Serializable]
         public sealed class DownSampleParameter : VolumeParameter<DownSample> { }
 
         public MinFloatParameter intensity = new MinFloatParameter(0f, 0f);
-        public DownSampleParameter downSample = new DownSampleParameter() { value = DownSample.X2 };
+        public DownSampleParameter downSample = new DownSampleParameter() { value = DownSample.X1 };
         public ClampedIntParameter SampleCount = new ClampedIntParameter(8, 1, 64);
         public ClampedFloatParameter scatteringCoef = new ClampedFloatParameter(0.5f, 0f, 1f);
         public ClampedFloatParameter extinctionCoef = new ClampedFloatParameter(0.01f, 0f, 0.1f);
@@ -129,7 +127,7 @@ namespace Game.Core.PostProcessing
             m_Descriptor.msaaSamples = 1;
             m_Descriptor.depthBufferBits = 0;
 
-            RenderingUtils.ReAllocateIfNeeded(ref m_VolumetricLightRT, m_Descriptor, FilterMode.Bilinear, name: "VolumetricLightRT");
+            RenderingUtils.ReAllocateIfNeeded(ref m_VolumetricLightRT, m_Descriptor, FilterMode.Bilinear, name: "_VolumetricLightRT");
             m_Material.SetTexture(ShaderConstants.LightTex, m_VolumetricLightRT);
 
             if ((int)settings.downSample.value > 1)
@@ -140,11 +138,11 @@ namespace Game.Core.PostProcessing
                 m_DepthDescriptor.colorFormat = RenderTextureFormat.RFloat;
 
                 RenderingUtils.ReAllocateIfNeeded(ref m_VolumetricLightDownRT, m_Descriptor, FilterMode.Bilinear, name: "VolumetricLightRT");
-                RenderingUtils.ReAllocateIfNeeded(ref m_TempRT, m_Descriptor, FilterMode.Bilinear, name: "VolumetricLightTempRT");
-                RenderingUtils.ReAllocateIfNeeded(ref m_HalfDepthRT, m_DepthDescriptor, FilterMode.Bilinear, name: "HalfDepthRT");
+                RenderingUtils.ReAllocateIfNeeded(ref m_TempRT, m_Descriptor, FilterMode.Bilinear, name: "_VolumetricLightTempRT");
+                RenderingUtils.ReAllocateIfNeeded(ref m_HalfDepthRT, m_DepthDescriptor, FilterMode.Bilinear, name: "_HalfDepthRT");
             }
 
-
+            // m_RenderPass.ConfigureTarget(m_VolumetricLightRT);
         }
 
         public override void Render(CommandBuffer cmd, RTHandle source, RTHandle target, ref RenderingData renderingData)
