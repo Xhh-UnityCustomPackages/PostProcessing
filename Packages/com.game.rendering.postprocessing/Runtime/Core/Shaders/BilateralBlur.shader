@@ -416,6 +416,7 @@ Shader "Hidden/BilateralBlur"
         // pass 4 - downsample depth to half
         Pass
         {
+            Name "downsample depth to half"
             CGPROGRAM
             #pragma vertex vertHalfDepth
             #pragma fragment frag

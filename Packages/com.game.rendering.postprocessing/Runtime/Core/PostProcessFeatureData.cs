@@ -9,9 +9,6 @@ namespace Game.Core.PostProcessing
         [Serializable]
         public sealed class ShaderResources
         {
-            //公共部分
-            public Shader BilateralBlur;
-
             public Shader screenSpaceOcclusionPS;
             public Shader volumetricLightPS;
             public Shader volumetricCloudPS;
@@ -25,7 +22,14 @@ namespace Game.Core.PostProcessing
             public Texture3D WorlyNoise128RGBA;
         }
 
+        [Serializable]
+        public sealed class MaterialResources
+        {
+            public Material BilateralBlurMaterial;
+        }
+
         public ShaderResources shaders;
         public TextureResources textures;
+        public MaterialResources materials;
     }
 }

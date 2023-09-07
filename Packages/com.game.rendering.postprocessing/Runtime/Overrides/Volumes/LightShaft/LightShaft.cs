@@ -90,7 +90,7 @@ namespace Game.Core.PostProcessing
 
         public override void Setup()
         {
-            m_Material = GetMaterial(m_PostProcessFeatureData.shaders.lightShaftPS);
+            m_Material = GetMaterial(postProcessFeatureData.shaders.lightShaftPS);
         }
 
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)

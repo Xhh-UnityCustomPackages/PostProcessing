@@ -120,7 +120,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2a4668833666a0c43bd70dfb9beb3c58, type: 3}
   m_Name: LightShaft
   m_EditorClassIdentifier: 
-  active: 1
+  active: 0
   enabled:
     m_OverrideState: 1
     m_Value: 1
@@ -259,31 +259,52 @@ MonoBehaviour:
     m_Value: 1
   intensity:
     m_OverrideState: 1
-    m_Value: 5.74
+    m_Value: 1
   downSample:
     m_OverrideState: 1
     m_Value: 1
   SampleCount:
     m_OverrideState: 1
     m_Value: 128
-  scatteringCoef:
-    m_OverrideState: 1
-    m_Value: 0.166
-  extinctionCoef:
-    m_OverrideState: 1
-    m_Value: 0.0865
-  skyBackgroundExtinctionCoef:
-    m_OverrideState: 1
-    m_Value: 1
-  MieG:
-    m_OverrideState: 1
-    m_Value: 0.313
   maxRayLength:
     m_OverrideState: 1
-    m_Value: 40
-  debug:
-    m_OverrideState: 0
+    m_Value: 50
+  scatteringCoef:
+    m_OverrideState: 1
+    m_Value: 0.39
+  extinctionCoef:
+    m_OverrideState: 1
+    m_Value: 0.237
+  skyBackgroundExtinctionCoef:
+    m_OverrideState: 1
     m_Value: 0
-  jitter:
+  MieG:
+    m_OverrideState: 1
+    m_Value: 0.53
+  useJitter:
     m_OverrideState: 0
+    m_Value: 1
+  jitterTex:
+    m_OverrideState: 0
+    m_Value: {fileID: 0}
+  useNoise:
+    m_OverrideState: 0
+    m_Value: 1
+  noiseTex:
+    m_OverrideState: 1
+    m_Value: {fileID: 11700000, guid: 1fe54a721d0e2504e89f121c723404a8, type: 3}
+  noiseIntensity:
+    m_OverrideState: 0
+    m_Value: 1
+  noiseScale:
+    m_OverrideState: 0
+    m_Value: 0.5
+  noiseOffset:
+    m_OverrideState: 0
+    m_Value: {x: 0, y: 0}
+  noiseVelocity:
+    m_OverrideState: 0
+    m_Value: {x: 1, y: 1, z: 0}
+  debug:
+    m_OverrideState: 1
     m_Value: 0

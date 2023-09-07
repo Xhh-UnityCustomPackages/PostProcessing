@@ -16,9 +16,10 @@ namespace Game.Core.PostProcessing
         //是否在SceneView可见
         public virtual bool visibleInSceneView => true;
 
-        public PostProcessFeatureData m_PostProcessFeatureData;
         public PostProcessRenderPass m_RenderPass;
         public ProfilingSampler profilingSampler;
+
+        protected PostProcessFeatureData postProcessFeatureData { get; private set; }
 
 
         public virtual ScriptableRenderPassInput input => ScriptableRenderPassInput.None;
@@ -37,7 +38,7 @@ namespace Game.Core.PostProcessing
             m_Initialized = true;
 
             m_RenderPass = renderPass;
-            m_PostProcessFeatureData = data;
+            postProcessFeatureData = data;
             Setup();
         }
 
@@ -62,7 +63,7 @@ namespace Game.Core.PostProcessing
         public virtual void ShowHide(bool showHide) { }
 
 
-        public Material GetMaterial(Shader shader)
+        protected Material GetMaterial(Shader shader)
         {
             if (shader == null)
             {
@@ -79,17 +80,17 @@ namespace Game.Core.PostProcessing
             profilingSampler = new ProfilingSampler(attribute?.Name);
         }
 
-        public void Blit(CommandBuffer cmd, RTHandle source, RTHandle destination, Material material, int passIndex = 0)
+        protected void Blit(CommandBuffer cmd, RTHandle source, RTHandle destination, Material material, int passIndex = 0)
         {
             Blitter.BlitCameraTexture(cmd, source, destination, material, passIndex);
         }
 
-        public void Blit(CommandBuffer cmd, RTHandle source, RTHandle destination)
+        protected void Blit(CommandBuffer cmd, RTHandle source, RTHandle destination)
         {
             Blitter.BlitCameraTexture(cmd, source, destination);
         }
 
-        public void DescriptorDownSample(ref RenderTextureDescriptor desc, int downSample)
+        protected void DescriptorDownSample(ref RenderTextureDescriptor desc, int downSample)
         {
             desc.width = Mathf.Max(Mathf.FloorToInt(desc.width / downSample), 1);
             desc.height = Mathf.Max(Mathf.FloorToInt(desc.height / downSample), 1);

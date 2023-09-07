@@ -37,7 +37,7 @@ namespace Game.Core.PostProcessing
 
         public override void Setup()
         {
-            m_Material = GetMaterial(m_PostProcessFeatureData.shaders.volumetricCloudPS);
+            m_Material = GetMaterial(postProcessFeatureData.shaders.volumetricCloudPS);
         }
 
         private void SetupMaterials(ref RenderingData renderingData)

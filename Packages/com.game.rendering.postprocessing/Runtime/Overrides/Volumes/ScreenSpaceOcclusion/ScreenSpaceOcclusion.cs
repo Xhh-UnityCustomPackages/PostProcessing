@@ -252,7 +252,7 @@ namespace Game.Core.PostProcessing
 
         public override void Setup()
         {
-            m_AmbientOcclusionMaterial = GetMaterial(m_PostProcessFeatureData.shaders.screenSpaceOcclusionPS);
+            m_AmbientOcclusionMaterial = GetMaterial(postProcessFeatureData.shaders.screenSpaceOcclusionPS);
             m_DebugPass = new ScreenSpaceOcclusionDebug(m_OcclusionFinalRT);
 
             // TODO 移动端默认如果是 B10G11R11_UFloatPack32 传递深度精度会不太够
