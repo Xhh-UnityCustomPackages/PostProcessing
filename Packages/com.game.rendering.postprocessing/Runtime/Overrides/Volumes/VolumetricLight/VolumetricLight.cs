@@ -45,8 +45,10 @@ namespace Game.Core.PostProcessing
         [Header("噪音 (Noise)")]
         public BoolParameter useNoise = new BoolParameter(false);
         public Texture3DParameter noiseTex = new Texture3DParameter(null);
-        public ClampedFloatParameter noiseScale = new ClampedFloatParameter(0.5f, 0f, 1f);
+        public MinFloatParameter noiseIntensity = new MinFloatParameter(1f, 0f);
+        public MinFloatParameter noiseScale = new MinFloatParameter(1f, 0f);
         public Vector2Parameter noiseOffset = new Vector2Parameter(Vector2.zero);
+        public Vector3Parameter noiseVelocity = new Vector3Parameter(Vector2.one);
 
         [Space(10)]
         public BoolParameter debug = new BoolParameter(false);
@@ -62,22 +64,26 @@ namespace Game.Core.PostProcessing
     {
         static class ShaderConstants
         {
+            // Quality
             internal static readonly int Intensity = Shader.PropertyToID("_Intensity");
             internal static readonly int SampleCount = Shader.PropertyToID("_SampleCount");
             internal static readonly int MaxRayLength = Shader.PropertyToID("_MaxRayLength");
+            // Scattering
             internal static readonly int SkyboxExtinction = Shader.PropertyToID("_SkyboxExtinction");
             internal static readonly int ScatteringCoef = Shader.PropertyToID("_ScatteringCoef");
             internal static readonly int ExtinctionCoef = Shader.PropertyToID("_ExtinctionCoef");
             internal static readonly int MieG = Shader.PropertyToID("_MieG");
+            // Noise
+            internal static readonly int NoiseTexture = Shader.PropertyToID("_NoiseTexture");
+            internal static readonly int NoiseIntensity = Shader.PropertyToID("_NoiseIntensity");
+            internal static readonly int NoiseScale = Shader.PropertyToID("_NoiseScale");
+            internal static readonly int NoiseOffset = Shader.PropertyToID("_NoiseOffset");
+            internal static readonly int NoiseVelocity = Shader.PropertyToID("_NoiseVelocity");
+
             internal static readonly int LightDirection = Shader.PropertyToID("_LightDirection");
             internal static readonly int LightColor = Shader.PropertyToID("_LightColor");
             internal static readonly int LightTex = Shader.PropertyToID("_LightTex");
             internal static readonly int CameraDepthTexture = Shader.PropertyToID("_CameraDepthTexture");//实际使用的是half depth
-
-            // Noise
-            internal static readonly int NoiseTexture = Shader.PropertyToID("_NoiseTexture");
-            internal static readonly int NoiseScale = Shader.PropertyToID("_NoiseScale");
-            internal static readonly int NoiseOffset = Shader.PropertyToID("_NoiseOffset");
         }
 
 
@@ -113,24 +119,52 @@ namespace Game.Core.PostProcessing
             m_VolumetricLightInclude._SkyboxExtinction = settings.skyBackgroundExtinctionCoef.value;
             m_VolumetricLightInclude._MieG = settings.MieG.value;
             // Noise
+            m_VolumetricLightInclude._NoiseIntensity = settings.noiseIntensity.value;
             m_VolumetricLightInclude._NoiseScale = settings.noiseScale.value;
             m_VolumetricLightInclude._NoiseOffset = settings.noiseOffset.value;
+            m_VolumetricLightInclude._NoiseVelocity = settings.noiseVelocity.value;
 
-            frustumCorners[0] = camera.ViewportToWorldPoint(new Vector3(0, 0, camera.farClipPlane));
-            frustumCorners[2] = camera.ViewportToWorldPoint(new Vector3(0, 1, camera.farClipPlane));
-            frustumCorners[3] = camera.ViewportToWorldPoint(new Vector3(1, 1, camera.farClipPlane));
-            frustumCorners[1] = camera.ViewportToWorldPoint(new Vector3(1, 0, camera.farClipPlane));
 
-            CoreUtils.SetKeyword(m_Material, "_JITTER", settings.useJitter.value);
+
+            var fov = camera.fieldOfView;
+            var near = camera.nearClipPlane;
+            var far = camera.farClipPlane;
+            var aspect = camera.aspect;
+
+            var halfHeight = far * Mathf.Tan(fov / 2 * Mathf.Deg2Rad);
+            var toRight = camera.transform.right * halfHeight * aspect;
+            var toTop = camera.transform.up * halfHeight;
+            var toForward = camera.transform.forward * far;
+
+            var topLeft = toForward + toTop - toRight;
+            var topRight = toForward + toTop + toRight;
+            var bottomLeft = toForward - toTop - toRight;
+            var bottomRight = toForward - toTop + toRight;
+
+            frustumCorners[0] = bottomLeft;
+            frustumCorners[1] = topLeft;
+            frustumCorners[2] = bottomRight;
+            frustumCorners[3] = topRight;
+
+            // frustumCorners[0] = camera.ViewportToWorldPoint(new Vector3(0, 0, camera.farClipPlane));
+            // frustumCorners[2] = camera.ViewportToWorldPoint(new Vector3(1, 0, camera.farClipPlane));
+            // frustumCorners[3] = camera.ViewportToWorldPoint(new Vector3(1, 1, camera.farClipPlane));
+            // frustumCorners[1] = camera.ViewportToWorldPoint(new Vector3(0, 1, camera.farClipPlane));
+
+
+
+
             CoreUtils.SetKeyword(m_Material, "_NOISE", settings.useNoise.value);
-
             if (settings.useNoise.value)
             {
                 m_Material.SetTexture(ShaderConstants.NoiseTexture, settings.noiseTex.value);
+                m_Material.SetFloat(ShaderConstants.NoiseIntensity, m_VolumetricLightInclude._NoiseIntensity);
                 m_Material.SetFloat(ShaderConstants.NoiseScale, m_VolumetricLightInclude._NoiseScale);
                 m_Material.SetVector(ShaderConstants.NoiseOffset, m_VolumetricLightInclude._NoiseOffset);
+                m_Material.SetVector(ShaderConstants.NoiseVelocity, m_VolumetricLightInclude._NoiseVelocity);
             }
 
+            CoreUtils.SetKeyword(m_Material, "_JITTER", settings.useJitter.value);
             if (settings.useJitter.value)
                 m_Material.SetTexture("_DitherTexture", m_PostProcessFeatureData.textures.DitherTexture);
 
@@ -174,15 +208,11 @@ namespace Game.Core.PostProcessing
             m_DepthDescriptor = m_Descriptor;
             m_DepthDescriptor.colorFormat = RenderTextureFormat.RFloat;
             // RenderingUtils.ReAllocateIfNeeded(ref m_HalfDepthRT, m_DepthDescriptor, FilterMode.Bilinear, name: "_HalfDepthRT");
-
-
-            // m_RenderPass.ConfigureTarget(m_VolumetricLightRT);
         }
 
         public override void Render(CommandBuffer cmd, RTHandle source, RTHandle target, ref RenderingData renderingData)
         {
             SetupMaterials(ref renderingData);
-
 
             //half depth
             // Blit(cmd, null, m_HalfDepthRT, m_BlurMaterial, 4);
@@ -207,6 +237,7 @@ namespace Game.Core.PostProcessing
 
 
             m_Material.SetTexture(ShaderConstants.LightTex, m_VolumetricLightRT);
+
             // 合并
             if (settings.debug.value)
                 Blit(cmd, target, target, m_Material, 3);

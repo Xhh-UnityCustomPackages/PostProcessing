@@ -21,7 +21,9 @@ namespace Game.Core.PostProcessing
         public Color _LightColor;
 
         // Noise
+        public float _NoiseIntensity;
         public float _NoiseScale;
         public Vector2 _NoiseOffset;
+        public Vector3 _NoiseVelocity;
     }
 }

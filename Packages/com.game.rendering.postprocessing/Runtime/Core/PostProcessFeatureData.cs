@@ -22,6 +22,7 @@ namespace Game.Core.PostProcessing
         public sealed class TextureResources
         {
             public Texture2D DitherTexture;
+            public Texture3D WorlyNoise128RGBA;
         }
 
         public ShaderResources shaders;

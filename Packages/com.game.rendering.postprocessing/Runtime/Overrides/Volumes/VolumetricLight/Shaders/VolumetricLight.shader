@@ -11,7 +11,7 @@ Shader "Hidden/PostProcessing/VolumetricLight"
 
     float4 _BlitTexture_TexelSize;
     TEXTURE2D(_DitherTexture);      SAMPLER(sampler_DitherTexture);
-    TEXTURE2D(_NoiseTexture);       SAMPLER(sampler_NoiseTexture);
+    TEXTURE3D(_NoiseTexture);       SAMPLER(sampler_NoiseTexture);
     
 
     #include "VolumetricLightPass.hlsl"
@@ -38,7 +38,7 @@ Shader "Hidden/PostProcessing/VolumetricLight"
             #pragma vertex vertDir
             #pragma fragment Frag
 
-            float4 _FrustumCorners[4];
+            float3 _FrustumCorners[4];
 
             struct varyings
             {
@@ -58,41 +58,33 @@ Shader "Hidden/PostProcessing/VolumetricLight"
 
                 output.positionCS = pos;
                 output.texcoord = uv * _BlitScaleBias.xy + _BlitScaleBias.zw;
-                output.positionWS = _FrustumCorners[output.texcoord.x + output.texcoord.y * 2];
+                int index = uv.x + uv.y * 2;
+                output.positionWS = _FrustumCorners[index];
                 return output;
-            }
-
-
-            // 重建世界坐标
-            float3 GetWorldPosition(float2 uv, float3 viewVec, out float depth, out float linearDepth)
-            {
-                depth = SAMPLE_TEXTURE2D_X(_CameraDepthTexture, sampler_CameraDepthTexture, uv).r;//采样深度图
-                depth = Linear01Depth(depth, _ZBufferParams); //转换为线性深度
-                linearDepth = LinearEyeDepth(depth, _ZBufferParams);
-                float3 viewPos = viewVec * depth; //获取实际的观察空间坐标（插值后）
-                float3 worldPos = mul(unity_CameraToWorld, float4(viewPos, 1)).xyz; //观察空间-->世界空间坐标
-                return worldPos;
             }
 
             half4 Frag(varyings input) : SV_Target
             {
                 float2 uv = input.texcoord;
-
+                // return float4(uv, 0, 1);
                 //read depth and reconstruct world position
-                #if UNITY_REVERSED_Z
-                    float depth = SampleSceneDepth(uv);
-                #else
-                    float depth = lerp(UNITY_NEAR_CLIP_VALUE, 1, SampleSceneDepth(uv));
-                #endif
+                float depth = SampleSceneDepth(uv);
+
+                float linear01Depth = Linear01Depth(depth, _ZBufferParams);
+
+                // return depth;
                 //从顶点获取世界坐标得方法不对 还是得这样
                 float3 positionWS = ComputeWorldSpacePosition(input.positionCS.xy / _ScaledScreenParams, depth, UNITY_MATRIX_I_VP);
 
+                // float3 positionWS = linear01Depth * input.positionWS;
+                // float3 positionWS = input.positionWS ;
+                // return float4(positionWS, 1);
                 
-                float linear01Depth = Linear01Depth(depth, _ZBufferParams);
+                
                 float3 rayStart = _WorldSpaceCameraPos;
                 // return float4(input.positionWS, 1);
                 
-                float3 rayDir = positionWS + _WorldSpaceCameraPos;
+                float3 rayDir = positionWS - _WorldSpaceCameraPos;
                 rayDir *= linear01Depth;
                 // return half4(rayDir, 1);
 
@@ -101,7 +93,7 @@ Shader "Hidden/PostProcessing/VolumetricLight"
                 rayLength = min(rayLength, _MaxRayLength);
 
                 float4 color = RayMarch(input.positionCS.xy, rayStart, rayDir, rayLength);
-                if (linear01Depth > 0.999999)
+                if (linear01Depth > 0.9999)
                 {
                     color.w = lerp(color.w, 1, _SkyboxExtinction);
                 }
@@ -193,6 +185,7 @@ Shader "Hidden/PostProcessing/VolumetricLight"
                 float2 uv = input.texcoord;
                 float4 source = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv);
                 float4 light = SAMPLE_TEXTURE2D_X(_LightTex, sampler_LinearClamp, uv);
+                light.rgb = lerp(light.rgb, 0, light.w);
                 return source + light;
             }
 

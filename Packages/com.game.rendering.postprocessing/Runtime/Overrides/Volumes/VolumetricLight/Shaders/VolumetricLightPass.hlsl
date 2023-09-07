@@ -16,9 +16,10 @@ float GetDensity(float3 posWS)
 {
     float density = 1;
     #ifdef _NOISE
-        // float noise = SAMPLE_TEXTURE3D_LOD(_NoiseTexture, sampler_NoiseTexture, float4(frac(posWS * NoiseScale + float3(_Time.y * NoiseVelocity.x, 0, _Time.y * NoiseVelocity.y)), 0), 0);
-        // noise = saturate(noise - NoiseOffset) * NoiseIntensity;
-        // density = saturate(noise);
+        float3 velocity = _Time.y * _NoiseVelocity;
+        float noise = SAMPLE_TEXTURE3D_LOD(_NoiseTexture, sampler_NoiseTexture, float4(frac((posWS - _WorldSpaceCameraPos) * _NoiseScale + velocity), 0), 0).r;
+        // noise = saturate(noise - _NoiseOffset) * _NoiseIntensity;
+        density = saturate(noise * _NoiseIntensity);
     #endif
     // ApplyHeightFog(posWS, density);
     return density;
@@ -67,21 +68,21 @@ float4 RayMarch(float2 screenPos, float3 rayStart, float3 rayDir, float rayLengt
         float scattering = _ScatteringCoef * stepSize * density;
         extinction += _ExtinctionCoef * stepSize * density;
         float4 energy = attenuation * scattering * exp(-extinction);
+        
 
-
-        energy = attenuation * density * 0.001;
+        // energy = attenuation * density * 0.001;
 
         result += energy;
         currentPosition += step;
     }
 
 
-    // result *= MieScattering(cosAngle, _MieG);
-    // result *= _LightColor;
+    result *= MieScattering(cosAngle, _MieG);
+    result *= _LightColor;
     result *= _Intensity;
     result = max(0, result);
     // #if defined(_DIRECTION)
-    // result.w = exp(-extinction);
+    result.w = exp(-extinction);
     // #elif defined(_SPOT) || defined(_POINT)
     //     result.w = 0;
     // #endif
