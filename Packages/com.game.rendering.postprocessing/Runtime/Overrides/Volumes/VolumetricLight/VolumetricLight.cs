@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
+using UnityEngine.Experimental.Rendering;
 
 namespace Game.Core.PostProcessing
 {
@@ -86,13 +87,17 @@ namespace Game.Core.PostProcessing
 
 
         Material m_Material;
+        Material m_BilateralBlurMaterial;
         RenderTextureDescriptor m_Descriptor;
         RenderTextureDescriptor m_DepthDescriptor;
         RTHandle m_VolumetricLightRT;
-        RTHandle m_TempRT;
+
+
         private VolumetricLightInclude m_VolumetricLightInclude;
 
         RTHandle m_HalfDepthRT;
+        RTHandle m_HalfVolumetricLightRT;
+        RTHandle m_TempRT;
 
         private Vector4[] frustumCorners = new Vector4[4];
 
@@ -100,6 +105,7 @@ namespace Game.Core.PostProcessing
         public override void Setup()
         {
             m_Material = GetMaterial(postProcessFeatureData.shaders.volumetricLightPS);
+            m_BilateralBlurMaterial = postProcessFeatureData.materials.BilateralBlurMaterial;
         }
 
         private void SetupMaterials(ref RenderingData renderingData)
@@ -146,11 +152,12 @@ namespace Game.Core.PostProcessing
             // frustumCorners[2] = camera.ViewportToWorldPoint(new Vector3(1, 0, camera.farClipPlane));
             // frustumCorners[3] = camera.ViewportToWorldPoint(new Vector3(1, 1, camera.farClipPlane));
             // frustumCorners[1] = camera.ViewportToWorldPoint(new Vector3(0, 1, camera.farClipPlane));
+            m_Material.SetVectorArray("_FrustumCorners", frustumCorners);
 
             CoreUtils.SetKeyword(m_Material, "_NOISE", settings.useNoise.value);
             if (settings.useNoise.value)
             {
-                m_Material.SetTexture(ShaderConstants.NoiseTexture, settings.noiseTex.value);
+                m_Material.SetTexture(ShaderConstants.NoiseTexture, settings.noiseTex.value != null ? settings.noiseTex.value : postProcessFeatureData.textures.WorlyNoise128RGBA);
                 m_Material.SetFloat(ShaderConstants.NoiseIntensity, m_VolumetricLightInclude._NoiseIntensity);
                 m_Material.SetFloat(ShaderConstants.NoiseScale, m_VolumetricLightInclude._NoiseScale);
                 m_Material.SetVector(ShaderConstants.NoiseOffset, m_VolumetricLightInclude._NoiseOffset);
@@ -159,9 +166,11 @@ namespace Game.Core.PostProcessing
 
             CoreUtils.SetKeyword(m_Material, "_JITTER", settings.useJitter.value);
             if (settings.useJitter.value)
-                m_Material.SetTexture("_DitherTexture", postProcessFeatureData.textures.DitherTexture);
+            {
+                m_Material.SetTexture("_DitherTexture", settings.jitterTex.value != null ? settings.jitterTex.value : postProcessFeatureData.textures.DitherTexture);
+            }
 
-            m_Material.SetVectorArray("_FrustumCorners", frustumCorners);
+
             m_Material.SetFloat(ShaderConstants.Intensity, m_VolumetricLightInclude._Intensity);
             m_Material.SetFloat(ShaderConstants.MaxRayLength, m_VolumetricLightInclude._MaxRayLength);
             m_Material.SetInt(ShaderConstants.SampleCount, m_VolumetricLightInclude._SampleCount);
@@ -189,47 +198,37 @@ namespace Game.Core.PostProcessing
             m_Descriptor.msaaSamples = 1;
             m_Descriptor.depthBufferBits = 0;
 
-            m_DepthDescriptor = m_Descriptor;
-
+            RenderingUtils.ReAllocateIfNeeded(ref m_VolumetricLightRT, m_Descriptor, FilterMode.Bilinear, name: "_VolumetricLightRT");
 
             if (settings.downSample.value == VolumetricLight.DownSample.Half)
             {
+                //降采样
                 DescriptorDownSample(ref m_Descriptor, 2);
+                RenderingUtils.ReAllocateIfNeeded(ref m_HalfVolumetricLightRT, m_Descriptor, FilterMode.Bilinear, name: "_HalfVolumetricLightRT");
+                RenderingUtils.ReAllocateIfNeeded(ref m_TempRT, m_Descriptor, FilterMode.Bilinear, name: "_VolumetricLightTempRT");
+
+                m_DepthDescriptor = renderingData.cameraData.cameraTargetDescriptor;
+                m_DepthDescriptor.msaaSamples = 1;
+                // Forward
+                // m_DepthDescriptor.graphicsFormat = GraphicsFormat.None;
+                // m_DepthDescriptor.depthStencilFormat = GraphicsFormat.D32_SFloat_S8_UInt;
+                // m_DepthDescriptor.depthBufferBits = 32;
+                //Deferred
+                m_DepthDescriptor.graphicsFormat = GraphicsFormat.R32_SFloat;
+                m_DepthDescriptor.depthStencilFormat = GraphicsFormat.None;
+                m_DepthDescriptor.depthBufferBits = 0;
+
+                DescriptorDownSample(ref m_DepthDescriptor, 2);
+                RenderingUtils.ReAllocateIfNeeded(ref m_HalfDepthRT, m_DepthDescriptor, FilterMode.Bilinear, name: "_HalfDepthRT");
             }
-
-            RenderingUtils.ReAllocateIfNeeded(ref m_VolumetricLightRT, m_Descriptor, FilterMode.Bilinear, name: "_VolumetricLightRT");
-            RenderingUtils.ReAllocateIfNeeded(ref m_TempRT, m_Descriptor, FilterMode.Bilinear, name: "_VolumetricLightTempRT");
-
-
-            m_DepthDescriptor.colorFormat = RenderTextureFormat.RFloat;
-            DescriptorDownSample(ref m_DepthDescriptor, 2);
-            RenderingUtils.ReAllocateIfNeeded(ref m_HalfDepthRT, m_DepthDescriptor, FilterMode.Bilinear, name: "_HalfDepthRT");
         }
 
         public override void Render(CommandBuffer cmd, RTHandle source, RTHandle target, ref RenderingData renderingData)
         {
             SetupMaterials(ref renderingData);
 
-            //计算体积光
-            Blit(cmd, source, m_VolumetricLightRT, m_Material, 0);
-
-            //模糊 
-            if (settings.downSample.value == VolumetricLight.DownSample.Half)
-            {
-                cmd.BeginSample("Bilateral Blur");
-                // 得到Half Depth Texture
-                Blit(cmd, m_HalfDepthRT, m_HalfDepthRT, postProcessFeatureData.materials.BilateralBlurMaterial, 4);
-
-                postProcessFeatureData.materials.BilateralBlurMaterial.SetTexture("_SourceTex", m_VolumetricLightRT);
-                postProcessFeatureData.materials.BilateralBlurMaterial.SetTexture("_QuarterResDepthBuffer", m_HalfDepthRT);
-                Blit(cmd, m_VolumetricLightRT, m_TempRT, postProcessFeatureData.materials.BilateralBlurMaterial, 2);
-                Blit(cmd, m_TempRT, m_VolumetricLightRT, postProcessFeatureData.materials.BilateralBlurMaterial, 3);
-                Blit(cmd, m_VolumetricLightRT, m_VolumetricLightRT, postProcessFeatureData.materials.BilateralBlurMaterial, 5);
-                cmd.EndSample("Bilateral Blur");
-            }
-
-
-            m_Material.SetTexture(ShaderConstants.LightTex, m_VolumetricLightRT);
+            PreRenderVolumetric(cmd, source, ref renderingData);
+            BilateralBlur(cmd, source);
 
             // 合并
             if (settings.debug.value)
@@ -237,9 +236,51 @@ namespace Game.Core.PostProcessing
             else
                 Blit(cmd, source, target, m_Material, 1);
 
-
             // Blit(cmd, m_VolumetricLightRT, target);
+        }
 
+        private void PreRenderVolumetric(CommandBuffer cmd, RTHandle source, ref RenderingData renderingData)
+        {
+            cmd.BeginSample("Volumetric Pre Render");
+
+            RTHandle targetHandle;
+            if (settings.downSample.value == VolumetricLight.DownSample.Half)
+            {
+                // 得到Half Depth Texture
+                Blit(cmd, m_HalfDepthRT, m_HalfDepthRT, m_BilateralBlurMaterial, 4);
+                m_Material.SetTexture(ShaderConstants.CameraDepthTexture, m_HalfDepthRT);
+                targetHandle = m_HalfVolumetricLightRT;
+            }
+            else
+            {
+                m_Material.SetTexture(ShaderConstants.CameraDepthTexture, renderingData.cameraData.renderer.cameraDepthTargetHandle);
+                targetHandle = m_VolumetricLightRT;
+            }
+
+            //计算体积光
+            Blit(cmd, source, m_VolumetricLightRT, m_Material, 0);
+            m_Material.SetTexture(ShaderConstants.LightTex, m_VolumetricLightRT);
+
+            cmd.EndSample("Volumetric Pre Render");
+        }
+
+        private void BilateralBlur(CommandBuffer cmd, RTHandle source)
+        {
+            //模糊 
+            if (settings.downSample.value == VolumetricLight.DownSample.Half)
+            {
+                cmd.BeginSample("Bilateral Blur");
+
+
+                m_BilateralBlurMaterial.SetTexture("_MainTex", source);
+
+                Blit(cmd, m_HalfVolumetricLightRT, m_TempRT, m_BilateralBlurMaterial, 2);
+                Blit(cmd, m_TempRT, m_HalfVolumetricLightRT, m_BilateralBlurMaterial, 3);
+
+                m_BilateralBlurMaterial.SetTexture("_HalfResColor", m_HalfVolumetricLightRT);
+                Blit(cmd, m_HalfVolumetricLightRT, m_VolumetricLightRT, m_BilateralBlurMaterial, 5);
+                cmd.EndSample("Bilateral Blur");
+            }
         }
 
         public void Dispose()

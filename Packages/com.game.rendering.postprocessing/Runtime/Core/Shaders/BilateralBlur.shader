@@ -63,14 +63,14 @@ Shader "Hidden/BilateralBlur"
         #define VERTICALOFFSET float2(0, 1)
 
         UNITY_DECLARE_TEX2D(_CameraDepthTexture);
-        UNITY_DECLARE_TEX2D(_SourceTex);
+        UNITY_DECLARE_TEX2D(_BlitTexture);
         UNITY_DECLARE_TEX2D(_QuarterResDepthBuffer);
         UNITY_DECLARE_TEX2D(_HalfResColor);
         UNITY_DECLARE_TEX2D(_QuarterResColor);
         UNITY_DECLARE_TEX2D(_MainTex);
 
         float4 _CameraDepthTexture_TexelSize;
-        float4 _SourceTex_TexelSize;
+        float4 _BlitTexture_TexelSize;
         float4 _QuarterResDepthBuffer_TexelSize;
         
         struct appdata
@@ -359,7 +359,7 @@ Shader "Hidden/BilateralBlur"
 
             float4 horizontalFrag(v2f input) : SV_Target
             {
-                return BilateralBlur(input.uv, HORIZONTALOFFSET, _SourceTex, sampler_SourceTex, QUARTER_RES_BLUR_KERNEL_SIZE, QUARTER_RES_BLUR_KERNEL_WEIGHT);
+                return BilateralBlur(input.uv, HORIZONTALOFFSET, _BlitTexture, sampler_BlitTexture, QUARTER_RES_BLUR_KERNEL_SIZE, QUARTER_RES_BLUR_KERNEL_WEIGHT);
             }
 
             ENDCG
@@ -375,7 +375,7 @@ Shader "Hidden/BilateralBlur"
 
             float4 verticalFrag(v2f input) : SV_Target
             {
-                return BilateralBlur(input.uv, VERTICALOFFSET, _SourceTex, sampler_SourceTex, QUARTER_RES_BLUR_KERNEL_SIZE, QUARTER_RES_BLUR_KERNEL_WEIGHT);
+                return BilateralBlur(input.uv, VERTICALOFFSET, _BlitTexture, sampler_BlitTexture, QUARTER_RES_BLUR_KERNEL_SIZE, QUARTER_RES_BLUR_KERNEL_WEIGHT);
             }
 
             ENDCG
@@ -391,7 +391,7 @@ Shader "Hidden/BilateralBlur"
 
             float4 horizontalFrag(v2f input) : SV_Target
             {
-                return BilateralBlur(input.uv, HORIZONTALOFFSET, _SourceTex, sampler_SourceTex, HALF_RES_BLUR_KERNEL_SIZE, HALF_RES_BLUR_KERNEL_WEIGHT);
+                return BilateralBlur(input.uv, HORIZONTALOFFSET, _BlitTexture, sampler_BlitTexture, HALF_RES_BLUR_KERNEL_SIZE, HALF_RES_BLUR_KERNEL_WEIGHT);
             }
 
             ENDCG
@@ -407,7 +407,7 @@ Shader "Hidden/BilateralBlur"
 
             float4 verticalFrag(v2f input) : SV_Target
             {
-                return BilateralBlur(input.uv, VERTICALOFFSET, _SourceTex, sampler_SourceTex, HALF_RES_BLUR_KERNEL_SIZE, HALF_RES_BLUR_KERNEL_WEIGHT);
+                return BilateralBlur(input.uv, VERTICALOFFSET, _BlitTexture, sampler_BlitTexture, HALF_RES_BLUR_KERNEL_SIZE, HALF_RES_BLUR_KERNEL_WEIGHT);
             }
 
             ENDCG
@@ -448,11 +448,11 @@ Shader "Hidden/BilateralBlur"
 
             v2fUpsample vertUpsampleToFull(appdata v)
             {
-                return vertUpsample(v, _SourceTex_TexelSize);
+                return vertUpsample(v, _BlitTexture_TexelSize);
             }
             float4 frag(v2fUpsample input) : SV_Target
             {
-                return BilateralUpsample(input, _CameraDepthTexture, _SourceTex, _HalfResColor, sampler_HalfResColor, sampler_SourceTex);
+                return BilateralUpsample(input, _CameraDepthTexture, _BlitTexture, _HalfResColor, sampler_HalfResColor, sampler_BlitTexture);
             }
 
             ENDCG
@@ -468,12 +468,12 @@ Shader "Hidden/BilateralBlur"
 
             v2fDownsample vertQuarterDepth(appdata v)
             {
-                return vertDownsampleDepth(v, _SourceTex_TexelSize);
+                return vertDownsampleDepth(v, _BlitTexture_TexelSize);
             }
 
             float frag(v2fDownsample input) : SV_Target
             {
-                return DownsampleDepth(input, _SourceTex, sampler_SourceTex);
+                return DownsampleDepth(input, _BlitTexture, sampler_BlitTexture);
             }
 
             ENDCG
@@ -482,6 +482,7 @@ Shader "Hidden/BilateralBlur"
         // pass 7 - bilateral upsample quarter to full
         Pass
         {
+            Name "bilateral upsample quarter to full"
             Blend One Zero
 
             CGPROGRAM
@@ -511,7 +512,7 @@ Shader "Hidden/BilateralBlur"
 
             float4 horizontalFrag(v2f input) : SV_Target
             {
-                return BilateralBlur(input.uv, HORIZONTALOFFSET, _SourceTex, sampler_SourceTex, THIRD_RES_BLUR_KERNEL_SIZE, THIRD_RES_BLUR_KERNEL_WEIGHT);
+                return BilateralBlur(input.uv, HORIZONTALOFFSET, _BlitTexture, sampler_BlitTexture, THIRD_RES_BLUR_KERNEL_SIZE, THIRD_RES_BLUR_KERNEL_WEIGHT);
             }
 
             ENDCG
@@ -527,7 +528,7 @@ Shader "Hidden/BilateralBlur"
 
             float4 verticalFrag(v2f input) : SV_Target
             {
-                return BilateralBlur(input.uv, VERTICALOFFSET, _SourceTex, sampler_SourceTex, THIRD_RES_BLUR_KERNEL_SIZE, THIRD_RES_BLUR_KERNEL_WEIGHT);
+                return BilateralBlur(input.uv, VERTICALOFFSET, _BlitTexture, sampler_BlitTexture, THIRD_RES_BLUR_KERNEL_SIZE, THIRD_RES_BLUR_KERNEL_WEIGHT);
             }
 
             ENDCG
