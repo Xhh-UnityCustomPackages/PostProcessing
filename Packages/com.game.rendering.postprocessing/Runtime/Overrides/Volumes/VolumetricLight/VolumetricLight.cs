@@ -228,13 +228,16 @@ namespace Game.Core.PostProcessing
             SetupMaterials(ref renderingData);
 
             PreRenderVolumetric(cmd, source, ref renderingData);
-            BilateralBlur(cmd, source);
+            BilateralBlur(cmd, source, ref renderingData);
 
+            m_Material.SetTexture(ShaderConstants.LightTex, m_VolumetricLightRT);
             // 合并
+            cmd.BeginSample("Volumetric Compose");
             if (settings.debug.value)
                 Blit(cmd, target, target, m_Material, 1);
             else
                 Blit(cmd, source, target, m_Material, 1);
+            cmd.EndSample("Volumetric Compose");
 
             // Blit(cmd, m_VolumetricLightRT, target);
         }
@@ -258,13 +261,13 @@ namespace Game.Core.PostProcessing
             }
 
             //计算体积光
-            Blit(cmd, source, m_VolumetricLightRT, m_Material, 0);
-            m_Material.SetTexture(ShaderConstants.LightTex, m_VolumetricLightRT);
+            Blit(cmd, source, targetHandle, m_Material, 0);
+
 
             cmd.EndSample("Volumetric Pre Render");
         }
 
-        private void BilateralBlur(CommandBuffer cmd, RTHandle source)
+        private void BilateralBlur(CommandBuffer cmd, RTHandle source, ref RenderingData renderingData)
         {
             //模糊 
             if (settings.downSample.value == VolumetricLight.DownSample.Half)
@@ -272,13 +275,15 @@ namespace Game.Core.PostProcessing
                 cmd.BeginSample("Bilateral Blur");
 
 
-                m_BilateralBlurMaterial.SetTexture("_MainTex", source);
+                m_BilateralBlurMaterial.SetTexture("_QuarterResDepthBuffer", m_HalfDepthRT);
 
                 Blit(cmd, m_HalfVolumetricLightRT, m_TempRT, m_BilateralBlurMaterial, 2);
+
+                // m_BilateralBlurMaterial.SetTexture("_MainTex", m_HalfVolumetricLightRT);
                 Blit(cmd, m_TempRT, m_HalfVolumetricLightRT, m_BilateralBlurMaterial, 3);
 
                 m_BilateralBlurMaterial.SetTexture("_HalfResColor", m_HalfVolumetricLightRT);
-                Blit(cmd, m_HalfVolumetricLightRT, m_VolumetricLightRT, m_BilateralBlurMaterial, 5);
+                Blit(cmd, source, m_VolumetricLightRT, m_BilateralBlurMaterial, 5);
                 cmd.EndSample("Bilateral Blur");
             }
         }
