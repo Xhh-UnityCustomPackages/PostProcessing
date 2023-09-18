@@ -20,8 +20,6 @@ Shader "Hidden/PostProcessing/ScreenSpaceReflection"
             Name "ScreenSpaceReflection Test"
 
             HLSLPROGRAM
-            #pragma multi_compile_local _ _OLD_METHOD
-
             #pragma vertex Vert
             #pragma fragment FragTest
             ENDHLSL

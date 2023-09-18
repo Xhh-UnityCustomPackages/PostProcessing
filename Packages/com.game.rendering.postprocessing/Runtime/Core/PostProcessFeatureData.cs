@@ -14,6 +14,7 @@ namespace Game.Core.PostProcessing
             public Shader volumetricCloudPS;
             public Shader lightShaftPS;
             public Shader screenSpaceReflectionPS;
+            public Shader ScreenSpaceGlobalIlluminationPS;
         }
 
         [Serializable]
