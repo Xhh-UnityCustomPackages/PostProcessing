@@ -27,6 +27,7 @@ namespace Game.Core.PostProcessing
         [Serializable]
         public sealed class MaterialResources
         {
+            public Material UberPost;
             public Material BilateralBlur;
             public Material DualBlur;
         }

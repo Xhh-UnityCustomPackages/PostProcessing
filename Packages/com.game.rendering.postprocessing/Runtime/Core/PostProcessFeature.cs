@@ -45,6 +45,7 @@ namespace Game.Core.PostProcessing
         [SerializeField] public PostProcessSettings m_Settings = new PostProcessSettings();
 
         PostProcessRenderPass m_BeforeRenderingGBuffer, m_BeforeRenderingDeferredLights, m_AfterRenderingSkybox, m_BeforeRenderingPostProcessing, m_AfterRenderingPostProcessing;
+        UberPostProcess m_UberPostProcessing;
         public override void Create()
         {
             Dictionary<string, PostProcessRenderer> shared = new Dictionary<string, PostProcessRenderer>();
@@ -64,6 +65,12 @@ namespace Game.Core.PostProcessing
             m_AfterRenderingPostProcessing = new PostProcessRenderPass(PostProcessInjectionPoint.AfterRenderingPostProcessing,
                                 InstantiateRenderers(m_Settings.m_RenderersAfterRenderingPostProcessing, shared),
                                 m_Settings.m_PostProcessFeatureData);
+
+
+            m_UberPostProcessing = new UberPostProcess(m_Settings.m_PostProcessFeatureData)
+            {
+                renderPassEvent = RenderPassEvent.AfterRenderingPostProcessing,
+            };
         }
 
         public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
@@ -93,6 +100,8 @@ namespace Game.Core.PostProcessing
                 m_BeforeRenderingPostProcessing.AddRenderPasses(ref renderingData);
                 // 暂时不考虑 Camera stack 的情况
                 m_AfterRenderingPostProcessing.AddRenderPasses(ref renderingData);
+
+                renderer.EnqueuePass(m_UberPostProcessing);
             }
         }
 
