@@ -16,10 +16,7 @@ namespace Game.Core.PostProcessing
         public Vector3Parameter boundsMax = new Vector3Parameter(new Vector3(1, 1, 1));
         public MinFloatParameter step = new MinFloatParameter(0.1f, 0.05f);
 
-        public override bool IsActive()
-        {
-            return intensity.value > 0;
-        }
+        public override bool IsActive() => intensity.value > 0;
     }
 
     [PostProcess("Volumetric Cloud", PostProcessInjectionPoint.AfterRenderingSkybox)]
