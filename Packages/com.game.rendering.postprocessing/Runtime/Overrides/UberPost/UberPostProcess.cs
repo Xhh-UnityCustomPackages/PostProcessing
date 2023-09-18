@@ -52,6 +52,9 @@ namespace Game.Core.PostProcessing
 
         void Render(CommandBuffer cmd, ref RenderingData renderingData)
         {
+            if (m_Material == null)
+                return;
+
             ref CameraData cameraData = ref renderingData.cameraData;
             ref ScriptableRenderer renderer = ref cameraData.renderer;
             var source = renderer.cameraColorTargetHandle;
