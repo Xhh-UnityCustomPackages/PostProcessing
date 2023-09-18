@@ -105,7 +105,7 @@ namespace Game.Core.PostProcessing
         public override void Setup()
         {
             m_Material = GetMaterial(postProcessFeatureData.shaders.volumetricLightPS);
-            m_BilateralBlurMaterial = postProcessFeatureData.materials.BilateralBlurMaterial;
+            m_BilateralBlurMaterial = Material.Instantiate(postProcessFeatureData.materials.BilateralBlur);
         }
 
         private void SetupMaterials(ref RenderingData renderingData)

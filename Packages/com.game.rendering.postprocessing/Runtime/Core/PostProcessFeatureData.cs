@@ -13,6 +13,7 @@ namespace Game.Core.PostProcessing
             public Shader volumetricLightPS;
             public Shader volumetricCloudPS;
             public Shader lightShaftPS;
+            public Shader screenSpaceReflectionPS;
         }
 
         [Serializable]
@@ -20,16 +21,22 @@ namespace Game.Core.PostProcessing
         {
             public Texture2D DitherTexture;
             public Texture3D WorlyNoise128RGBA;
+            public Texture2D blueNoiseTex;
         }
 
         [Serializable]
         public sealed class MaterialResources
         {
-            public Material BilateralBlurMaterial;
+            public Material BilateralBlur;
+            public Material DualBlur;
         }
 
         public ShaderResources shaders;
+
+        [Space(10)]
         public TextureResources textures;
+
+        [Space(10)]
         public MaterialResources materials;
     }
 }

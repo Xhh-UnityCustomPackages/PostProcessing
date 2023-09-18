@@ -109,11 +109,11 @@ MonoBehaviour:
     failOperation: 0
     zFailOperation: 0
   m_ShadowTransparentReceive: 1
-  m_RenderingMode: 0
+  m_RenderingMode: 1
   m_DepthPrimingMode: 1
   m_CopyDepthMode: 0
   m_AccurateGbufferNormals: 0
-  m_IntermediateTextureMode: 0
+  m_IntermediateTextureMode: 1
 --- !u!114 &7348728472756104821
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -138,6 +138,8 @@ MonoBehaviour:
     - Game.Core.PostProcessing.VolumetricLightRenderer, Game.Rendering.PostProcessing.Runtime,
       Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
     - Game.Core.PostProcessing.LightShaftRenderer, Game.Rendering.PostProcessing.Runtime,
+      Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
+    - Game.Core.PostProcessing.ScreenSpaceReflectionRenderer, Game.Rendering.PostProcessing.Runtime,
       Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
     m_RenderersBeforeRenderingPostProcessing: []
     m_RenderersAfterRenderingPostProcessing: []

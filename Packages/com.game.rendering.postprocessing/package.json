@@ -3,7 +3,7 @@
   "displayName": "Game_Rendering_PostProcessing",
   "version": "1.0.1",
   "unity": "2023.1",
-  "description": "\u540e\u5904\u7406\u6a21\u5757",
+  "description": "\u540e\u5904\u7406\u6a21\u5757:\nSSR\nSSAO\nLightShaft\nVolumetricLight\nTonemapping",
   "icon": ".icon.png",
   "dependencies": {
     "com.unity.render-pipelines.core": "15.0.6",

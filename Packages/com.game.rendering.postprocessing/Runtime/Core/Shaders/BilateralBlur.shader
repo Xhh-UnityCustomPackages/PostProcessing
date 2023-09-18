@@ -27,7 +27,7 @@
 
 
 
-Shader "Hidden/BilateralBlur"
+Shader "Hidden/PostProcessing/Common/BilateralBlur"
 {
     SubShader
     {

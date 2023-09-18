@@ -7,12 +7,12 @@ using UnityEngine.Rendering.Universal;
 
 namespace Game.Core.PostProcessing
 {
-    [Serializable, VolumeComponentMenu("Post-processing Custom/光轴 (Light Shaft)")]
+    [Serializable, VolumeComponentMenu("Post-processing Custom/后处理体积光 (Light Shaft)")]
     public class LightShaft : VolumeSetting
     {
         public LightShaft()
         {
-            displayName = "光轴 (Volumetric Light)";
+            displayName = "后处理体积光 (Light Shaft)";
         }
 
         public enum Mode

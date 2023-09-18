@@ -8,22 +8,21 @@ namespace Game.Core.PostProcessing
 {
     public class ScreenSpaceOcclusionDebug : ScriptableRenderPass
     {
-        RTHandle m_SourceRT;
+        public RTHandle finalRT { get; set; }
 
-        public ScreenSpaceOcclusionDebug(RTHandle target)
+        public ScreenSpaceOcclusionDebug()
         {
             this.renderPassEvent = RenderPassEvent.AfterRenderingTransparents;
-            m_SourceRT = target;
         }
 
         public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
         {
-            if (m_SourceRT == null)
+            if (finalRT == null)
                 return;
             var cmd = CommandBufferPool.Get(nameof(ScreenSpaceOcclusionDebug));
             cmd.Clear();
 
-            Blit(cmd, m_SourceRT, renderingData.cameraData.renderer.cameraColorTargetHandle);
+            Blit(cmd, finalRT, renderingData.cameraData.renderer.cameraColorTargetHandle);
 
             context.ExecuteCommandBuffer(cmd);
             CommandBufferPool.Release(cmd);

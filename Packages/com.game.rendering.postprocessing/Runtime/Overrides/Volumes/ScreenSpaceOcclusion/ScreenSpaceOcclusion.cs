@@ -253,8 +253,6 @@ namespace Game.Core.PostProcessing
         public override void Setup()
         {
             m_AmbientOcclusionMaterial = GetMaterial(postProcessFeatureData.shaders.screenSpaceOcclusionPS);
-            m_DebugPass = new ScreenSpaceOcclusionDebug(m_OcclusionFinalRT);
-
             // TODO 移动端默认如果是 B10G11R11_UFloatPack32 传递深度精度会不太够
             m_AmbientOcclusionColorFormat = SystemInfo.SupportsRenderTextureFormat(RenderTextureFormat.ARGBHalf) ? RenderTextureFormat.ARGBHalf : RenderTextureFormat.Default;
         }
@@ -311,7 +309,12 @@ namespace Game.Core.PostProcessing
         public override void AddRenderPasses(ref RenderingData renderingData)
         {
             if (settings.debugMode.value != ScreenSpaceOcclusion.DebugMode.Disabled)
+            {
+                if (m_DebugPass == null)
+                    m_DebugPass = new ScreenSpaceOcclusionDebug();
+                m_DebugPass.finalRT = m_OcclusionFinalRT;
                 renderingData.cameraData.renderer.EnqueuePass(m_DebugPass);
+            }
         }
 
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
@@ -361,11 +364,10 @@ namespace Game.Core.PostProcessing
             CoreUtils.SetKeyword(cmd, ShaderKeywordStrings.ScreenSpaceOcclusion, false);
         }
 
-        public void Dispose()
+        public override void Dispose(bool disposing)
         {
             m_OcclusionFinalRT?.Release();
             m_OcclusionDepthRT?.Release();
-
         }
 
     }

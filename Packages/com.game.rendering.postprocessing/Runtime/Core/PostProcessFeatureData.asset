@@ -18,10 +18,13 @@ MonoBehaviour:
     volumetricLightPS: {fileID: 4800000, guid: 4ca734f7de9740d4a8587d8e00b1e353, type: 3}
     volumetricCloudPS: {fileID: 4800000, guid: fb0942d841d0b5a45a9cdeb8023a7e53, type: 3}
     lightShaftPS: {fileID: 4800000, guid: 7b546a5fc769b2b42b4ec86d8c54e818, type: 3}
+    screenSpaceReflectionPS: {fileID: 4800000, guid: 1d43f0f8b1a48af4fa18b9980a80e199,
+      type: 3}
   textures:
     DitherTexture: {fileID: 2800000, guid: e3d24661c1e055f45a7560c033dbb837, type: 3}
     WorlyNoise128RGBA: {fileID: 11700000, guid: 1fe54a721d0e2504e89f121c723404a8,
       type: 3}
+    blueNoiseTex: {fileID: 2800000, guid: 87ed581b7058cbc46b1a605830bf6eda, type: 3}
   materials:
-    BilateralBlurMaterial: {fileID: 2100000, guid: b5d346c906c3a5749b8dd077c3933b40,
-      type: 2}
+    BilateralBlur: {fileID: 2100000, guid: b5d346c906c3a5749b8dd077c3933b40, type: 2}
+    DualBlur: {fileID: 2100000, guid: d89e9f569a4130d4583e4d494010b38f, type: 2}
