@@ -29,9 +29,7 @@ namespace Game.Core.PostProcessing.UnityEditor
         {
             var o = new PropertyFetcher<Tonemapping>(serializedObject);
 
-
             m_Mode = Unpack(o.Find(x => x.mode));
-
 
             m_Unreal = Unpack(o.Find(x => x.unreal));
             m_BlurCorrection = Unpack(o.Find(x => x.blueCorrection));

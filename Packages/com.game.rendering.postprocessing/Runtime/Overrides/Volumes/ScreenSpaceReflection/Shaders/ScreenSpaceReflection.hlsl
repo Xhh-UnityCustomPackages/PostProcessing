@@ -135,147 +135,6 @@ float4 ProjectToScreenSpace(float3 position)
     );
 }
 
-// unity原版本，其 实现和引用的逻辑有差异
-// Heavily adapted from McGuire and Mara's original implementation
-// http://casual-effects.blogspot.com/2014/08/screen-space-ray-tracing.html
-Result March_Deprecated(Ray ray, float2 uv)
-{
-    Result result;
-
-    result.isHit = false;
-
-    result.uv = 0.0;
-    result.position = 0.0;
-
-    result.iterationCount = 0;
-
-    Segment segment;
-
-    segment.start = ray.origin;
-
-    float end = ray.origin.z + ray.direction.z * _MaximumMarchDistance;
-    float magnitude = _MaximumMarchDistance;
-    // 近裁面判断
-    if (end > - _ProjectionParams.y)
-        magnitude = (-_ProjectionParams.y - ray.origin.z) / ray.direction.z;
-
-    segment.end = ray.origin + ray.direction * magnitude;
-    // H0
-    float4 r = ProjectToScreenSpace(segment.start);
-    // H1
-    float4 q = ProjectToScreenSpace(segment.end);
-    // K0, K1
-    const float2 homogenizers = rcp(float2(r.w, q.w));
-    // Q0  Q1
-    segment.start *= homogenizers.x;
-    segment.end *= homogenizers.y;
-    // P0, P1
-    float4 endPoints = float4(r.xy, q.xy) * homogenizers.xxyy;
-    // 至少一个像素
-    endPoints.zw += step(GetSquaredDistance(endPoints.xy, endPoints.zw), 0.0001) * max(_TestTex_TexelSize.x, _TestTex_TexelSize.y);
-    // delta = P1 - P0
-    float2 displacement = endPoints.zw - endPoints.xy;
-
-    bool isPermuted = false;
-
-    if (abs(displacement.x) < abs(displacement.y))
-    {
-        isPermuted = true;
-
-        displacement = displacement.yx;
-        endPoints.xyzw = endPoints.yxwz;
-    }
-    // stepDir = sign(delta.x);
-    float direction = sign(displacement.x);
-    // invdx = stepDir / delta.x
-    float normalizer = direction / displacement.x;
-    // dQ
-    segment.direction = (segment.end - segment.start) * normalizer;
-    // dP,dK,dQ.z 这里和原算法一样第一个值是delta的符号
-    float4 derivatives = float4(float2(direction, displacement.y * normalizer), (homogenizers.y - homogenizers.x) * normalizer, segment.direction.z);
-
-    float stride = 1.0 - min(1.0, -ray.origin.z * 0.01);
-
-    uv *= _NoiseTiling;
-    uv.y *= _AspectRatio;
-
-    float jitter = SAMPLE_TEXTURE2D(_NoiseTex, sampler_LinearClamp, uv + _WorldSpaceCameraPos.xz).a;
-    // 这里把 thickness 当作 stepsize 在用
-    stride *= _Bandwidth;
-    // dP,dK,dQ.z * stride
-    derivatives *= stride;
-    // dQ * stride
-    segment.direction *= stride;
-
-    float2 z = 0.0;
-    // P0,K0,Q0.z   +   dP,dK,dQ.z * jitter
-    float4 tracker = float4(endPoints.xy, homogenizers.x, segment.start.z) + derivatives * jitter;
-
-    #if defined(SHADER_API_OPENGL) || defined(SHADER_API_D3D11) || defined(SHADER_API_D3D12)
-        UNITY_LOOP
-    #else
-        [unroll(10)]
-    #endif
-    for (int i = 0; i < _MaximumIterationCount; ++i)
-    {
-        if (any(result.uv < 0.0) || any(result.uv > 1.0))
-        {
-            result.isHit = false;
-            return result;
-        }
-        // P += dP, k += dk, Q.z += dQ.z
-        tracker += derivatives;
-
-        // rayZMin = prevZMaxEstimate
-        z.x = z.y;
-        // rayZMax = Q.z + dQ.z * 0.5 / ( k + dK * 0.5)
-        z.y = tracker.w + derivatives.w * 0.5;
-        z.y /= tracker.z + derivatives.z * 0.5;
-
-        // 远处会出现问题 需要打开这个宏
-        #if SSR_KILL_FIREFLIES
-            UNITY_FLATTEN
-            if (z.y < - _MaximumMarchDistance)
-            {
-                result.isHit = false;
-                return result;
-            }
-        #endif
-        // ！和原算法的差异
-        // 原本需要z.y<z.x 也就是y是min x是max 反过来了
-        UNITY_FLATTEN
-        if (z.y > z.x)
-        {
-            float k = z.x;
-            z.x = z.y;
-            z.y = k;
-        }
-
-        uv = tracker.xy;
-
-        UNITY_FLATTEN
-        if (isPermuted)
-            uv = uv.yx;
-
-        uv *= _TestTex_TexelSize.xy;
-
-        float d = SampleSceneDepth(uv);
-        float depth = -LinearEyeDepth(d, _ZBufferParams);
-
-        UNITY_FLATTEN
-        // z.x > depth - 1.8虽然分割出厚度 但还是有错误的显示
-        // if ((z.y < depth && z.x > depth - 1.8 ) )
-        if (z.y < depth)
-        {
-            result.uv = uv;
-            result.isHit = true;
-            result.iterationCount = i + 1;
-            return result;
-        }
-    }
-
-    return result;
-}
 
 // 根据原算法改正后
 Result March(Ray ray, float2 uv, float3 normalVS)
@@ -412,8 +271,8 @@ float4 FragTest(Varyings input) : SV_Target
         return 0.0;
 
     // 多一次采样 可以过滤掉角色部分的射线计算
-    uint materialFlags = UnpackMaterialFlags(SAMPLE_TEXTURE2D_LOD(_GBuffer0, sampler_PointClamp, input.texcoord, 0).a);
-    UNITY_BRANCH
+    // uint materialFlags = UnpackMaterialFlags(SAMPLE_TEXTURE2D_LOD(_GBuffer0, sampler_PointClamp, input.texcoord, 0).a);
+    // UNITY_BRANCH
     // if (IsMaterialFlagCharacter(materialFlags)) return 0;
 
     float3 normalWS = normalize(UnpackNormal(gbuffer2.xyz));
@@ -433,14 +292,7 @@ float4 FragTest(Varyings input) : SV_Target
     if (ray.direction.z > 0.0)
         return 0.0;
 
-    Result result;
-
-    #if _OLD_METHOD
-        result = March_Deprecated(ray, input.texcoord);
-    #else
-        // 使用修正后算法
-        result = March(ray, input.texcoord, normalVS);
-    #endif
+    Result result = March(ray, input.texcoord, normalVS);
 
     float confidence = (float)result.iterationCount / (float)_MaximumIterationCount;
 
