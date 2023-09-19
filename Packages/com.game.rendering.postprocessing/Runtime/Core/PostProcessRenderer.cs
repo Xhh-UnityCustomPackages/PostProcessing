@@ -29,7 +29,7 @@ namespace Game.Core.PostProcessing
         // dontCareSourceTargetCopy设置为true，则该效果出现在队列第一个时，就不需要拷贝原始RT
         public virtual bool dontCareSourceTargetCopy => false;
 
-        public abstract bool IsActive();
+        public abstract bool IsActive(ref RenderingData renderingData);
 
         internal void SetupInternal(PostProcessRenderPass renderPass, PostProcessFeatureData data)
         {
@@ -51,11 +51,11 @@ namespace Game.Core.PostProcessing
         // 无论Active是否都会进入
         public virtual void Dispose(bool disposing) { }
 
-        internal void ShowHideInternal()
+        internal void ShowHideInternal(ref RenderingData renderingData)
         {
-            if (m_ShowHide != IsActive())
+            if (m_ShowHide != IsActive(ref renderingData))
             {
-                m_ShowHide = IsActive();
+                m_ShowHide = IsActive(ref renderingData);
                 ShowHide(m_ShowHide);
             }
         }

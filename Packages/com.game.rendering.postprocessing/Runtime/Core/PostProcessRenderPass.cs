@@ -72,7 +72,7 @@ namespace Game.Core.PostProcessing
         {
             if (isSceneView && !postProcessRenderer.visibleInSceneView) return false;
 
-            if (postProcessRenderer.IsActive())
+            if (postProcessRenderer.IsActive(ref renderingData))
             {
                 postProcessRenderer.SetupInternal(this, m_PostProcessFeatureData);
                 postProcessRenderer.AddRenderPasses(ref renderingData);
@@ -80,7 +80,7 @@ namespace Game.Core.PostProcessing
                 m_ActivePostProcessRenderers.Add(postProcessRenderer);
                 passInput |= postProcessRenderer.input;
             }
-            postProcessRenderer.ShowHideInternal();
+            postProcessRenderer.ShowHideInternal(ref renderingData);
 
             return true;
         }

@@ -141,5 +141,9 @@ MonoBehaviour:
       Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
     - Game.Core.PostProcessing.ScreenSpaceReflectionRenderer, Game.Rendering.PostProcessing.Runtime,
       Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
+    - Game.Core.PostProcessing.AtmosphericHeightFogRenderer, Game.Rendering.PostProcessing.Runtime,
+      Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
+    - Game.Core.PostProcessing.ScreenSpaceGlobalIlluminationRenderer, Game.Rendering.PostProcessing.Runtime,
+      Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
     m_RenderersBeforeRenderingPostProcessing: []
     m_RenderersAfterRenderingPostProcessing: []

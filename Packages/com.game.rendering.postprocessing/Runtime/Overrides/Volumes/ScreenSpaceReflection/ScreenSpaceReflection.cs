@@ -139,7 +139,12 @@ namespace Game.Core.PostProcessing
             rt2 = m_HistoryPingPongRT[m_PingPong];
         }
 
-
+        // public override bool IsActive(ref RenderingData renderingData)
+        // {
+        //     Debug.LogError(renderingData.cameraData.camera.actualRenderingPath);
+        //     bool isDeferred = renderingData.cameraData.camera.actualRenderingPath == RenderingPath.DeferredShading;
+        //     return isDeferred && base.IsActive(ref renderingData);
+        // }
 
         public override void Setup()
         {

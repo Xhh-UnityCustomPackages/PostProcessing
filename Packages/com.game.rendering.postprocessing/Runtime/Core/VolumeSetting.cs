@@ -21,6 +21,6 @@ namespace Game.Core.PostProcessing
     public abstract class PostProcessVolumeRenderer<T> : PostProcessRenderer where T : VolumeSetting
     {
         public T settings => VolumeManager.instance.stack.GetComponent<T>();
-        public override bool IsActive() => settings.active && settings.enabled.overrideState && settings.IsActive();
+        public override bool IsActive(ref RenderingData renderingData) => settings.active && settings.enabled.overrideState && settings.IsActive();
     }
 }

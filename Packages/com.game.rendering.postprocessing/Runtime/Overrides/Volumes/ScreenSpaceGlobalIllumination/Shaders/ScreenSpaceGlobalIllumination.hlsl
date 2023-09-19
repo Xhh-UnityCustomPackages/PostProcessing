@@ -9,6 +9,8 @@
 
 TEXTURE2D_HALF(_GBuffer2);
 
+float4 _BlitTexture_TexelSize;
+
 //Denoise is weighted based on worldspace distance and alignment of normals
 float3 edgeDenoise(float2 uv)
 {
@@ -24,8 +26,8 @@ float3 edgeDenoise(float2 uv)
 
     float3 posWS = ComputeWorldSpacePosition(uv, depth, UNITY_MATRIX_I_VP);
 
-    int kSize2 = 3;
-    float jank = 1.0;
+    int kSize2 = 4;
+    float jank = 3.0;
 
 
     float weight = 0.0;
@@ -35,7 +37,7 @@ float3 edgeDenoise(float2 uv)
     {
         for (float j = -kSize; j <= kSize; j++)
         {
-            float2 sampleUV = (uv + float2(i, j) * jank) ;
+            float2 sampleUV = (uv + float2(i, j) * jank * _BlitTexture_TexelSize.xy) ;
             //GBuffer normal depth
             float4 dSample = SAMPLE_TEXTURE2D(_GBuffer2, sampler_PointClamp, sampleUV);
             float3 sampleNorm = dSample.xyz;
