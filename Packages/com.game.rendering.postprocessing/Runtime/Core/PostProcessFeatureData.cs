@@ -15,6 +15,7 @@ namespace Game.Core.PostProcessing
             public Shader lightShaftPS;
             public Shader screenSpaceReflectionPS;
             public Shader ScreenSpaceGlobalIlluminationPS;
+            public Shader atmosphericHeightFogPS;
         }
 
         [Serializable]
