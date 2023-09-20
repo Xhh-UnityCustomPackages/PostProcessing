@@ -104,6 +104,11 @@ namespace Game.Core.PostProcessing
             DoAutoExposure(cmd, source, destination, ref renderingData);
         }
 
+        public override void OnCameraCleanup(CommandBuffer cmd)
+        {
+            cmd.SetGlobalTexture("_AutoExposureLUT", Texture2D.redTexture);
+        }
+
 
         void DoAutoExposure(CommandBuffer cmd, RTHandle source, RTHandle destination, ref RenderingData renderingData)
         {
