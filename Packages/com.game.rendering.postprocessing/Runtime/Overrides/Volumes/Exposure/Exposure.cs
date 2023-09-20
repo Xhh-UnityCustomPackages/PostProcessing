@@ -36,7 +36,7 @@ namespace Game.Core.PostProcessing
 
 
         [InspectorName("曝光补偿 (Exposure Compensation)"), Tooltip("Use this to scale the global exposure of the scene.")]
-        public MinFloatParameter compensation = new MinFloatParameter(1f, 0f);
+        public MinFloatParameter compensation = new MinFloatParameter(2f, 0f);
 
         [InspectorName("Type"), Tooltip("Use \"Progressive\" if you want auto exposure to be animated. Use \"Fixed\" otherwise.")]
         public EyeAdaptationParameter eyeAdaptation = new EyeAdaptationParameter { value = EyeAdaptation.Fixed };
