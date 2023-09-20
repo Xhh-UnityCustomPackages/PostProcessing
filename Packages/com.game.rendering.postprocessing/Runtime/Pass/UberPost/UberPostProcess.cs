@@ -24,7 +24,6 @@ namespace Game.Core.PostProcessing
         public UberPostProcess(PostProcessFeatureData PostProcessFeatureData)
         {
             m_PostProcessFeatureData = PostProcessFeatureData;
-            m_Material = Material.Instantiate(m_PostProcessFeatureData.materials.UberPost);
         }
 
         public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
@@ -53,7 +52,7 @@ namespace Game.Core.PostProcessing
         void Render(CommandBuffer cmd, ref RenderingData renderingData)
         {
             if (m_Material == null)
-                return;
+                m_Material = Material.Instantiate(m_PostProcessFeatureData.materials.UberPost);
 
             ref CameraData cameraData = ref renderingData.cameraData;
             ref ScriptableRenderer renderer = ref cameraData.renderer;
