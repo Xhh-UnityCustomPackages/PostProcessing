@@ -29,7 +29,7 @@ namespace Game.Core.PostProcessing
         public Vector2Parameter filtering = new Vector2Parameter(new Vector2(10f, 90f));//MinMax(1f, 99f), 
 
         [Range(LogHistogram.rangeMin, LogHistogram.rangeMax), InspectorName("Minimum (EV)"), Tooltip("Minimum average luminance to consider for auto exposure (in EV).")]
-        public ClampedFloatParameter minEV = new ClampedFloatParameter(10f, LogHistogram.rangeMin, LogHistogram.rangeMax);
+        public ClampedFloatParameter minEV = new ClampedFloatParameter(-10f, LogHistogram.rangeMin, LogHistogram.rangeMax);
 
         [InspectorName("Maximum (EV)"), Tooltip("Maximum average luminance to consider for auto exposure (in EV).")]
         public ClampedFloatParameter maxEV = new ClampedFloatParameter(10f, LogHistogram.rangeMin, LogHistogram.rangeMax);

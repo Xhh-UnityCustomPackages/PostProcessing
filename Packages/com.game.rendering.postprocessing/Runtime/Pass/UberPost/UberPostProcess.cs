@@ -68,6 +68,12 @@ namespace Game.Core.PostProcessing
         }
 
 
+        public override void OnCameraCleanup(CommandBuffer cmd)
+        {
+            cmd.SetGlobalTexture("_AutoExposureLUT", Texture2D.redTexture);
+        }
+
+
         RenderTextureDescriptor GetCompatibleDescriptor()
           => GetCompatibleDescriptor(m_Descriptor.width, m_Descriptor.height, m_Descriptor.graphicsFormat);
 
