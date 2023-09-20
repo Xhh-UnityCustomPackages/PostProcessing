@@ -6,8 +6,8 @@ namespace Game.Core.PostProcessing
 {
     public sealed class LogHistogram
     {
-        public const int rangeMin = -9; // ev
-        public const int rangeMax = 9; // ev
+        public const int rangeMin = -10; // ev
+        public const int rangeMax = 10; // ev
 
         // Don't forget to update 'ExposureHistogram.hlsl' if you change these values !
         const int k_Bins = 128;
@@ -15,8 +15,15 @@ namespace Game.Core.PostProcessing
         int m_ThreadY;
 
         public ComputeBuffer data { get; private set; }
+        private ComputeShader m_ComputeShader;
 
-        public void Generate(CommandBuffer cmd, ref RenderingData renderingData, ComputeShader computeShader, RTHandle source)
+
+        public LogHistogram(ComputeShader computeShader)
+        {
+            m_ComputeShader = computeShader;
+        }
+
+        public void Generate(CommandBuffer cmd, int width, int height, RTHandle source)
         {
             if (data == null)
             {
@@ -27,20 +34,22 @@ namespace Game.Core.PostProcessing
                 data = new ComputeBuffer(k_Bins, sizeof(uint));
             }
 
-            var scaleOffsetRes = GetHistogramScaleOffsetRes(ref renderingData);
-            var compute = computeShader;
+
+
+            var scaleOffsetRes = GetHistogramScaleOffsetRes(width, height);
+            var compute = m_ComputeShader;
 
             cmd.BeginSample("LogHistogram");
 
             // Clear the buffer on every frame as we use it to accumulate luminance values on each frame
-            int kernel = compute.FindKernel("KEyeHistogramClear");
+            int kernel = compute.FindKernel("EyeHistogramClear");
             cmd.SetComputeBufferParam(compute, kernel, "_HistogramBuffer", data);
             cmd.DispatchCompute(compute, kernel, Mathf.CeilToInt(k_Bins / (float)m_ThreadX), 1, 1);
 
             // Get a log histogram
-            kernel = compute.FindKernel("KEyeHistogram");
+            kernel = compute.FindKernel("EyeHistogram");
             cmd.SetComputeBufferParam(compute, kernel, "_HistogramBuffer", data);
-            cmd.SetComputeTextureParam(compute, kernel, "_Source", source);
+            cmd.SetComputeTextureParam(compute, kernel, "_SourceTex", source);
             cmd.SetComputeVectorParam(compute, "_ScaleOffsetRes", scaleOffsetRes);
             cmd.DispatchCompute(compute, kernel,
                 Mathf.CeilToInt(scaleOffsetRes.z / 2f / m_ThreadX),
@@ -51,13 +60,12 @@ namespace Game.Core.PostProcessing
             cmd.EndSample("LogHistogram");
         }
 
-        public Vector4 GetHistogramScaleOffsetRes(ref RenderingData renderingData)
+        public Vector4 GetHistogramScaleOffsetRes(int width, int height)
         {
-            var desc = renderingData.cameraData.cameraTargetDescriptor;
             float diff = rangeMax - rangeMin;
             float scale = 1f / diff;
             float offset = -rangeMin * scale;
-            return new Vector4(scale, offset, desc.width, desc.height);
+            return new Vector4(scale, offset, width, height);
         }
 
         public void Release()

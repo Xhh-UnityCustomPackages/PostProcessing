@@ -12,14 +12,21 @@ Shader "Hidden/UberPost"
     #include "Packages/com.unity.render-pipelines.universal/Shaders/PostProcessing/Common.hlsl"
     #include "Packages/com.game.rendering.postprocessing/Runtime/Overrides/Volumes/Tonemapping/Shaders/Tonemapping.hlsl"
 
-
+    TEXTURE2D(_AutoExposureLUT);
     
+    half3 ApplyExposure(half3 input)
+    {
+        half exposure = SAMPLE_TEXTURE2D_LOD(_AutoExposureLUT, sampler_LinearClamp, 0, 0);
+        return input * exposure;
+    }
+
 
     half4 Frag(Varyings input) : SV_Target
     {
         float2 uv = input.texcoord;
         half3 color = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv).xyz;
 
+        color = ApplyExposure(color);
         color = ApplyTonemaping(color);
 
         return half4(color, 1.0);

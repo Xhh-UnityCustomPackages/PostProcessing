@@ -85,6 +85,12 @@ Shader "Hidden/PostProcessing/VolumetricLight"
             half4 Frag(varyings input) : SV_Target
             {
                 float2 uv = input.texcoord;
+
+
+                // float2 channel = floor(input.positionCS);
+                // //棋盘格刷新
+                // clip(channel.y % 2 * channel.x % 2 + (channel.y + 1) % 2 * (channel.x + 1) % 2 - 0.1f);
+
                 // return float4(uv, 0, 1);
                 //read depth and reconstruct world position
                 float depth = SampleSceneDepth(uv);

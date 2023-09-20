@@ -148,9 +148,6 @@ namespace Game.Core.PostProcessing
 
         public override void Setup()
         {
-            m_ScreenSpaceReflectionMaterial = GetMaterial(postProcessFeatureData.shaders.screenSpaceReflectionPS);
-            m_BlurMaterial = Material.Instantiate(postProcessFeatureData.materials.DualBlur);
-
             ShaderConstants._BlurMipUp = new int[k_MaxPyramidSize];
             ShaderConstants._BlurMipDown = new int[k_MaxPyramidSize];
             for (int i = 0; i < k_MaxPyramidSize; i++)
@@ -287,6 +284,12 @@ namespace Game.Core.PostProcessing
 
         private void SetupMaterials(ref RenderingData renderingData)
         {
+            if (m_ScreenSpaceReflectionMaterial == null)
+                m_ScreenSpaceReflectionMaterial = GetMaterial(postProcessFeatureData.shaders.screenSpaceReflectionPS);
+            if (m_BlurMaterial == null)
+                m_BlurMaterial = Material.Instantiate(postProcessFeatureData.materials.DualBlur);
+
+
             var cameraData = renderingData.cameraData;
             var camera = cameraData.camera;
 

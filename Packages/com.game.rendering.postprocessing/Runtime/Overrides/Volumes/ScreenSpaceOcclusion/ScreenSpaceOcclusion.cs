@@ -252,13 +252,16 @@ namespace Game.Core.PostProcessing
 
         public override void Setup()
         {
-            m_AmbientOcclusionMaterial = GetMaterial(postProcessFeatureData.shaders.screenSpaceOcclusionPS);
+
             // TODO 移动端默认如果是 B10G11R11_UFloatPack32 传递深度精度会不太够
             m_AmbientOcclusionColorFormat = SystemInfo.SupportsRenderTextureFormat(RenderTextureFormat.ARGBHalf) ? RenderTextureFormat.ARGBHalf : RenderTextureFormat.Default;
         }
 
         private void SetupMaterials(ref RenderingData renderingData)
         {
+            if (m_AmbientOcclusionMaterial == null)
+                m_AmbientOcclusionMaterial = GetMaterial(postProcessFeatureData.shaders.screenSpaceOcclusionPS);
+
             var cameraData = renderingData.cameraData;
 
             var width = cameraData.cameraTargetDescriptor.width;

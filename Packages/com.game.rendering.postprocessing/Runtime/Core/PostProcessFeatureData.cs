@@ -22,7 +22,7 @@ namespace Game.Core.PostProcessing
         public sealed class ComputeShaderResources
         {
             public ComputeShader autoExposureCS;
-            public ComputeShader exposureHistogramCS;
+            public ComputeShader LogHistogramCS;
         }
 
         [Serializable]
