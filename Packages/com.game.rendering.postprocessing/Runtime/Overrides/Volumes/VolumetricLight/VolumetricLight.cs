@@ -104,12 +104,16 @@ namespace Game.Core.PostProcessing
 
         public override void Setup()
         {
-            m_Material = GetMaterial(postProcessFeatureData.shaders.volumetricLightPS);
-            m_BilateralBlurMaterial = Material.Instantiate(postProcessFeatureData.materials.BilateralBlur);
+
         }
 
         private void SetupMaterials(ref RenderingData renderingData)
         {
+            if (m_Material == null)
+                m_Material = GetMaterial(postProcessFeatureData.shaders.volumetricLightPS);
+            if (m_BilateralBlurMaterial == null)
+                m_BilateralBlurMaterial = Material.Instantiate(postProcessFeatureData.materials.BilateralBlur);
+
             var camera = renderingData.cameraData.camera;
 
             // Quality
