@@ -134,16 +134,14 @@ MonoBehaviour:
     m_RenderersBeforeRenderingDeferredLights:
     - Game.Core.PostProcessing.ScreenSpaceOcclusionRenderer, Game.Rendering.PostProcessing.Runtime,
       Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
+    - Game.Core.PostProcessing.ScreenSpaceReflectionRenderer, Game.Rendering.PostProcessing.Runtime,
+      Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
     m_RenderersAfterRenderingSkybox:
     - Game.Core.PostProcessing.VolumetricLightRenderer, Game.Rendering.PostProcessing.Runtime,
       Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
     - Game.Core.PostProcessing.LightShaftRenderer, Game.Rendering.PostProcessing.Runtime,
       Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
-    - Game.Core.PostProcessing.ScreenSpaceReflectionRenderer, Game.Rendering.PostProcessing.Runtime,
-      Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
     - Game.Core.PostProcessing.AtmosphericHeightFogRenderer, Game.Rendering.PostProcessing.Runtime,
-      Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
-    - Game.Core.PostProcessing.ScreenSpaceGlobalIlluminationRenderer, Game.Rendering.PostProcessing.Runtime,
       Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
     m_RenderersBeforeRenderingPostProcessing:
     - Game.Core.PostProcessing.ExposureRenderer, Game.Rendering.PostProcessing.Runtime,

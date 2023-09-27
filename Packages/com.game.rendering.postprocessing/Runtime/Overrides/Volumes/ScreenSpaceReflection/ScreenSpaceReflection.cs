@@ -75,7 +75,7 @@ namespace Game.Core.PostProcessing
 
     }
 
-    [PostProcess("ScreenSpaceReflection", PostProcessInjectionPoint.AfterRenderingSkybox)]
+    [PostProcess("ScreenSpaceReflection", PostProcessInjectionPoint.BeforeRenderingDeferredLights)]
     public class ScreenSpaceReflectionRenderer : PostProcessVolumeRenderer<ScreenSpaceReflection>
     {
         static class ShaderConstants
