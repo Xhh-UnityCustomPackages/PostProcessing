@@ -179,8 +179,10 @@ namespace Game.Core.PostProcessing
             m_Material.SetVector(ShaderConstants.lightSource, m_LightShaftInclude._LightSource);
         }
 
-        public void Dispose()
+        public override void Dispose(bool disposing)
         {
+            CoreUtils.Destroy(m_Material);
+
             m_LightShaftRT0?.Release();
             m_LightShaftRT1?.Release();
         }

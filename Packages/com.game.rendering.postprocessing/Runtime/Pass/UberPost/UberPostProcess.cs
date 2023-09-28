@@ -74,6 +74,14 @@ namespace Game.Core.PostProcessing
         }
 
 
+        public void Dispose()
+        {
+            CoreUtils.Destroy(m_Material);
+
+            m_CameraTargetHandle?.Release();
+        }
+
+
         RenderTextureDescriptor GetCompatibleDescriptor()
           => GetCompatibleDescriptor(m_Descriptor.width, m_Descriptor.height, m_Descriptor.graphicsFormat);
 

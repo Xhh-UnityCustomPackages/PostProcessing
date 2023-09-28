@@ -292,8 +292,11 @@ namespace Game.Core.PostProcessing
             }
         }
 
-        public void Dispose()
+        public override void Dispose(bool disposing)
         {
+            CoreUtils.Destroy(m_BilateralBlurMaterial);
+            CoreUtils.Destroy(m_Material);
+
             m_VolumetricLightRT?.Release();
             m_TempRT?.Release();
         }

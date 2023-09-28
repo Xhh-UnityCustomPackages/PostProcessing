@@ -369,6 +369,9 @@ namespace Game.Core.PostProcessing
 
         public override void Dispose(bool disposing)
         {
+            CoreUtils.Destroy(m_AmbientOcclusionMaterial);
+
+            m_OcclusionTempRT?.Release();
             m_OcclusionFinalRT?.Release();
             m_OcclusionDepthRT?.Release();
         }

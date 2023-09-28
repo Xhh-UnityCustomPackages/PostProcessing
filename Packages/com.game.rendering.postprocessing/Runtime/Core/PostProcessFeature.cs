@@ -112,6 +112,7 @@ namespace Game.Core.PostProcessing
             m_AfterRenderingSkybox.Dispose(disposing);
             m_BeforeRenderingPostProcessing.Dispose(disposing);
             m_AfterRenderingPostProcessing.Dispose(disposing);
+            m_UberPostProcessing.Dispose();
         }
 
 

@@ -68,9 +68,6 @@ namespace Game.Core.PostProcessing
         const int k_NumAutoExposureTextures = 2;
         RTHandle[] m_AutoExposurePool = new RTHandle[k_NumAutoExposureTextures];
         int m_PingPong;
-        RTHandle m_ExposureTexture;
-
-        bool m_FirstFrame;
         bool m_ResetHistory;
 
         LogHistogram m_LogHistogram;
@@ -211,6 +208,14 @@ namespace Game.Core.PostProcessing
             cmd.SetGlobalTexture("_AutoExposureLUT", currentAutoExposure);
         }
 
+
+        public override void Dispose(bool disposing)
+        {
+            for (int i = 0; i < m_AutoExposurePool.Length; i++)
+            {
+                m_AutoExposurePool[i]?.Release();
+            }
+        }
 
     }
 }
