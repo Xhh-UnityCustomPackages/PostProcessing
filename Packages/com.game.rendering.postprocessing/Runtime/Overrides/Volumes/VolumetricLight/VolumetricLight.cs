@@ -299,6 +299,8 @@ namespace Game.Core.PostProcessing
 
             m_VolumetricLightRT?.Release();
             m_TempRT?.Release();
+            m_HalfVolumetricLightRT?.Release();
+            m_HalfDepthRT?.Release();
         }
     }
 }
