@@ -33,8 +33,9 @@ namespace Game.Core.PostProcessing
 
         public enum Resolution
         {
-            Full,
-            Half
+            Full,       // 1
+            Half,       // 1/2
+            Quarter,    // 1/4
         }
 
         public enum BlurType
@@ -275,9 +276,17 @@ namespace Game.Core.PostProcessing
             if (settings.type.value == ScreenSpaceOcclusion.AOType.ScalableAmbientObscurance)
                 m_AmbientOcclusionMaterial.SetMatrix(ShaderConstants.CameraProjMatrix, cameraData.camera.projectionMatrix);
 
-            var targetScale = settings.resolution.value == ScreenSpaceOcclusion.Resolution.Half ?
-                                new Vector4((width + 0.5f) / width, (height + 0.5f) / height, 1f, 1f) :
-                                Vector4.one;
+            var targetScale = Vector4.one;
+            switch (settings.resolution.value)
+            {
+                case ScreenSpaceOcclusion.Resolution.Half:
+                    targetScale = new Vector4((width + 0.5f) / width, (height + 0.5f) / height, 1f, 1f);
+                    break;
+                case ScreenSpaceOcclusion.Resolution.Quarter:
+                    targetScale = new Vector4((width + 0.25f) / width, (height + 0.25f) / height, 1f, 1f);
+                    break;
+            }
+
 
             float maxRadInPixels = Mathf.Max(16, settings.maxRadiusPixels.value * Mathf.Sqrt((width * height) / (1080.0f * 1920.0f)));
 
@@ -333,6 +342,10 @@ namespace Game.Core.PostProcessing
             if (settings.resolution == ScreenSpaceOcclusion.Resolution.Half)
             {
                 DescriptorDownSample(ref m_AmbientOcclusionDescriptor, 2);
+            }
+            else if (settings.resolution == ScreenSpaceOcclusion.Resolution.Quarter)
+            {
+                DescriptorDownSample(ref m_AmbientOcclusionDescriptor, 4);
             }
 
             RenderingUtils.ReAllocateIfNeeded(ref m_OcclusionFinalRT, m_AmbientOcclusionDescriptor, FilterMode.Bilinear, name: "OcclusionFinalRT");
