@@ -207,7 +207,7 @@ namespace Game.Core.PostProcessing
             }
 
             m_TempRT0?.Release();
-            m_TempRT0?.Release();
+            m_TempRT1?.Release();
         }
 
     }
