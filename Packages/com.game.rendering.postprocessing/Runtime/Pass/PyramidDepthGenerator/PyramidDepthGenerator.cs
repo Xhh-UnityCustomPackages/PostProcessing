@@ -30,6 +30,7 @@ namespace Game.Core.PostProcessing
         public PyramidDepthGenerator(ComputeShader shader, in int maxMipCount = 10)
         {
             base.profilingSampler = new ProfilingSampler(nameof(PyramidDepthGenerator));
+            renderPassEvent = RenderPassEvent.BeforeRenderingDeferredLights;
             m_Shader = shader;
             m_MipCount = maxMipCount;
 
@@ -43,6 +44,7 @@ namespace Game.Core.PostProcessing
             var depthDescriptor = renderingData.cameraData.cameraTargetDescriptor;
             depthDescriptor.useMipMap = true;
             depthDescriptor.mipCount = m_MipCount;
+            depthDescriptor.msaaSamples = 1;
 
             // if (this.renderingModeActual != RenderingMode.Deferred)
             // {
@@ -77,7 +79,7 @@ namespace Game.Core.PostProcessing
             if (renderingData.cameraData.isPreviewCamera)
                 return;
 
-            var cmd = CommandBufferPool.Get("Pyramid Depth Generator");
+            var cmd = CommandBufferPool.Get();
             using (new ProfilingScope(cmd, this.profilingSampler))
             {
                 context.ExecuteCommandBuffer(cmd);
