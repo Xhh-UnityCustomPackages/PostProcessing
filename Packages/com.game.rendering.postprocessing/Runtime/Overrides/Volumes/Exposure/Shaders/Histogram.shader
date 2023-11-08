@@ -7,6 +7,7 @@ Shader "Hidden/PostProcessing/Debug/Histogram"
 
     // #include "StdLib.hlsl"
     #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+    #include "Packages/com.unity.render-pipelines.core/Runtime/Utilities/Blit.hlsl"
 
     #if SHADER_API_GLES3
         #define HISTOGRAM_BINS 128
@@ -38,15 +39,15 @@ Shader "Hidden/PostProcessing/Debug/Histogram"
         return float(maxValue);
     }
 
-    VaryingsHistogram Vert(AttributesDefault v)
+    VaryingsHistogram VertHistogram(Attributes input)
     {
         VaryingsHistogram o;
-        o.vertex = float4(v.vertex.xy, 0.0, 1.0);
-        o.texcoord = TransformTriangleVertexToUV(v.vertex.xy);
 
-        #if UNITY_UV_STARTS_AT_TOP
-            o.texcoord = o.texcoord * float2(1.0, -1.0) + float2(0.0, 1.0);
-        #endif
+        float4 pos = GetFullScreenTriangleVertexPosition(input.vertexID);
+        float2 uv = GetFullScreenTriangleTexCoord(input.vertexID);
+
+        o.vertex = pos;
+        o.texcoord = uv * _BlitScaleBias.xy + _BlitScaleBias.zw;
 
         #if SHADER_API_GLES3 // No texture loopup in VS on GLES3/Android
             o.maxValue = 0;
@@ -90,7 +91,7 @@ Shader "Hidden/PostProcessing/Debug/Histogram"
         {
             HLSLPROGRAM
 
-            #pragma vertex Vert
+            #pragma vertex VertHistogram
             #pragma fragment Frag
 
             ENDHLSL

@@ -41,6 +41,9 @@ namespace Game.Core.PostProcessing
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
         {
             var depthDescriptor = renderingData.cameraData.cameraTargetDescriptor;
+            depthDescriptor.useMipMap = true;
+            depthDescriptor.mipCount = m_MipCount;
+
             // if (this.renderingModeActual != RenderingMode.Deferred)
             // {
             //     depthDescriptor.graphicsFormat = GraphicsFormat.None;
@@ -52,15 +55,14 @@ namespace Game.Core.PostProcessing
                 depthDescriptor.graphicsFormat = GraphicsFormat.R32_SFloat;
                 depthDescriptor.depthStencilFormat = GraphicsFormat.None;
                 depthDescriptor.depthBufferBits = 0;
-                depthDescriptor.useMipMap = true;
-                depthDescriptor.mipCount = m_MipCount;
             }
+
             RenderingUtils.ReAllocateIfNeeded(ref m_HizRT, depthDescriptor, FilterMode.Point, wrapMode: TextureWrapMode.Clamp, name: "_HizDepthTexture");
             RenderingUtils.ReAllocateIfNeeded(ref m_HizRT1, depthDescriptor, FilterMode.Point, wrapMode: TextureWrapMode.Clamp, name: "_HizDepthTexture1");
 
-
+            //---------------------------------
             depthDescriptor.enableRandomWrite = true;
-            depthDescriptor.useMipMap = false;
+            // depthDescriptor.useMipMap = false;
             for (int i = 0; i < m_MipCount; ++i)
             {
                 depthDescriptor.width /= 2;
@@ -81,24 +83,33 @@ namespace Game.Core.PostProcessing
                 context.ExecuteCommandBuffer(cmd);
                 cmd.Clear();
 
-                int width = renderingData.cameraData.cameraTargetDescriptor.width;
-                int height = renderingData.cameraData.cameraTargetDescriptor.height;
-                PyramidDepthUpdate(cmd, new int2(width, height));
+                PyramidDepthUpdate(cmd, ref renderingData);
             }
-
 
             context.ExecuteCommandBuffer(cmd);
             CommandBufferPool.Release(cmd);
         }
 
 
-        public void PyramidDepthUpdate(CommandBuffer cmd, in int2 screenSize)
+        public void PyramidDepthUpdate(CommandBuffer cmd, ref RenderingData renderingData)
         {
-            int2 pyramidSize = screenSize;
-            int2 lastPyramidSize = screenSize;
+            int width = renderingData.cameraData.cameraTargetDescriptor.width;
+            int height = renderingData.cameraData.cameraTargetDescriptor.height;
 
+            int2 pyramidSize = new int2(width, height);
+            int2 lastPyramidSize = pyramidSize;
+
+#if UNITY_2023_1_18
+            RTHandle lastPyramidDepthTexture = renderingData.cameraData.renderer.cameraDepthTargetHandle;
+
+#else
             RenderTargetIdentifier lastPyramidDepthTexture = Shader.GetGlobalTexture("_CameraDepthTexture");
             cmd.CopyTexture(lastPyramidDepthTexture, 0, 0, m_HizRT, 0, 0);
+#endif
+
+            // Debug.LogError($"lastPyramidDepthTexture:{lastPyramidDepthTexture}");
+
+
             for (int i = 0; i < m_MipCount; ++i)
             {
                 pyramidSize /= 2;
