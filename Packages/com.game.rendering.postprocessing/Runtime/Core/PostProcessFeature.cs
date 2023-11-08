@@ -25,6 +25,8 @@ namespace Game.Core.PostProcessing
             [SerializeField]
             public PostProcessFeatureData m_PostProcessFeatureData;
 
+            public bool GeneratorPyramidDepth = false;
+
             //各个阶段
             [SerializeField] public List<string> m_RenderersBeforeRenderingGBuffer;
             [SerializeField] public List<string> m_RenderersBeforeRenderingDeferredLights;
@@ -46,6 +48,9 @@ namespace Game.Core.PostProcessing
 
         PostProcessRenderPass m_BeforeRenderingGBuffer, m_BeforeRenderingDeferredLights, m_AfterRenderingSkybox, m_BeforeRenderingPostProcessing, m_AfterRenderingPostProcessing;
         UberPostProcess m_UberPostProcessing;
+        PyramidDepthGenerator m_HizDepthGenerator;
+
+
         public override void Create()
         {
             Dictionary<string, PostProcessRenderer> shared = new Dictionary<string, PostProcessRenderer>();
@@ -102,6 +107,13 @@ namespace Game.Core.PostProcessing
                 m_AfterRenderingPostProcessing.AddRenderPasses(ref renderingData);
 
                 renderer.EnqueuePass(m_UberPostProcessing);
+            }
+
+            if (m_Settings.GeneratorPyramidDepth)
+            {
+                if (m_HizDepthGenerator == null)
+                    m_HizDepthGenerator = new PyramidDepthGenerator(m_Settings.m_PostProcessFeatureData.computeShaders.pyramidDepthGeneratorCS);
+                renderer.EnqueuePass(m_HizDepthGenerator);
             }
         }
 
