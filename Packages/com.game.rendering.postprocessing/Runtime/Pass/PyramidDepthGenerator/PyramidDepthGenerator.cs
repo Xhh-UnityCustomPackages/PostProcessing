@@ -60,6 +60,7 @@ namespace Game.Core.PostProcessing
 
 
             depthDescriptor.enableRandomWrite = true;
+            depthDescriptor.useMipMap = false;
             for (int i = 0; i < m_MipCount; ++i)
             {
                 depthDescriptor.width /= 2;
@@ -116,7 +117,7 @@ namespace Game.Core.PostProcessing
                 lastPyramidDepthTexture = m_PyramidMipIDs[i];
             }
 
-            cmd.Blit(m_HizRT, m_HizRT1);
+            // cmd.Blit(m_HizRT, m_HizRT1);
         }
     }
 }

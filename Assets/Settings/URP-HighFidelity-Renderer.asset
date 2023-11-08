@@ -130,7 +130,10 @@ MonoBehaviour:
   m_Settings:
     m_PostProcessFeatureData: {fileID: 11400000, guid: edde15894e221c3479e6672674dd00be,
       type: 2}
-    m_RenderersBeforeRenderingGBuffer: []
+    GeneratorPyramidDepth: 1
+    m_RenderersBeforeRenderingGBuffer:
+    - Game.Core.PostProcessing.ContactShadowRenderer, Game.Rendering.PostProcessing.Runtime,
+      Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
     m_RenderersBeforeRenderingDeferredLights:
     - Game.Core.PostProcessing.ScreenSpaceOcclusionRenderer, Game.Rendering.PostProcessing.Runtime,
       Version=0.0.0.0, Culture=neutral, PublicKeyToken=null

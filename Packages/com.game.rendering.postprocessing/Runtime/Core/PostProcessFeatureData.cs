@@ -24,6 +24,7 @@ namespace Game.Core.PostProcessing
             public ComputeShader autoExposureCS;
             public ComputeShader LogHistogramCS;
             public ComputeShader pyramidDepthGeneratorCS;
+            public ComputeShader contractShadowCS;
         }
 
         [Serializable]

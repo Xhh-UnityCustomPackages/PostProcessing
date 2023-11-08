@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
+using UnityEngine.Experimental.Rendering;
 
 namespace Game.Core.PostProcessing
 {
@@ -56,27 +57,26 @@ namespace Game.Core.PostProcessing
         /// Controls the thickness of the objects found along the ray, essentially thickening the contact shadows.
         /// </summary>
         public ClampedFloatParameter thicknessScale = new ClampedFloatParameter(0.15f, 0.02f, 1.0f);
+        public ClampedIntParameter sampleCount = new ClampedIntParameter(8, 8, 64);
 
         public override bool IsActive() => enable.value;
 
 
-        public int sampleCount
-        {
-            get
-            {
-                return m_SampleCount.value;
-            }
-            set { m_SampleCount.value = value; }
-        }
 
-        [SerializeField]
-        private NoInterpClampedIntParameter m_SampleCount = new NoInterpClampedIntParameter(10, 4, 64);
     }
 
-
-    [PostProcess("ContactShadow", PostProcessInjectionPoint.AfterRenderingSkybox)]
+    //https://github.com/himma-bit/empty/blob/main/Assets/Scripts/ContactShadow/ContactShadowMapGenerater.cs
+    [PostProcess("ContactShadow", PostProcessInjectionPoint.BeforeRenderingGBuffer)]
     public class ContactShadowRenderer : PostProcessVolumeRenderer<ContactShadow>
     {
+        static class ShaderConstants
+        {
+            public static readonly int ParametersID = Shader.PropertyToID("_ContactShadowParamsParameters");
+            public static readonly int Parameters2ID = Shader.PropertyToID("_ContactShadowParamsParameters2");
+            public static readonly int Parameters3ID = Shader.PropertyToID("_ContactShadowParamsParameters3");
+            public static readonly int TextureUAVID = Shader.PropertyToID("_ContactShadowTextureUAV");
+        }
+
         class RenderContactShadowPassData
         {
             public ComputeShader contactShadowsCS;
@@ -90,20 +90,51 @@ namespace Game.Core.PostProcessing
             public int numTilesY;
             public int viewCount;
 
-            public RTHandle depthTexture;
+            // public RTHandle depthTexture;
             public RTHandle contactShadowsTexture;
         }
 
-        RenderContactShadowPassData m_PassData = new RenderContactShadowPassData();
+        RenderContactShadowPassData m_PassData = new();
+        int m_DeferredContactShadowKernel = -1;
+
+
+        public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
+        {
+            var desc = renderingData.cameraData.cameraTargetDescriptor;
+            desc.graphicsFormat = GraphicsFormat.R8_UNorm;
+            desc.depthBufferBits = 0;
+            desc.enableRandomWrite = true;
+            desc.useMipMap = false;
+
+            RenderingUtils.ReAllocateIfNeeded(ref m_PassData.contactShadowsTexture, desc);
+
+            Shader.SetGlobalTexture("_ContactShadowMap", m_PassData.contactShadowsTexture);
+        }
 
         public override void Render(CommandBuffer cmd, RTHandle source, RTHandle destination, ref RenderingData renderingData)
         {
-            bool msaa = renderingData.cameraData.camera.allowMSAA;
+            RenderContractShadows();
+            var computeShader = postProcessFeatureData.computeShaders.contractShadowCS;
+            if (m_DeferredContactShadowKernel == -1)
+            {
+                m_DeferredContactShadowKernel = computeShader.FindKernel("ContactShadowMap");
+            }
 
+            cmd.SetComputeVectorParam(computeShader, ShaderConstants.ParametersID, m_PassData.params1);
+            cmd.SetComputeVectorParam(computeShader, ShaderConstants.Parameters2ID, m_PassData.params2);
+            cmd.SetComputeVectorParam(computeShader, ShaderConstants.Parameters3ID, m_PassData.params3);
+            cmd.SetComputeTextureParam(computeShader, m_DeferredContactShadowKernel, ShaderConstants.TextureUAVID, m_PassData.contactShadowsTexture);
+
+            int width = renderingData.cameraData.cameraTargetDescriptor.width;
+            int height = renderingData.cameraData.cameraTargetDescriptor.height;
+            cmd.DispatchCompute(computeShader, m_DeferredContactShadowKernel, Mathf.CeilToInt(width / 8.0f), Mathf.CeilToInt(height / 8.0f), 1);
+
+
+            // cmd.Blit(m_PassData.contactShadowsTexture, destination);
         }
 
 
-        void RenderContractShadows(int firstMipOffsetY)
+        void RenderContractShadows()
         {
             float contactShadowRange = Mathf.Clamp(settings.fadeDistance.value, 0.0f, settings.maxDistance.value);
             float contactShadowFadeEnd = settings.maxDistance.value;
@@ -113,8 +144,10 @@ namespace Game.Core.PostProcessing
             float contactShadowFadeIn = Mathf.Clamp(settings.fadeInDistance.value, 1e-6f, contactShadowFadeEnd);
 
             m_PassData.params1 = new Vector4(settings.length.value, settings.distanceScaleFactor.value, contactShadowFadeEnd, contactShadowOneOverFadeRange);
-            m_PassData.params2 = new Vector4(firstMipOffsetY, contactShadowMinDist, contactShadowFadeIn, settings.rayBias.value * 0.01f);
-            m_PassData.params3 = new Vector4(settings.sampleCount, settings.thicknessScale.value * 10.0f, 0.0f, 0.0f);
+            m_PassData.params2 = new Vector4(0, contactShadowMinDist, contactShadowFadeIn, settings.rayBias.value * 0.01f);
+            m_PassData.params3 = new Vector4(settings.sampleCount.value, settings.thicknessScale.value * 10.0f, 0.0f, 0.0f);
+
+
         }
     }
 }
