@@ -20,7 +20,6 @@ namespace Game.Core.PostProcessing
             public static readonly int DESTINATION_SIZE_X = Shader.PropertyToID("destinationSizeX");
             public static readonly int DESTINATION_SIZE_Y = Shader.PropertyToID("destinationSizeY");
             public static readonly int REVERSE_Z = Shader.PropertyToID("reverseZ");
-            public static readonly int SCALE = Shader.PropertyToID("scale");
         }
 
         private RenderTextureDescriptor m_HiZDepthDesc;
@@ -146,7 +145,6 @@ namespace Game.Core.PostProcessing
             cmd.SetComputeIntParam(computeShader, CopyTextureKernelProperties.SOURCE_SIZE_X, source.width);
             cmd.SetComputeIntParam(computeShader, CopyTextureKernelProperties.SOURCE_SIZE_Y, source.height);
             cmd.SetComputeIntParam(computeShader, CopyTextureKernelProperties.REVERSE_Z, reverseZ ? 1 : 0);
-            cmd.SetComputeIntParam(computeShader, CopyTextureKernelProperties.SCALE, Mathf.Abs(sourceMip - destinationMip) == 0 ? 2 : 1);
 
             float COMPUTE_SHADER_THREAD_COUNT_2D = 16.0f;
             int threadGroupX = Mathf.CeilToInt(source.width / COMPUTE_SHADER_THREAD_COUNT_2D);

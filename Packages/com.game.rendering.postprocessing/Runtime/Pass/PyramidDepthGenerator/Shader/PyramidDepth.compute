@@ -4,7 +4,6 @@
 #define GPUI_THREADS_2D 16
 
 uniform int reverseZ;
-uniform int scale;
 uniform Texture2D<float4> source;
 uniform SamplerState sampler_source;
 uniform RWTexture2D<float4> destination;
@@ -17,7 +16,7 @@ void CSCopyTexture(uint2 id : SV_DispatchThreadID)
     if (id.x >= sourceSizeX || id.y >= sourceSizeY)
         return;
     
-    float4 color = source[id.xy * scale];
+    float4 color = source[id.xy];
 
     #if SHADER_API_GLCORE || SHADER_API_GLES3
         if (reverseZ)
