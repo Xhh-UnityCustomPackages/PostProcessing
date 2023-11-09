@@ -94,6 +94,8 @@ namespace Game.Core.PostProcessing
 
             ConfigureTarget(m_HiZDepthRT);
 
+            Shader.SetGlobalTexture("_HizDepthTexture", m_HiZDepthRT);
+
         }
 
         public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
