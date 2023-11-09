@@ -11,67 +11,90 @@ namespace Game.Core.PostProcessing
     public class PyramidDepthGenerator : ScriptableRenderPass
     {
 
-        public static class PyramidDepthShaderIDs
+        public static class CopyTextureKernelProperties
         {
-            public static int PrevMipDepth = Shader.PropertyToID("_PrevMipDepth");
-            public static int HierarchicalDepth = Shader.PropertyToID("_HierarchicalDepth");
-            public static int PrevCurr_InvSize = Shader.PropertyToID("_PrevCurr_Inverse_Size");
+            public static readonly int SOURCE_TEXTURE = Shader.PropertyToID("source");
+            public static readonly int DESTINATION_TEXTURE = Shader.PropertyToID("destination");
+            public static readonly int SOURCE_SIZE_X = Shader.PropertyToID("sourceSizeX");
+            public static readonly int SOURCE_SIZE_Y = Shader.PropertyToID("sourceSizeY");
+            public static readonly int DESTINATION_SIZE_X = Shader.PropertyToID("destinationSizeX");
+            public static readonly int DESTINATION_SIZE_Y = Shader.PropertyToID("destinationSizeY");
+            public static readonly int REVERSE_Z = Shader.PropertyToID("reverseZ");
+            public static readonly int SCALE = Shader.PropertyToID("scale");
         }
 
-        const GraphicsFormat k_DepthStencilFormat = GraphicsFormat.D32_SFloat_S8_UInt;
-        const int k_DepthBufferBits = 32;
+        private RenderTextureDescriptor m_HiZDepthDesc;
+        private RenderTextureDescriptor m_HiZMipDesc;
+        private ComputeShader m_ComputeShader;
+        private RTHandle m_HiZDepthRT;
+        private int m_HiZMipLevels;
+        private RTHandle[] m_HiZMipsLevelRT;
 
-        private ComputeShader m_Shader;
-        private RTHandle m_HizRT;
-        private RTHandle m_HizRT1;
-        private int m_MipCount;
-        private RTHandle[] m_PyramidMipIDs;
-
-        public PyramidDepthGenerator(ComputeShader shader, in int maxMipCount = 10)
+        public PyramidDepthGenerator(ComputeShader shader)
         {
             base.profilingSampler = new ProfilingSampler(nameof(PyramidDepthGenerator));
             renderPassEvent = RenderPassEvent.BeforeRenderingDeferredLights;
-            m_Shader = shader;
-            m_MipCount = maxMipCount;
-
-            m_PyramidMipIDs = new RTHandle[m_MipCount];
+            m_ComputeShader = shader;
 
         }
 
 
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
         {
-            var depthDescriptor = renderingData.cameraData.cameraTargetDescriptor;
-            depthDescriptor.useMipMap = true;
-            depthDescriptor.mipCount = m_MipCount;
-            depthDescriptor.msaaSamples = 1;
+            int width = renderingData.cameraData.cameraTargetDescriptor.width;
+            int height = renderingData.cameraData.cameraTargetDescriptor.height;
 
-            // if (this.renderingModeActual != RenderingMode.Deferred)
-            // {
-            //     depthDescriptor.graphicsFormat = GraphicsFormat.None;
-            //     depthDescriptor.depthStencilFormat = k_DepthStencilFormat;
-            //     depthDescriptor.depthBufferBits = k_DepthBufferBits;
-            // }
-            // else
+            if (m_HiZDepthDesc.width != width || m_HiZDepthDesc.height != height)
             {
-                depthDescriptor.graphicsFormat = GraphicsFormat.R32_SFloat;
-                depthDescriptor.depthStencilFormat = GraphicsFormat.None;
-                depthDescriptor.depthBufferBits = 0;
+                m_HiZDepthDesc = new RenderTextureDescriptor(width, height);
+                m_HiZDepthDesc.width = width;
+                m_HiZDepthDesc.height = height;
+                m_HiZDepthDesc.useMipMap = true;
+                m_HiZDepthDesc.autoGenerateMips = false;
+                m_HiZDepthDesc.enableRandomWrite = true;
+                m_HiZDepthDesc.colorFormat = RenderTextureFormat.RFloat;
+                m_HiZDepthDesc.volumeDepth = 1;
+                m_HiZDepthDesc.msaaSamples = 1;
+                m_HiZDepthDesc.bindMS = false;
+                m_HiZDepthDesc.dimension = TextureDimension.Tex2D;
+
+                m_HiZMipDesc = m_HiZDepthDesc;
+                m_HiZMipDesc.useMipMap = false;
             }
 
-            RenderingUtils.ReAllocateIfNeeded(ref m_HizRT, depthDescriptor, FilterMode.Point, wrapMode: TextureWrapMode.Clamp, name: "_HizDepthTexture");
-            RenderingUtils.ReAllocateIfNeeded(ref m_HizRT1, depthDescriptor, FilterMode.Point, wrapMode: TextureWrapMode.Clamp, name: "_HizDepthTexture1");
 
-            //---------------------------------
-            depthDescriptor.enableRandomWrite = true;
-            // depthDescriptor.useMipMap = false;
-            for (int i = 0; i < m_MipCount; ++i)
+            RenderingUtils.ReAllocateIfNeeded(ref m_HiZDepthRT, m_HiZDepthDesc, FilterMode.Point, wrapMode: TextureWrapMode.Clamp, name: "HiZDepthRT");
+
+            m_HiZMipLevels = (int)Mathf.Floor(Mathf.Log(width, 2f));
+            if (m_HiZMipsLevelRT == null || m_HiZMipsLevelRT.Length != m_HiZMipLevels)
             {
-                depthDescriptor.width /= 2;
-                depthDescriptor.height /= 2;
-                if (depthDescriptor.width < 1 || depthDescriptor.height < 1) break;
-                RenderingUtils.ReAllocateIfNeeded(ref m_PyramidMipIDs[i], depthDescriptor, FilterMode.Point, wrapMode: TextureWrapMode.Clamp, name: "_SSSRDepthMip" + i);
+                if (m_HiZMipsLevelRT != null)
+                {
+                    for (int i = 0; i < m_HiZMipsLevelRT.Length; i++)
+                    {
+                        m_HiZMipsLevelRT[i].Release();
+                    }
+                }
+
+                m_HiZMipsLevelRT = new RTHandle[m_HiZMipLevels];
             }
+
+            for (int i = 0; i < m_HiZMipLevels; ++i)
+            {
+                width = width >> 1;
+                height = height >> 1;
+
+                if (width == 0) width = 1;
+                if (height == 0) height = 1;
+
+                m_HiZMipDesc.width = width;
+                m_HiZMipDesc.height = height;
+
+                RenderingUtils.ReAllocateIfNeeded(ref m_HiZMipsLevelRT[i], m_HiZMipDesc, FilterMode.Point, wrapMode: TextureWrapMode.Clamp, name: "HiZDepthRT_Mip_" + i);
+            }
+
+            ConfigureTarget(m_HiZDepthRT);
+
         }
 
         public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
@@ -95,42 +118,72 @@ namespace Game.Core.PostProcessing
 
         public void PyramidDepthUpdate(CommandBuffer cmd, ref RenderingData renderingData)
         {
-            int width = renderingData.cameraData.cameraTargetDescriptor.width;
-            int height = renderingData.cameraData.cameraTargetDescriptor.height;
+            var unityDepthTexture = renderingData.cameraData.renderer.cameraDepthTargetHandle;
 
-            int2 pyramidSize = new int2(width, height);
-            int2 lastPyramidSize = pyramidSize;
+            CopyTextureWithComputeShader(cmd, m_ComputeShader, unityDepthTexture, m_HiZDepthRT);
 
-#if UNITY_2023_1_18
-            RTHandle lastPyramidDepthTexture = renderingData.cameraData.renderer.cameraDepthTargetHandle;
-
-#else
-            RenderTargetIdentifier lastPyramidDepthTexture = Shader.GetGlobalTexture("_CameraDepthTexture");
-            cmd.CopyTexture(lastPyramidDepthTexture, 0, 0, m_HizRT, 0, 0);
-#endif
-
-            // Debug.LogError($"lastPyramidDepthTexture:{lastPyramidDepthTexture}");
-
-
-            for (int i = 0; i < m_MipCount; ++i)
+            for (int i = 0; i < m_HiZMipLevels - 1; ++i)
             {
-                pyramidSize /= 2;
-                int dispatchSizeX = Mathf.CeilToInt(pyramidSize.x / 8);
-                int dispatchSizeY = Mathf.CeilToInt(pyramidSize.y / 8);
+                var tempRT = m_HiZMipsLevelRT[i];
 
-                if (dispatchSizeX < 1 || dispatchSizeY < 1) break;
+                if (i == 0)
+                    ReduceTextureWithComputeShader(cmd, m_ComputeShader, m_HiZDepthRT, tempRT);
+                else
+                    ReduceTextureWithComputeShader(cmd, m_ComputeShader, m_HiZMipsLevelRT[i - 1], tempRT);
 
-                cmd.SetComputeVectorParam(m_Shader, PyramidDepthShaderIDs.PrevCurr_InvSize, new float4(1.0f / pyramidSize.x, 1.0f / pyramidSize.y, 1.0f / lastPyramidSize.x, 1.0f / lastPyramidSize.y));
-                cmd.SetComputeTextureParam(m_Shader, 0, PyramidDepthShaderIDs.PrevMipDepth, lastPyramidDepthTexture);
-                cmd.SetComputeTextureParam(m_Shader, 0, PyramidDepthShaderIDs.HierarchicalDepth, m_PyramidMipIDs[i]);
-                cmd.DispatchCompute(m_Shader, 0, Mathf.CeilToInt(pyramidSize.x / 8), Mathf.CeilToInt(pyramidSize.y / 8), 1);
-                cmd.CopyTexture(m_PyramidMipIDs[i], 0, 0, m_HizRT, 0, i + 1);
+                CopyTextureWithComputeShader(cmd, m_ComputeShader, tempRT, m_HiZDepthRT, 0, i + 1, false);
+            }
+        }
 
-                lastPyramidSize = pyramidSize;
-                lastPyramidDepthTexture = m_PyramidMipIDs[i];
+
+
+        public static void CopyTextureWithComputeShader(CommandBuffer cmd, ComputeShader computeShader, Texture source, Texture destination, int sourceMip = 0, int destinationMip = 0, bool reverseZ = true)
+        {
+            int kernelID = 0;
+            cmd.SetComputeTextureParam(computeShader, kernelID, CopyTextureKernelProperties.SOURCE_TEXTURE, source, sourceMip);
+            cmd.SetComputeTextureParam(computeShader, kernelID, CopyTextureKernelProperties.DESTINATION_TEXTURE, destination, destinationMip);
+
+            cmd.SetComputeIntParam(computeShader, CopyTextureKernelProperties.SOURCE_SIZE_X, source.width);
+            cmd.SetComputeIntParam(computeShader, CopyTextureKernelProperties.SOURCE_SIZE_Y, source.height);
+            cmd.SetComputeIntParam(computeShader, CopyTextureKernelProperties.REVERSE_Z, reverseZ ? 1 : 0);
+            cmd.SetComputeIntParam(computeShader, CopyTextureKernelProperties.SCALE, Mathf.Abs(sourceMip - destinationMip) == 0 ? 2 : 1);
+
+            float COMPUTE_SHADER_THREAD_COUNT_2D = 16.0f;
+            int threadGroupX = Mathf.CeilToInt(source.width / COMPUTE_SHADER_THREAD_COUNT_2D);
+            int threadGroupY = Mathf.CeilToInt(source.height / COMPUTE_SHADER_THREAD_COUNT_2D);
+            cmd.DispatchCompute(computeShader, kernelID, threadGroupX, threadGroupY, 1);
+        }
+
+        public static void ReduceTextureWithComputeShader(CommandBuffer cmd, ComputeShader computeShader, Texture source, Texture destination, int sourceMip = 0, int destinationMip = 0)
+        {
+            int kernelID = 1;
+            int sourceW = source.width;
+            int sourceH = source.height;
+            int destinationW = destination.width;
+            int destinationH = destination.height;
+            for (int i = 0; i < sourceMip; i++)
+            {
+                sourceW >>= 1;
+                sourceH >>= 1;
+            }
+            for (int i = 0; i < destinationMip; i++)
+            {
+                destinationW >>= 1;
+                destinationH >>= 1;
             }
 
-            // cmd.Blit(m_HizRT, m_HizRT1);
+            cmd.SetComputeTextureParam(computeShader, kernelID, CopyTextureKernelProperties.SOURCE_TEXTURE, source, sourceMip);
+            cmd.SetComputeTextureParam(computeShader, kernelID, CopyTextureKernelProperties.DESTINATION_TEXTURE, destination, destinationMip);
+
+            cmd.SetComputeIntParam(computeShader, CopyTextureKernelProperties.SOURCE_SIZE_X, sourceW);
+            cmd.SetComputeIntParam(computeShader, CopyTextureKernelProperties.SOURCE_SIZE_Y, sourceH);
+            cmd.SetComputeIntParam(computeShader, CopyTextureKernelProperties.DESTINATION_SIZE_X, destinationW);
+            cmd.SetComputeIntParam(computeShader, CopyTextureKernelProperties.DESTINATION_SIZE_Y, destinationH);
+
+            float COMPUTE_SHADER_THREAD_COUNT_2D = 16.0f;
+            int threadGroupX = Mathf.CeilToInt(destinationW / COMPUTE_SHADER_THREAD_COUNT_2D);
+            int threadGroupY = Mathf.CeilToInt(destinationH / COMPUTE_SHADER_THREAD_COUNT_2D);
+            cmd.DispatchCompute(computeShader, kernelID, threadGroupX, threadGroupY, 1);
         }
     }
 }

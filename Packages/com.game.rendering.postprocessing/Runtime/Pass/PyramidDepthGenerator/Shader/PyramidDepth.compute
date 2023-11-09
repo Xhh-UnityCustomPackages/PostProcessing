@@ -1,29 +1,47 @@
-﻿#pragma kernel HiZ_Generation
-#pragma enable_d3d11_debug_symbols
+﻿#pragma kernel CSCopyTexture
+#pragma kernel CSReduceTexture
 
-float4 _PrevCurr_Inverse_Size;
-Texture2D<float> _PrevMipDepth; 
-SamplerState Global_point_clamp_sampler;
-RWTexture2D<float> _HierarchicalDepth;
+#define GPUI_THREADS_2D 16
 
-[numthreads(8, 8, 1)]
-void HiZ_Generation (uint3 id : SV_DispatchThreadID)
+uniform int reverseZ;
+uniform int scale;
+uniform Texture2D<float4> source;
+uniform SamplerState sampler_source;
+uniform RWTexture2D<float4> destination;
+uniform uint sourceSizeX, sourceSizeY;
+uniform uint destinationSizeX, destinationSizeY;
+
+[numthreads(GPUI_THREADS_2D, GPUI_THREADS_2D, 1)]
+void CSCopyTexture(uint2 id : SV_DispatchThreadID)
 {
-    float2 uv = (id.xy + 0.5) * _PrevCurr_Inverse_Size.xy;
-    float FinalMinZ = _PrevMipDepth.SampleLevel(Global_point_clamp_sampler, uv, 0);
+    if (id.x >= sourceSizeX || id.y >= sourceSizeY)
+        return;
     
-    /*FinalMinZ = max( FinalMinZ, _PrevMipDepth.SampleLevel(sampler_PrevMipDepth, uv + int2( 1,  0) * _PrevCurr_Inverse_Size.zw, 0) );
-    FinalMinZ = max( FinalMinZ, _PrevMipDepth.SampleLevel(sampler_PrevMipDepth, uv + int2(-1,  0) * _PrevCurr_Inverse_Size.zw, 0) );
-    FinalMinZ = max( FinalMinZ, _PrevMipDepth.SampleLevel(sampler_PrevMipDepth, uv + int2( 0,  1) * _PrevCurr_Inverse_Size.zw, 0) );
-    FinalMinZ = max( FinalMinZ, _PrevMipDepth.SampleLevel(sampler_PrevMipDepth, uv + int2( 0, -1) * _PrevCurr_Inverse_Size.zw, 0) );
-    FinalMinZ = max( FinalMinZ, _PrevMipDepth.SampleLevel(sampler_PrevMipDepth, uv + int2( 1,  1) * _PrevCurr_Inverse_Size.zw, 0) );
-    FinalMinZ = max( FinalMinZ, _PrevMipDepth.SampleLevel(sampler_PrevMipDepth, uv + int2(-1,  1) * _PrevCurr_Inverse_Size.zw, 0) );
-    FinalMinZ = max( FinalMinZ, _PrevMipDepth.SampleLevel(sampler_PrevMipDepth, uv + int2( 1, -1) * _PrevCurr_Inverse_Size.zw, 0) );
-    FinalMinZ = max( FinalMinZ, _PrevMipDepth.SampleLevel(sampler_PrevMipDepth, uv + int2(-1, -1) * _PrevCurr_Inverse_Size.zw, 0) );*/
+    float4 color = source[id.xy * scale];
 
-    FinalMinZ = max(FinalMinZ, _PrevMipDepth.SampleLevel(Global_point_clamp_sampler, uv, 0, int2(0, -1)));
-    FinalMinZ = max(FinalMinZ, _PrevMipDepth.SampleLevel(Global_point_clamp_sampler, uv, 0, int2(-1, 0)));
-    FinalMinZ = max(FinalMinZ, _PrevMipDepth.SampleLevel(Global_point_clamp_sampler, uv, 0, int2(-1, -1)));
+    #if SHADER_API_GLCORE || SHADER_API_GLES3
+        if (reverseZ)
+            color.r = 1 - color.r;
+    #endif
+
+    destination[id.xy] = color;
+}
+
+[numthreads(GPUI_THREADS_2D, GPUI_THREADS_2D, 1)]
+void CSReduceTexture(uint2 id : SV_DispatchThreadID)
+{
+    if (id.x >= destinationSizeX || id.y >= destinationSizeY)
+        return;
     
-    _HierarchicalDepth[id.xy] = FinalMinZ;
+    float2 uv = float2((id.x + 0.5) / destinationSizeX, (id.y + 0.5) / destinationSizeY);
+    
+    float4 r;
+    r.x = source.SampleLevel(sampler_source, uv + float2(1.0 / sourceSizeX, 0), 0).r;
+    r.y = source.SampleLevel(sampler_source, uv + float2(-1.0 / sourceSizeX, 0), 0).r;
+    r.z = source.SampleLevel(sampler_source, uv + float2(0, 1.0 / sourceSizeY), 0).r;
+    r.w = source.SampleLevel(sampler_source, uv + float2(0, -1.0 / sourceSizeY), 0).r;
+    
+    float minimum = min(min(min(r.x, r.y), r.z), r.w);
+    
+    destination[id.xy] = float4(minimum, 1.0, 1.0, 1.0);
 }
