@@ -5,8 +5,8 @@
       "depth": 0,
       "source": "embedded",
       "dependencies": {
-        "com.unity.render-pipelines.core": "15.0.6",
-        "com.unity.render-pipelines.universal": "15.0.6"
+        "com.unity.render-pipelines.core": "15.0.7",
+        "com.unity.render-pipelines.universal": "15.0.7"
       }
     },
     "com.unity.burst": {

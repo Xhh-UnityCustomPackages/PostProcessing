@@ -6,7 +6,7 @@
   "description": "\u540e\u5904\u7406\u6a21\u5757:\nCompleted:\nSSR\nSSAO\nLightShaft\nVolumetricLight\nTonemapping\nContractShadow\n\nHiZ Generater\n\nRoadmap:\nSSGI",
   "icon": ".icon.png",
   "dependencies": {
-    "com.unity.render-pipelines.core": "15.0.6",
-    "com.unity.render-pipelines.universal": "15.0.6"
+    "com.unity.render-pipelines.core": "15.0.7",
+    "com.unity.render-pipelines.universal": "15.0.7"
   }
 }
