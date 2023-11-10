@@ -10,7 +10,7 @@ namespace Game.Core.PostProcessing
     {
 
         #region IDebugDisplaySettingsQuery
-        public bool AreAnySettingsActive => true;
+        public bool AreAnySettingsActive => (fullScreenDebugMode != DebugFullScreenMode.None);
 
         public IDebugDisplaySettingsPanelDisposable CreatePanel()
         {

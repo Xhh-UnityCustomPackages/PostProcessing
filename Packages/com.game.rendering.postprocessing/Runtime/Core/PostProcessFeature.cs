@@ -51,6 +51,11 @@ namespace Game.Core.PostProcessing
         PyramidDepthGenerator m_HizDepthGenerator;
 
 
+#if UNITY_EDITOR
+        DebugHandler m_DebugHandler;
+        PostProcessingDebugPass m_DebugPass;
+#endif
+
         public override void Create()
         {
             Dictionary<string, PostProcessRenderer> shared = new Dictionary<string, PostProcessRenderer>();
@@ -76,6 +81,14 @@ namespace Game.Core.PostProcessing
             {
                 renderPassEvent = RenderPassEvent.AfterRenderingPostProcessing,
             };
+
+
+#if UNITY_EDITOR
+            m_DebugHandler = new DebugHandler();
+            m_DebugHandler.Init();
+
+            m_DebugPass = new PostProcessingDebugPass(m_DebugHandler);
+#endif
         }
 
         public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
@@ -115,6 +128,16 @@ namespace Game.Core.PostProcessing
                     m_HizDepthGenerator = new PyramidDepthGenerator(m_Settings.m_PostProcessFeatureData.computeShaders.pyramidDepthGeneratorCS);
                 renderer.EnqueuePass(m_HizDepthGenerator);
             }
+
+
+
+#if UNITY_EDITOR
+            if (!renderingData.cameraData.isPreviewCamera && m_DebugHandler.AreAnySettingsActive)
+            {
+                renderer.EnqueuePass(m_DebugPass);
+            }
+#endif
+
         }
 
         protected override void Dispose(bool disposing)

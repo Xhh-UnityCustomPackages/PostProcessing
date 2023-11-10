@@ -25,9 +25,12 @@ namespace Game.Core.PostProcessing
         private RenderTextureDescriptor m_HiZDepthDesc;
         private RenderTextureDescriptor m_HiZMipDesc;
         private ComputeShader m_ComputeShader;
-        private RTHandle m_HiZDepthRT;
+        private static RTHandle m_HiZDepthRT;
         private int m_HiZMipLevels;
         private RTHandle[] m_HiZMipsLevelRT;
+
+
+        public static RTHandle HiZDepthRT => m_HiZDepthRT;
 
         public PyramidDepthGenerator(ComputeShader shader)
         {
@@ -100,7 +103,8 @@ namespace Game.Core.PostProcessing
 
         public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
         {
-            if (renderingData.cameraData.isPreviewCamera)
+            if (renderingData.cameraData.isPreviewCamera ||
+                renderingData.cameraData.isSceneViewCamera)
                 return;
 
             var cmd = CommandBufferPool.Get();
