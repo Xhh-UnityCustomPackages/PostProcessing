@@ -139,6 +139,8 @@ MonoBehaviour:
       Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
     - Game.Core.PostProcessing.ScreenSpaceReflectionRenderer, Game.Rendering.PostProcessing.Runtime,
       Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
+    - Game.Core.PostProcessing.StochasticScreenSpaceReflectionRenderer, Game.Rendering.PostProcessing.Runtime,
+      Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
     m_RenderersAfterRenderingSkybox:
     - Game.Core.PostProcessing.VolumetricLightRenderer, Game.Rendering.PostProcessing.Runtime,
       Version=0.0.0.0, Culture=neutral, PublicKeyToken=null

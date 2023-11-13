@@ -6,13 +6,24 @@ Shader "Hidden/PostProcessing/StochasticScreenSpaceReflection"
     #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
     #include "Packages/com.unity.render-pipelines.universal/Shaders/PostProcessing/Common.hlsl"
 
-    // #include "ScreenSpaceReflection.hlsl"
+    #include "StochasticScreenSpaceReflection.hlsl"
     ENDHLSL
 
-    // SubShader
-    // {
-    //     Tags { "RenderType" = "Opaque" "RenderPipeline" = "UniversalPipeline" }
-    //     ZTest Always ZWrite Off Cull Off
-    // }
+    SubShader
+    {
+        Tags { "RenderType" = "Opaque" "RenderPipeline" = "UniversalPipeline" }
+        ZTest Always ZWrite Off Cull Off
 
+
+        Pass
+        {
+            // 0
+            Name "StochasticScreenSpaceReflection Resolve"
+
+            HLSLPROGRAM
+            #pragma vertex Vert
+            #pragma fragment FragResolve
+            ENDHLSL
+        }
+    }
 }

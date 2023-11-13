@@ -145,6 +145,17 @@ namespace Game.Core.PostProcessing
 
         }
 
+        enum PassIndex
+        {
+            RenderPass_Linear2D_SingelSPP = 0,
+            RenderPass_HiZ3D_SingelSpp = 1,
+            RenderPass_Linear2D_MultiSPP = 2,
+            RenderPass_HiZ3D_MultiSpp = 3,
+            RenderPass_Spatiofilter_SingleSPP = 4,
+            RenderPass_Spatiofilter_MultiSPP = 5,
+            RenderPass_Temporalfilter_SingleSPP = 6,
+            RenderPass_Temporalfilter_MultiSpp = 7
+        }
 
         Material m_Material;
         RTHandle[] m_SSR_TrackMask;
@@ -192,27 +203,31 @@ namespace Game.Core.PostProcessing
 
         public override void Render(CommandBuffer cmd, RTHandle source, RTHandle destination, ref RenderingData renderingData)
         {
+            if (m_Material == null)
+                m_Material = GetMaterial(postProcessFeatureData.shaders.stochasticScreenSpaceReflectionPS);
+
             SetupMaterial(ref renderingData, m_Material);
 
             if (m_Material == null)
                 return;
 
-
             if (settings.TraceMethod == StochasticScreenSpaceReflection.TraceApprox.HiZTrace)
             {
-
+                Blit(cmd, m_SSR_TrackMask[0], m_SSR_TrackMask[0], m_Material, (settings.RayNums.value > 1) ? (int)PassIndex.RenderPass_HiZ3D_MultiSpp : (int)PassIndex.RenderPass_HiZ3D_SingelSpp);
             }
             else
             {
-
+                Blit(cmd, m_SSR_TrackMask[1], m_SSR_TrackMask[0], m_Material, (settings.RayNums.value > 1) ? (int)PassIndex.RenderPass_Linear2D_MultiSPP : (int)PassIndex.RenderPass_Linear2D_SingelSPP);
             }
         }
 
 
         private void SetupMaterial(ref RenderingData renderingData, Material material)
         {
+
+
             if (material == null)
-                material = GetMaterial(postProcessFeatureData.shaders.stochasticScreenSpaceReflectionPS);
+                return;
 
             var width = renderingData.cameraData.cameraTargetDescriptor.width;
             var height = renderingData.cameraData.cameraTargetDescriptor.height;
