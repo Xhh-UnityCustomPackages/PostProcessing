@@ -20,6 +20,8 @@ MonoBehaviour:
     lightShaftPS: {fileID: 4800000, guid: 7b546a5fc769b2b42b4ec86d8c54e818, type: 3}
     screenSpaceReflectionPS: {fileID: 4800000, guid: 1d43f0f8b1a48af4fa18b9980a80e199,
       type: 3}
+    stochasticScreenSpaceReflectionPS: {fileID: 4800000, guid: c34d1d5538030d643a58525c4ad3f7ba,
+      type: 3}
     ScreenSpaceGlobalIlluminationPS: {fileID: 4800000, guid: 98dd495e4db862046b48c820ba056795,
       type: 3}
     atmosphericHeightFogPS: {fileID: 4800000, guid: 58c5953cda0d16a44a92cf0ea3f71f11,
