@@ -10,8 +10,8 @@ namespace Game.Core.PostProcessing
     [GenerateHLSL]
     public enum DebugFullScreenMode
     {
-        None,
-        HiZ
+        None = 0,
+        HiZ = 1
     }
 }
 
