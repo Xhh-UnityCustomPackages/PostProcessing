@@ -9,7 +9,7 @@ LightingSettings:
   m_Name: School_ClassroomSettings
   serializedVersion: 7
   m_GIWorkflowMode: 1
-  m_EnableBakedLightmaps: 1
+  m_EnableBakedLightmaps: 0
   m_EnableRealtimeLightmaps: 1
   m_RealtimeEnvironmentLighting: 1
   m_BounceScale: 1

@@ -438,8 +438,9 @@ half4 CombineReflectionColor(Varyings i) : SV_Target
     half4 gbuffer1 = SAMPLE_TEXTURE2D_LOD(_GBuffer1, sampler_PointClamp, uv, 0);//这不是AO吗
     half4 gbuffer2 = SAMPLE_TEXTURE2D_LOD(_GBuffer2, sampler_PointClamp, uv, 0);
     float3 normalWS = normalize(UnpackNormal(gbuffer2.xyz));
+
+    BRDFData brdfData = BRDFDataFromGbuffer(0, gbuffer1, gbuffer2);
     
-    half Roughness = clamp(1 - gbuffer2.a, 0.02, 1);
 
     float SceneDepth = SampleSceneDepth(uv);
 
@@ -450,24 +451,33 @@ half4 CombineReflectionColor(Varyings i) : SV_Target
     half NoV = saturate(dot(normalWS, ViewDir));
     half3 EnergyCompensation;
     //反射部分的采样
-    half4 PreintegratedGF = half4(PreintegratedDGF_LUT(_SSR_PreintegratedGF_LUT, EnergyCompensation, gbuffer1.rgb, Roughness, NoV).rgb, 1);
-    PreintegratedGF = 0;
-    return PreintegratedGF;
-    half ReflectionOcclusion = 1;//saturate(tex2D(_SSAO_GTOTexture2SSR_RT, uv).g);
-    //ReflectionOcclusion = ReflectionOcclusion == 0.5 ? 1 : ReflectionOcclusion;
-    //half ReflectionOcclusion = 1;
+    half4 PreintegratedGF = half4(PreintegratedDGF_LUT(_SSR_PreintegratedGF_LUT, EnergyCompensation, brdfData.specular, brdfData.perceptualRoughness, NoV).rgb, 1);
+    // PreintegratedGF = 1;
+    // return PreintegratedGF;
+    #if defined(_SCREEN_SPACE_OCCLUSION) // GBuffer never has transparents
+        float2 normalizedScreenSpaceUV = GetNormalizedScreenSpaceUV(i.positionCS);
+        AmbientOcclusionFactor aoFactor = GetScreenSpaceAmbientOcclusion(normalizedScreenSpaceUV);
+        half ReflectionOcclusion = aoFactor.directAmbientOcclusion;
+    #else
+        half ReflectionOcclusion = 1;
+    #endif
 
     // half4 SceneColor = SAMPLE_TEXTURE2D_LOD(_SSR_SceneColor_RT, sampler_LinearClamp, uv, 0);
     half4 SceneColor = SAMPLE_TEXTURE2D(_BlitTexture, sampler_PointClamp, uv);
-    half4 CubemapColor = half4(GlossyEnvironmentReflectionSSR(reflectVector, positionWS, Roughness, ReflectionOcclusion), 1);
-
+    half4 CubemapColor = half4(GlossyEnvironmentReflectionSSR(reflectVector, positionWS, brdfData.perceptualRoughness, ReflectionOcclusion), 1);
+    CubemapColor = 0;//
     SceneColor.rgb = max(1e-5, SceneColor.rgb - CubemapColor.rgb);
 
     half4 SSRColor = SAMPLE_TEXTURE2D(_SSR_TemporalCurr_RT, sampler_LinearClamp, uv);
     half SSRMask = Square(SSRColor.a);
     half4 ReflectionColor = (CubemapColor * (1 - SSRMask)) + (SSRColor * PreintegratedGF * SSRMask * ReflectionOcclusion);
 
-    return SceneColor + ReflectionColor;
+
+    #if DEBUG_SCREEN_SPACE_REFLECTION || DEBUG_INDIRECT_SPECULAR
+        return half4(ReflectionColor.rgb, 1);
+    #endif
+
+    return SceneColor + ReflectionColor ;
 }
 
 #endif

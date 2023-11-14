@@ -12,12 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 013f0855c09e7bb4796a16728cb81d69, type: 3}
   m_Name: ScreenSpaceOcclusion
   m_EditorClassIdentifier: 
-  active: 1
+  active: 0
   enabled:
     m_OverrideState: 1
     m_Value: 1
   type:
-    m_OverrideState: 0
+    m_OverrideState: 1
     m_Value: 0
   quality:
     m_OverrideState: 0
@@ -26,20 +26,20 @@ MonoBehaviour:
     m_OverrideState: 0
     m_Value: 0
   reconstructNormal:
-    m_OverrideState: 0
+    m_OverrideState: 1
     m_Value: 3
   intensity:
     m_OverrideState: 1
-    m_Value: 3.18
+    m_Value: 4
   radius:
-    m_OverrideState: 0
-    m_Value: 0.8
+    m_OverrideState: 1
+    m_Value: 4.37
   maxRadiusPixels:
     m_OverrideState: 0
     m_Value: 128
   bias:
-    m_OverrideState: 0
-    m_Value: 0.5
+    m_OverrideState: 1
+    m_Value: 0.825
   thickness:
     m_OverrideState: 0
     m_Value: 0
@@ -87,14 +87,14 @@ MonoBehaviour:
     m_OverrideState: 0
     m_Value: 1
   BRDFBias:
-    m_OverrideState: 0
-    m_Value: 0.7
+    m_OverrideState: 1
+    m_Value: 0
   Thickness:
-    m_OverrideState: 0
-    m_Value: 0.1
+    m_OverrideState: 1
+    m_Value: 0.3
   ScreenFade:
-    m_OverrideState: 0
-    m_Value: 0.1
+    m_OverrideState: 1
+    m_Value: 0.5
   TraceMethod:
     m_OverrideState: 1
     m_Value: 1
@@ -114,23 +114,23 @@ MonoBehaviour:
     m_OverrideState: 1
     m_Value: 1
   Linear_TowardRay:
-    m_OverrideState: 0
+    m_OverrideState: 1
     m_Value: 1
   Linear_RayDistance:
-    m_OverrideState: 0
-    m_Value: 512
+    m_OverrideState: 1
+    m_Value: 100
   Linear_RaySteps:
-    m_OverrideState: 0
-    m_Value: 256
+    m_OverrideState: 1
+    m_Value: 157
   Linear_StepSize:
-    m_OverrideState: 0
-    m_Value: 10
+    m_OverrideState: 1
+    m_Value: 5
   BlueNoise_LUT:
     m_OverrideState: 0
-    m_Value: {fileID: 0}
+    m_Value: {fileID: 2800000, guid: 87ed581b7058cbc46b1a605830bf6eda, type: 3}
   PreintegratedGF_LUT:
     m_OverrideState: 0
-    m_Value: {fileID: 0}
+    m_Value: {fileID: 2800000, guid: 01bbcb8274c2c144399e3c4c940d9017, type: 3}
   SpatioSampler:
     m_OverrideState: 0
     m_Value: 9
@@ -140,6 +140,9 @@ MonoBehaviour:
   TemporalScale:
     m_OverrideState: 0
     m_Value: 1.25
+  debugMode:
+    m_OverrideState: 1
+    m_Value: 0
 --- !u!114 &11400000
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -154,4 +157,54 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   components:
   - {fileID: -7401110207495525589}
+  - {fileID: 3661418703937781155}
   - {fileID: -8471289247094140217}
+--- !u!114 &3661418703937781155
+MonoBehaviour:
+  m_ObjectHideFlags: 3
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c0e734af900644842bdd4e369e90aa54, type: 3}
+  m_Name: ScreenSpaceReflection
+  m_EditorClassIdentifier: 
+  active: 0
+  enabled:
+    m_OverrideState: 1
+    m_Value: 1
+  resolution:
+    m_OverrideState: 0
+    m_Value: 2
+  maximumIterationCount:
+    m_OverrideState: 0
+    m_Value: 256
+  blurIterations:
+    m_OverrideState: 0
+    m_Value: 3
+  intensity:
+    m_OverrideState: 0
+    m_Value: 1
+  thickness:
+    m_OverrideState: 0
+    m_Value: 8
+  maximumMarchDistance:
+    m_OverrideState: 0
+    m_Value: 100
+  distanceFade:
+    m_OverrideState: 0
+    m_Value: 0.02
+  vignette:
+    m_OverrideState: 0
+    m_Value: 0
+  antiFlicker:
+    m_OverrideState: 0
+    m_Value: 1
+  oldMethod:
+    m_OverrideState: 0
+    m_Value: 0
+  debugMode:
+    m_OverrideState: 0
+    m_Value: 0

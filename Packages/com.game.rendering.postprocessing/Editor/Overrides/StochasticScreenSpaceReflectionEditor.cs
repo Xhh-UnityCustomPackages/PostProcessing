@@ -38,6 +38,8 @@ namespace Game.Core.PostProcessing.UnityEditor
         SerializedDataParameter m_TemporalWeight;
         SerializedDataParameter m_TemporalScale;
 
+        SerializedDataParameter m_DebugMode;
+
 
         public override void OnEnable()
         {
@@ -68,6 +70,8 @@ namespace Game.Core.PostProcessing.UnityEditor
             m_SpatioSampler = Unpack(o.Find(x => x.SpatioSampler));
             m_TemporalWeight = Unpack(o.Find(x => x.TemporalWeight));
             m_TemporalScale = Unpack(o.Find(x => x.TemporalScale));
+
+            m_DebugMode = Unpack(o.Find(x => x.debugMode));
         }
 
         public override void OnInspectorGUI()
@@ -102,6 +106,8 @@ namespace Game.Core.PostProcessing.UnityEditor
             PropertyField(m_SpatioSampler);
             PropertyField(m_TemporalWeight);
             PropertyField(m_TemporalScale);
+
+            PropertyField(m_DebugMode);
         }
     }
 }

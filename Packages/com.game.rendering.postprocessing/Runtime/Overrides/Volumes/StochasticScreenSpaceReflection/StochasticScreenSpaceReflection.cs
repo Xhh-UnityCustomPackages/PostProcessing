@@ -34,6 +34,13 @@ namespace Game.Core.PostProcessing
             LinearTrace = 1
         };
 
+        public enum DebugMode
+        {
+            Disabled,
+            SSROnly,
+            IndirectSpecular,
+        }
+
 
         [Serializable]
         public class ResolutionParameter : VolumeParameter<RenderResolution>
@@ -45,6 +52,12 @@ namespace Game.Core.PostProcessing
         public class TraceApproxParameter : VolumeParameter<TraceApprox>
         {
             public TraceApproxParameter(TraceApprox value, bool overrideState = false) : base(value, overrideState) { }
+        }
+
+        [Serializable]
+        public class DebugModeParameter : VolumeParameter<DebugMode>
+        {
+            public DebugModeParameter(DebugMode value, bool overrideState = false) : base(value, overrideState) { }
         }
 
         public EnableModeParameter enableMode = new(EnableMode.Disable);
@@ -80,6 +93,9 @@ namespace Game.Core.PostProcessing
         public ClampedIntParameter SpatioSampler = new(9, 1, 9);
         public ClampedFloatParameter TemporalWeight = new(0.98f, 0f, 0.99f);
         public ClampedFloatParameter TemporalScale = new(1.25f, 1f, 5f);
+
+        [Space(10)]
+        public DebugModeParameter debugMode = new DebugModeParameter(DebugMode.Disabled);
 
 
         public override bool IsActive() => enableMode.value == EnableMode.Enable;
@@ -144,6 +160,21 @@ namespace Game.Core.PostProcessing
             internal static readonly int SSR_CameraToWorldMatrix_ID = Shader.PropertyToID("_SSR_CameraToWorldMatrix");
             internal static readonly int SSR_ProjectToPixelMatrix_ID = Shader.PropertyToID("_SSR_ProjectToPixelMatrix");
 
+
+            public static string GetDebugKeyword(StochasticScreenSpaceReflection.DebugMode debugMode)
+            {
+                switch (debugMode)
+                {
+                    case StochasticScreenSpaceReflection.DebugMode.SSROnly:
+                        return "DEBUG_SCREEN_SPACE_REFLECTION";
+                    case StochasticScreenSpaceReflection.DebugMode.IndirectSpecular:
+                        return "DEBUG_INDIRECT_SPECULAR";
+                    case StochasticScreenSpaceReflection.DebugMode.Disabled:
+                    default:
+                        return "_";
+                }
+            }
+
         }
 
         enum PassIndex
@@ -166,7 +197,7 @@ namespace Game.Core.PostProcessing
         Matrix4x4 SSR_ViewProjectionMatrix;
 
         RTHandle m_SSR_Spatial_RT, m_SSR_TemporalCurr_RT, m_SSR_TemporalPrev_RT, m_SSR_CombineScene_RT;
-
+        string[] m_ShaderKeywords = new string[1];
 
         private int m_SampleIndex = 0;
         private const int k_SampleCount = 64;
@@ -334,6 +365,9 @@ namespace Game.Core.PostProcessing
                     ((1 - SSR_ProjectionMatrix[2]) / SSR_ProjectionMatrix[0]),
                     ((1 + SSR_ProjectionMatrix[6]) / SSR_ProjectionMatrix[5]));
             material.SetVector(ShaderConstants.SSR_ProjInfo_ID, SSR_ProjInfo);
+
+            m_ShaderKeywords[0] = ShaderConstants.GetDebugKeyword(settings.debugMode.value);
+            material.shaderKeywords = m_ShaderKeywords;
         }
 
 
