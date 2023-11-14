@@ -4,6 +4,7 @@ Shader "Hidden/PostProcessing/StochasticScreenSpaceReflection"
     HLSLINCLUDE
     #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
     #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
+    #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/UnityGBuffer.hlsl"
     #include "Packages/com.unity.render-pipelines.universal/Shaders/PostProcessing/Common.hlsl"
 
     #include "StochasticScreenSpaceReflection.hlsl"
@@ -18,11 +19,94 @@ Shader "Hidden/PostProcessing/StochasticScreenSpaceReflection"
         Pass
         {
             // 0
-            Name "StochasticScreenSpaceReflection Resolve"
+            Name "StochasticScreenSpaceReflection Linear_2DTrace_SingleSampler"
 
             HLSLPROGRAM
             #pragma vertex Vert
-            #pragma fragment FragResolve
+            #pragma fragment Linear_2DTrace_SingleSPP
+            ENDHLSL
+        }
+
+        Pass
+        {
+            // 1
+            Name "StochasticScreenSpaceReflection Hierarchical_ZTrace_SingleSampler"
+            HLSLPROGRAM
+            #pragma vertex Vert
+            #pragma fragment Linear_2DTrace_SingleSPP
+            //#pragma fragment TestSSGi_SingleSPP
+            ENDHLSL
+        }
+
+        Pass
+        {
+            // 2
+            Name "StochasticScreenSpaceReflection Linear_2DTrace_MultiSampler"
+            HLSLPROGRAM
+            #pragma vertex Vert
+            #pragma fragment Linear_2DTrace_SingleSPP
+            //#pragma fragment TestSSGi_SingleSPP
+            ENDHLSL
+        }
+
+        Pass
+        {
+            // 3
+            Name "StochasticScreenSpaceReflection Hierarchical_ZTrace_MultiSampler"
+            HLSLPROGRAM
+            #pragma vertex Vert
+            #pragma fragment Linear_2DTrace_SingleSPP
+            //#pragma fragment TestSSGi_SingleSPP
+            ENDHLSL
+        }
+
+        Pass
+        {
+            // 4
+            Name "StochasticScreenSpaceReflection Spatiofilter_SingleSampler"
+            HLSLPROGRAM
+            #pragma vertex Vert
+            #pragma fragment Spatiofilter_SingleSPP
+            ENDHLSL
+        }
+
+        Pass
+        {
+            // 5
+            Name "StochasticScreenSpaceReflection Spatiofilter_MultiSampler"
+            HLSLPROGRAM
+            #pragma vertex Vert
+            #pragma fragment Spatiofilter_SingleSPP
+            ENDHLSL
+        }
+
+        Pass
+        {
+            // 6
+            Name "StochasticScreenSpaceReflection Temporalfilter_SingleSampler"
+            HLSLPROGRAM
+            #pragma vertex Vert
+            #pragma fragment Temporalfilter_SingleSPP
+            ENDHLSL
+        }
+
+        Pass
+        {
+            // 7
+            Name "StochasticScreenSpaceReflection Temporalfilter_MultiSampler"
+            HLSLPROGRAM
+            #pragma vertex Vert
+            #pragma fragment Temporalfilter_SingleSPP
+            ENDHLSL
+        }
+
+        Pass
+        {
+            // 8
+            Name"StochasticScreenSpaceReflection CombineReflection"
+            HLSLPROGRAM
+            #pragma vertex Vert
+            #pragma fragment CombineReflectionColor
             ENDHLSL
         }
     }

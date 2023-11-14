@@ -453,12 +453,6 @@ float4 FragComposite(Varyings input) : SV_Target
     // UniversalGBuffer 相关Pass需要 #pragma multi_compile_fragment _ _SCREEN_SPACE_REFLECTION
     half3 indirectSpecular = GlossyEnvironmentReflectionSSR(reflectVector, positionWS, brdfData.perceptualRoughness, 1.0h);
     float distanceFade = _DistanceFade;
-    // GlobalRenderSettings里的自定义环境反射球cubemap
-    // if (IsMaterialFlagIDCustomReflectCubemap(materialFlags))
-    // {
-    //     indirectSpecular = GlossyEnvironmentReflectionByCustomCubemap(reflectVector, positionWS, brdfData.perceptualRoughness, 1.0h) * _GLOBAL_ENVCUSTOM_CUBEMAPINTENSITY;
-    //     distanceFade = _GLOBAL_ENVCUSTOM_CUBEMAPINTENSITY;
-    // }
 
     #if DEBUG_SCREEN_SPACE_REFLECTION
         indirectSpecular = 0;

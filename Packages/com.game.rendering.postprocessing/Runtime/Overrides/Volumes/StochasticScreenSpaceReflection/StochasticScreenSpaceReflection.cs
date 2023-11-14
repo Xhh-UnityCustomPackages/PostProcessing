@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
@@ -68,7 +69,7 @@ namespace Game.Core.PostProcessing
         [Header("Linear_Trace Property")]
         public BoolParameter Linear_TraceBehind = new(false);
         public BoolParameter Linear_TowardRay = new(true);
-        public IntParameter Linear_RayDistance = new(512);
+        public MinIntParameter Linear_RayDistance = new(512, 0);
         public ClampedIntParameter Linear_RaySteps = new(256, 64, 512);
         public ClampedIntParameter Linear_StepSize = new(10, 5, 20);
 
@@ -147,18 +148,24 @@ namespace Game.Core.PostProcessing
 
         enum PassIndex
         {
-            RenderPass_Linear2D_SingelSPP = 0,
-            RenderPass_HiZ3D_SingelSpp = 1,
-            RenderPass_Linear2D_MultiSPP = 2,
-            RenderPass_HiZ3D_MultiSpp = 3,
-            RenderPass_Spatiofilter_SingleSPP = 4,
-            RenderPass_Spatiofilter_MultiSPP = 5,
-            RenderPass_Temporalfilter_SingleSPP = 6,
-            RenderPass_Temporalfilter_MultiSpp = 7
+            Linear2D_SingelSPP = 0,
+            HiZ3D_SingelSpp = 1,
+            Linear2D_MultiSPP = 2,
+            HiZ3D_MultiSpp = 3,
+            Spatiofilter_SingleSPP = 4,
+            Spatiofilter_MultiSPP = 5,
+            Temporalfilter_SingleSPP = 6,
+            Temporalfilter_MultiSpp = 7,
+            Combine = 8,
         }
 
         Material m_Material;
-        RTHandle[] m_SSR_TrackMask;
+        RTHandle[] m_SSR_TrackMask = new RTHandle[2];
+        RenderTargetIdentifier[] SSR_TraceMask_ID = new RenderTargetIdentifier[2];
+        Matrix4x4 SSR_Prev_ViewProjectionMatrix;//最后保存上一帧的VP矩阵
+        Matrix4x4 SSR_ViewProjectionMatrix;
+
+        RTHandle m_SSR_Spatial_RT, m_SSR_TemporalCurr_RT, m_SSR_TemporalPrev_RT, m_SSR_CombineScene_RT;
 
 
         private int m_SampleIndex = 0;
@@ -188,20 +195,26 @@ namespace Game.Core.PostProcessing
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
         {
             var desc = renderingData.cameraData.cameraTargetDescriptor;
-
-            if (m_SSR_TrackMask == null)
-            {
-                m_SSR_TrackMask = new RTHandle[2];
-            }
+            desc.depthBufferBits = 0;
+            var soatialDesc = desc;
 
             if (settings.resolution != StochasticScreenSpaceReflection.RenderResolution.Full)
                 DescriptorDownSample(ref desc, (int)settings.resolution.value);
 
-            RenderingUtils.ReAllocateIfNeeded(ref m_SSR_TrackMask[0], desc);
-            RenderingUtils.ReAllocateIfNeeded(ref m_SSR_TrackMask[1], desc);
+            RenderingUtils.ReAllocateIfNeeded(ref m_SSR_TrackMask[0], desc, name: "_SSR_RayHit");
+            RenderingUtils.ReAllocateIfNeeded(ref m_SSR_TrackMask[1], desc, name: "_SSR_TrackMask");
+
+            SSR_TraceMask_ID[0] = m_SSR_TrackMask[0].nameID;
+            SSR_TraceMask_ID[1] = m_SSR_TrackMask[1].nameID;
+
+
+            RenderingUtils.ReAllocateIfNeeded(ref m_SSR_Spatial_RT, soatialDesc, FilterMode.Bilinear, name: "_SSR_Spatial");
+            RenderingUtils.ReAllocateIfNeeded(ref m_SSR_TemporalCurr_RT, soatialDesc, FilterMode.Bilinear, name: "_SSR_TemporalCurr_RT");
+            RenderingUtils.ReAllocateIfNeeded(ref m_SSR_TemporalPrev_RT, soatialDesc, FilterMode.Bilinear, name: "_SSR_TemporalPrev_RT");
+            RenderingUtils.ReAllocateIfNeeded(ref m_SSR_CombineScene_RT, soatialDesc, FilterMode.Point, name: "_SSR_CombineScene_RT");
         }
 
-        public override void Render(CommandBuffer cmd, RTHandle source, RTHandle destination, ref RenderingData renderingData)
+        public override void Render(CommandBuffer cmd, RTHandle source, RTHandle target, ref RenderingData renderingData)
         {
             if (m_Material == null)
                 m_Material = GetMaterial(postProcessFeatureData.shaders.stochasticScreenSpaceReflectionPS);
@@ -211,27 +224,55 @@ namespace Game.Core.PostProcessing
             if (m_Material == null)
                 return;
 
+            //////RayCasting//////
+            cmd.SetGlobalTexture(ShaderConstants.SSR_Trace_ID, m_SSR_TrackMask[0]);
+            cmd.SetGlobalTexture(ShaderConstants.SSR_Mask_ID, m_SSR_TrackMask[1]);
             if (settings.TraceMethod == StochasticScreenSpaceReflection.TraceApprox.HiZTrace)
             {
-                Blit(cmd, m_SSR_TrackMask[0], m_SSR_TrackMask[0], m_Material, (settings.RayNums.value > 1) ? (int)PassIndex.RenderPass_HiZ3D_MultiSpp : (int)PassIndex.RenderPass_HiZ3D_SingelSpp);
+                Blit(cmd, m_SSR_TrackMask[0], m_SSR_TrackMask[0], m_Material, (settings.RayNums.value > 1) ? (int)PassIndex.HiZ3D_MultiSpp : (int)PassIndex.HiZ3D_SingelSpp);
             }
             else
             {
-                Blit(cmd, m_SSR_TrackMask[1], m_SSR_TrackMask[0], m_Material, (settings.RayNums.value > 1) ? (int)PassIndex.RenderPass_Linear2D_MultiSPP : (int)PassIndex.RenderPass_Linear2D_SingelSPP);
+                cmd.SetGlobalVector("_BlitScaleBias", new Vector4(1, 1, 0, 0));
+                cmd.BlitMRT(SSR_TraceMask_ID, m_SSR_TrackMask[0], m_Material, (settings.RayNums.value > 1) ? (int)PassIndex.Linear2D_MultiSPP : (int)PassIndex.Linear2D_SingelSPP);
             }
+
+            //////Spatial filter//////  
+            cmd.SetGlobalTexture(ShaderConstants.SSR_Spatial_ID, m_SSR_Spatial_RT);
+            Blit(cmd, source, m_SSR_Spatial_RT, m_Material, (settings.RayNums.value > 1) ? (int)PassIndex.Spatiofilter_MultiSPP : (int)PassIndex.Spatiofilter_SingleSPP);
+            cmd.CopyTexture(m_SSR_Spatial_RT, m_SSR_TemporalCurr_RT);
+
+
+            //////Temporal filter//////
+            cmd.SetGlobalTexture(ShaderConstants.SSR_TemporalPrev_ID, m_SSR_TemporalPrev_RT);
+            cmd.SetGlobalTexture(ShaderConstants.SSR_TemporalCurr_ID, m_SSR_TemporalCurr_RT);
+            Blit(cmd, source, m_SSR_TemporalCurr_RT, m_Material, (settings.RayNums.value > 1) ? (int)PassIndex.Temporalfilter_MultiSpp : (int)PassIndex.Temporalfilter_SingleSPP);
+            cmd.CopyTexture(m_SSR_TemporalCurr_RT, m_SSR_TemporalPrev_RT);
+
+            //////Combien Reflection//////
+            cmd.SetGlobalTexture(ShaderConstants.SSR_CombineScene_ID, m_SSR_CombineScene_RT);
+
+            // #if UNITY_EDITOR
+            // Blit(cmd, source, target, m_Material, (int)DeBugPass);
+            // #else
+            Blit(cmd, source, target, m_Material, (int)PassIndex.Combine);
+            // #endif
+
+            //最后保存上一帧的VP矩阵
+            SSR_Prev_ViewProjectionMatrix = SSR_ViewProjectionMatrix;
         }
 
 
         private void SetupMaterial(ref RenderingData renderingData, Material material)
         {
-
-
             if (material == null)
                 return;
 
+            var camera = renderingData.cameraData.camera;
             var width = renderingData.cameraData.cameraTargetDescriptor.width;
             var height = renderingData.cameraData.cameraTargetDescriptor.height;
             var cameraSize = new Vector2(width, height);
+            var halfCameraSize = new Vector2(width * 0.5f, height * 0.5f);
 
             material.SetTexture(ShaderConstants.SSR_PreintegratedGF_LUT_ID, settings.PreintegratedGF_LUT.value);
             material.SetTexture(ShaderConstants.SSR_Noise_ID, settings.BlueNoise_LUT.value);
@@ -265,13 +306,44 @@ namespace Game.Core.PostProcessing
                 material.SetFloat(ShaderConstants.SSR_TemporalWeight_ID, 0);
             }
 
+            var worldToCameraMatrix = camera.worldToCameraMatrix;
+            var cameraToWorldMatrix = worldToCameraMatrix.inverse;
 
+            var SSR_ProjectionMatrix = GL.GetGPUProjectionMatrix(camera.projectionMatrix, false);
+            SSR_ViewProjectionMatrix = SSR_ProjectionMatrix * worldToCameraMatrix;
+
+            material.SetMatrix(ShaderConstants.SSR_WorldToCameraMatrix_ID, worldToCameraMatrix);
+            material.SetMatrix(ShaderConstants.SSR_CameraToWorldMatrix_ID, cameraToWorldMatrix);
+
+            material.SetMatrix(ShaderConstants.SSR_ProjectionMatrix_ID, SSR_ProjectionMatrix);
+            material.SetMatrix(ShaderConstants.SSR_ViewProjectionMatrix_ID, SSR_ViewProjectionMatrix);
+            material.SetMatrix(ShaderConstants.SSR_InverseProjectionMatrix_ID, SSR_ProjectionMatrix.inverse);
+            material.SetMatrix(ShaderConstants.SSR_InverseViewProjectionMatrix_ID, SSR_ViewProjectionMatrix.inverse);
+            material.SetMatrix(ShaderConstants.SSR_LastFrameViewProjectionMatrix_ID, SSR_Prev_ViewProjectionMatrix);
+
+
+            Matrix4x4 warpToScreenSpaceMatrix = Matrix4x4.identity;
+            warpToScreenSpaceMatrix.m00 = halfCameraSize.x; warpToScreenSpaceMatrix.m03 = halfCameraSize.x;
+            warpToScreenSpaceMatrix.m11 = halfCameraSize.y; warpToScreenSpaceMatrix.m13 = halfCameraSize.y;
+            Matrix4x4 SSR_ProjectToPixelMatrix = warpToScreenSpaceMatrix * SSR_ProjectionMatrix;
+            material.SetMatrix(ShaderConstants.SSR_ProjectToPixelMatrix_ID, SSR_ProjectToPixelMatrix);
+
+            Vector4 SSR_ProjInfo = new Vector4
+                    ((-2 / (cameraSize.x * SSR_ProjectionMatrix[0])),
+                    (-2 / (cameraSize.y * SSR_ProjectionMatrix[5])),
+                    ((1 - SSR_ProjectionMatrix[2]) / SSR_ProjectionMatrix[0]),
+                    ((1 + SSR_ProjectionMatrix[6]) / SSR_ProjectionMatrix[5]));
+            material.SetVector(ShaderConstants.SSR_ProjInfo_ID, SSR_ProjInfo);
         }
 
 
         public override void Dispose(bool disposing)
         {
             CoreUtils.Destroy(m_Material);
+            for (int i = 0; i < m_SSR_TrackMask.Length; i++)
+            {
+                m_SSR_TrackMask[i]?.Release();
+            }
         }
     }
 }
