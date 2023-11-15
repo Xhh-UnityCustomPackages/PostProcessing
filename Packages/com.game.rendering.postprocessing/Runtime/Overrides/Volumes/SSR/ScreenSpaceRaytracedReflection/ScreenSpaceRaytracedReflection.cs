@@ -97,14 +97,6 @@ namespace Game.Core.PostProcessing
         public AnimationCurveParameter reflectionsSmoothnessCurve = new AnimationCurveParameter(new AnimationCurve(new Keyframe(0, 0f, 0, 0.166666f), new Keyframe(0.5f, 0.25f, 0.833333f, 1.166666f), new Keyframe(1, 1f, 1.833333f, 0)));
 
 
-        [Tooltip("Minimum smoothness to receive reflections")]
-        public ClampedFloatParameter smoothnessThreshold = new ClampedFloatParameter(0, 0, 1f);
-
-        [Tooltip("Reflection min intensity")]
-        public ClampedFloatParameter reflectionsMinIntensity = new ClampedFloatParameter(0, 0, 1f);
-
-        [Tooltip("Reflection max intensity")]
-        public ClampedFloatParameter reflectionsMaxIntensity = new ClampedFloatParameter(1f, 0, 1f);
 
         [Tooltip("Reduces reflection based on view angle")]
         public ClampedFloatParameter fresnel = new ClampedFloatParameter(0.75f, 0, 1f);
@@ -117,9 +109,6 @@ namespace Game.Core.PostProcessing
 
         [Min(0), Tooltip("Power of the specular filter")]
         public FloatParameter specularSoftenPower = new FloatParameter(15f);
-
-        [Tooltip("Skybox reflection intensity. Use only if you wish the sky or camera background to be reflected on the surfaces.")]
-        public ClampedFloatParameter skyboxIntensity = new ClampedFloatParameter(0f, 0f, 1f);
 
         [Tooltip("Controls the attenuation range of effect on screen borders")]
         public ClampedFloatParameter vignetteSize = new ClampedFloatParameter(1.1f, 0.5f, 2f);
@@ -196,15 +185,25 @@ namespace Game.Core.PostProcessing
 
             //targets
             public static int DownscaledDepthRT = Shader.PropertyToID("_DownscaledShinyDepthRT");
+            public static int RayCast = Shader.PropertyToID("_RayCastRT");
 
             // shader keywords
+            internal static readonly string SKW_JITTER = "SSR_JITTER";
             internal static readonly string SKW_BACK_FACES = "SSR_BACK_FACES";
+            internal static readonly string SKW_DENOISE = "SSR_DENOISE";
         }
 
         enum Pass
         {
             CopyDepth = 0,
             GBufferPass = 1,
+            Resolve = 2,
+            BlurH = 3,
+            BlurV = 4,
+            Combine = 5,
+            CombineWithCompare = 6,
+            Debug = 7
+
         }
 
         const float GOLDEN_RATIO = 0.618033989f;
@@ -212,6 +211,10 @@ namespace Game.Core.PostProcessing
         Material m_Material;
         RTHandle m_RayCastTargetHandle;
         RTHandle m_DownscaleTargetHandle;
+        RTHandle m_ReflectionTargetHandle;
+        RTHandle[] m_BlurMipDownTargetHandles;
+        RTHandle[] m_BlurMipDownTargetHandles2;
+        const int MIP_COUNT = 5;//这边可以优化
 
         Texture2D metallicGradientTex, smoothnessGradientTex;
 
@@ -219,18 +222,40 @@ namespace Game.Core.PostProcessing
         {
             RenderTextureDescriptor sourceDesc = renderingData.cameraData.cameraTargetDescriptor;
             sourceDesc.colorFormat = settings.lowPrecision.value ? RenderTextureFormat.ARGB32 : RenderTextureFormat.ARGBHalf;
-            sourceDesc.width /= settings.downsampling.value;
-            sourceDesc.height /= settings.downsampling.value;
+            DescriptorDownSample(ref sourceDesc, settings.downsampling.value);
             sourceDesc.msaaSamples = 1;
             sourceDesc.depthBufferBits = 0;
 
             RenderingUtils.ReAllocateIfNeeded(ref m_RayCastTargetHandle, sourceDesc, FilterMode.Point, name: "_SSR_RayCastRT");
-
+            RenderingUtils.ReAllocateIfNeeded(ref m_ReflectionTargetHandle, sourceDesc, FilterMode.Point, name: "_SSR_ReflectionRT");
 
 
             sourceDesc.colorFormat = settings.computeBackFaces.value ? RenderTextureFormat.RGHalf : RenderTextureFormat.RHalf;
             sourceDesc.sRGB = false;
             RenderingUtils.ReAllocateIfNeeded(ref m_DownscaleTargetHandle, sourceDesc, FilterMode.Point, name: "_SSR_DownscaleDepthRT");
+
+
+
+            if (m_BlurMipDownTargetHandles == null || m_BlurMipDownTargetHandles.Length != MIP_COUNT)
+            {
+                m_BlurMipDownTargetHandles = new RTHandle[MIP_COUNT];
+                m_BlurMipDownTargetHandles2 = new RTHandle[MIP_COUNT];
+            }
+
+            var blurDesc = sourceDesc;
+            // blurDesc.width = renderingData.cameraData.cameraTargetDescriptor.width;
+            // blurDesc.height = renderingData.cameraData.cameraTargetDescriptor.height;
+            DescriptorDownSample(ref blurDesc, settings.blurDownsampling.value);
+
+
+            for (int k = 0; k < MIP_COUNT; k++)
+            {
+                blurDesc.width = Mathf.Max(2, blurDesc.width / 2);
+                blurDesc.height = Mathf.Max(2, blurDesc.height / 2);
+                RenderingUtils.ReAllocateIfNeeded(ref m_BlurMipDownTargetHandles[k], blurDesc, FilterMode.Bilinear, name: "_SSR_BlurMip" + k);
+                RenderingUtils.ReAllocateIfNeeded(ref m_BlurMipDownTargetHandles2[k], blurDesc, FilterMode.Bilinear, name: "_SSR_BlurMip" + k);
+            }
+
         }
 
         public override void Render(CommandBuffer cmd, RTHandle source, RTHandle target, ref RenderingData renderingData)
@@ -255,8 +280,34 @@ namespace Game.Core.PostProcessing
             Blit(cmd, source, m_DownscaleTargetHandle, m_Material, (int)Pass.CopyDepth);
             cmd.SetGlobalTexture(ShaderConstants.DownscaledDepthRT, m_DownscaleTargetHandle);
             Blit(cmd, source, m_RayCastTargetHandle, m_Material, (int)Pass.GBufferPass);
+            cmd.SetGlobalTexture(ShaderConstants.RayCast, m_RayCastTargetHandle);
+            Blit(cmd, source, m_ReflectionTargetHandle, m_Material, (int)Pass.Resolve);
 
-            Blit(cmd, m_RayCastTargetHandle, target);
+
+            var input = m_ReflectionTargetHandle;
+            // Pyramid Blur
+            for (int k = 0; k < MIP_COUNT; k++)
+            {
+                Blit(cmd, input, m_BlurMipDownTargetHandles2[k], m_Material, (int)Pass.BlurH);
+                Blit(cmd, m_BlurMipDownTargetHandles2[k], m_BlurMipDownTargetHandles[k], m_Material, (int)Pass.BlurV);
+
+                input = m_BlurMipDownTargetHandles[k];
+                cmd.SetGlobalTexture("_BlurRTMip" + k, m_BlurMipDownTargetHandles[k]);
+            }
+
+            // Output
+            int finalPass;
+            switch (settings.outputMode.value)
+            {
+                case ScreenSpaceRaytracedReflection.OutputMode.Final: finalPass = (int)Pass.Combine; break;
+                case ScreenSpaceRaytracedReflection.OutputMode.SideBySideComparison: finalPass = (int)Pass.CombineWithCompare; break;
+                default:
+                    finalPass = (int)Pass.Debug; break;
+            }
+
+            Blit(cmd, m_ReflectionTargetHandle, target, m_Material, finalPass);
+
+            // Blit(cmd, source, target);
         }
 
         public override void Dispose(bool disposing)
@@ -267,6 +318,12 @@ namespace Game.Core.PostProcessing
 
             m_RayCastTargetHandle?.Release();
             m_DownscaleTargetHandle?.Release();
+
+            for (int k = 0; k < MIP_COUNT; k++)
+            {
+                m_BlurMipDownTargetHandles[k]?.Release();
+                m_BlurMipDownTargetHandles2[k]?.Release();
+            }
         }
 
 
@@ -282,7 +339,7 @@ namespace Game.Core.PostProcessing
             float goldenFactor = GOLDEN_RATIO;
             if (settings.animatedJitter.value)
             {
-                goldenFactor *= (Time.frameCount % 480);
+                goldenFactor *= Time.frameCount % 480;
             }
 
             // set global settings
@@ -290,19 +347,18 @@ namespace Game.Core.PostProcessing
             material.SetVector(ShaderConstants.SSRSettings, new Vector4(settings.thickness.value, settings.sampleCount.value, settings.binarySearchIterations.value, settings.maxRayLength.value));
             material.SetVector(ShaderConstants.SSRSettings2, new Vector4(settings.jitter.value, settings.contactHardening.value + 0.0001f, settings.intensity.value, 0));
             material.SetVector(ShaderConstants.SSRSettings3, new Vector4(m_RayCastTargetHandle.referenceSize.x, m_RayCastTargetHandle.referenceSize.y, goldenFactor, settings.depthBias.value));
-            material.SetVector(ShaderConstants.SSRSettings4, new Vector4(settings.separationPos.value, settings.reflectionsMinIntensity.value, settings.reflectionsMaxIntensity.value, settings.specularSoftenPower.value));
-            material.SetVector(ShaderConstants.SSRSettings5, new Vector4(settings.thicknessFine.value * settings.thickness.value, settings.smoothnessThreshold.value, settings.skyboxIntensity.value, 0));
+            material.SetVector(ShaderConstants.SSRSettings4, new Vector4(settings.separationPos.value, 0, 0, settings.specularSoftenPower.value));
+            material.SetVector(ShaderConstants.SSRSettings5, new Vector4(settings.thicknessFine.value * settings.thickness.value, 0, 0, 0));
             material.SetVector(ShaderConstants.SSRBlurStrength, new Vector4(settings.blurStrength.value.x, settings.blurStrength.value.y, settings.vignetteSize.value, settings.vignettePower.value));
 
-            if (settings.computeBackFaces.value)
-            {
-                Shader.EnableKeyword(ShaderConstants.SKW_BACK_FACES);
-                Shader.SetGlobalFloat(ShaderConstants.MinimumThickness, settings.thicknessMinimum.value);
-            }
-            else
-            {
-                Shader.DisableKeyword(ShaderConstants.SKW_BACK_FACES);
-            }
+            CoreUtils.SetKeyword(material, ShaderConstants.SKW_DENOISE, settings.specularControl.value);
+            material.SetFloat(ShaderConstants.MinimumBlur, settings.minimumBlur.value);
+            // material.SetInt(ShaderConstants.StencilValue, settings.stencilValue.value);
+
+            CoreUtils.SetKeyword(material, ShaderConstants.SKW_JITTER, settings.jitter.value > 0);
+            CoreUtils.SetKeyword(material, ShaderConstants.SKW_BACK_FACES, settings.computeBackFaces.value);
+            material.SetFloat(ShaderConstants.MinimumThickness, settings.thicknessMinimum.value);
+
 
             material.SetMatrix(ShaderConstants.WorldToViewMatrix, camera.worldToCameraMatrix);
 

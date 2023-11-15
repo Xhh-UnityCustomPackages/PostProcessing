@@ -6,70 +6,8 @@
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/UnityGBuffer.hlsl"
 #include "Packages/com.unity.render-pipelines.universal/Shaders/PostProcessing/Common.hlsl"
 
+#include "ScreenSpaceRaytracedReflectionInput.hlsl"
 
-TEXTURE2D_HALF(_GBuffer0);
-TEXTURE2D_HALF(_GBuffer1);
-TEXTURE2D_HALF(_GBuffer2);
-
-TEXTURE2D(_MetallicGradientTex);
-TEXTURE2D(_SmoothnessGradientTex);
-
-TEXTURE2D(_DownscaledShinyDepthRT);
-
-TEXTURE2D(_NoiseTex);   float4 _NoiseTex_TexelSize;
-
-float4x4 _InverseProjectionMatrix;
-float4x4 _WorldToViewDir;
-
-float4 _SSRSettings;
-float4 _SSRSettings2;
-float4 _SSRSettings3;
-float4 _SSRSettings4;
-float4 _SSRSettings5;
-
-#define THICKNESS                   _SSRSettings.x
-#define SAMPLES                     _SSRSettings.y
-#define BINARY_SEARCH_ITERATIONS    _SSRSettings.z
-#define MAX_RAY_LENGTH              _SSRSettings.w
-#define JITTER                      _SSRSettings2.x
-#define CONTACT_HARDENING           _SSRSettings2.y
-#define REFLECTIVITY                _SSRSettings2.w
-#define INPUT_SIZE                  _SSRSettings3.xy
-#define GOLDEN_RATIO_ACUM           _SSRSettings3.z
-#define DEPTH_BIAS                  _SSRSettings3.w
-
-float4 _MaterialData;
-#define SMOOTHNESS                  _MaterialData.x
-#define FRESNEL                     _MaterialData.y
-#define FUZZYNESS                   _MaterialData.z
-#define DECAY                       _MaterialData.w
-
-
-
-#if SSR_THICKNESS_FINE
-    #define THICKNESS_FINE _SSRSettings5.x
-#else
-    #define THICKNESS_FINE THICKNESS
-#endif
-
-
-inline half3 GetScreenSpacePos(half2 uv, half depth)
-{
-    return half3(uv.xy * 2 - 1, depth.r);
-}
-
-inline half3 GetViewSpacePos(half3 screenPos, half4x4 _InverseProjectionMatrix)
-{
-    half4 viewPos = mul(_InverseProjectionMatrix, half4(screenPos, 1));
-    return viewPos.xyz / viewPos.w;
-}
-
-
-inline float GetLinearDepth(float2 uv)
-{
-    float depth = SAMPLE_TEXTURE2D_X_LOD(_DownscaledShinyDepthRT, sampler_PointClamp, uv, 0).r;
-    return depth;
-}
 
 //--------------------------------------------------------------
 half4 FragCopyDepth(Varyings input) : SV_Target
@@ -178,42 +116,26 @@ float4 SSR_Pass(float2 uv, float3 normalVS, float3 rayStart, float roughness, fl
         }
     }
 
-    #if SSR_SKYBOX
+
+    if (collision > 0)
+    {
         float reflectionIntensity = metallic;
-        if (collision <= 0 && sceneDepth > _ProjectionParams.z - 1.0)
-        {
-            zdist = 1;
-            reflectionIntensity *= SKYBOX_INTENSITY;
-        }
-        else
-        {
-            reflectionIntensity *= pow(collision, DECAY);
-        }
-    #else
-        if (collision > 0)
-        {
-            float reflectionIntensity = metallic;
-            reflectionIntensity *= pow(collision, DECAY);
+        reflectionIntensity *= pow(collision, DECAY);
 
-    #endif
+        // intersection found
 
-    // intersection found
+        float wdist = rayLength * zdist;
+        float fresnel = 1.0 - FRESNEL * abs(dot(normalVS, viewDirVS));
 
-    float wdist = rayLength * zdist;
-    float fresnel = 1.0 - FRESNEL * abs(dot(normalVS, viewDirVS));
+        float blurAmount = max(0, wdist - CONTACT_HARDENING) * FUZZYNESS * roughness;
 
-    float blurAmount = max(0, wdist - CONTACT_HARDENING) * FUZZYNESS * roughness;
+        // apply fresnel
+        float reflectionAmount = reflectionIntensity * fresnel;
 
-    // apply fresnel
-    float reflectionAmount = reflectionIntensity * fresnel;
-
-    // return hit pixel
-    return float4(p.xy, blurAmount + 0.001, reflectionAmount);
-
-    #if !SSR_SKYBOX
+        // return hit pixel
+        return float4(p.xy, blurAmount + 0.001, reflectionAmount);
     }
     
-    #endif
 
     return float4(0, 0, 0, 0);
 }
@@ -286,6 +208,138 @@ half4 FragSSR(VaryingsSSR input) : SV_Target
     float4 reflection = SSR_Pass(uv, normalVS, positionVS, roughness, metallic);
 
     return reflection;
+}
+
+//------------------------------------------------------
+half4 FragResolve(Varyings input) : SV_Target
+{
+    float2 uv = input.texcoord.xy;
+    half4 reflData = SAMPLE_TEXTURE2D(_RayCastRT, sampler_PointClamp, uv);
+    half4 reflection = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, reflData.xy);
+
+    reflection.rgb = min(reflection.rgb, 8.0); // stop NAN pixels
+
+    half vd = dot2((reflData.xy - 0.5) * 2.0);
+    half vignette = saturate(VIGNETTE_SIZE - vd * vd);
+    vignette = pow(vignette, VIGNETTE_POWER);
+
+    half reflectionIntensity = reflData.a * REFLECTIONS_MULTIPLIER;
+
+    reflectionIntensity *= vignette;
+    reflection.rgb *= reflectionIntensity;
+
+    reflection.rgb = min(reflection.rgb, 1.2); // clamp max brightness
+
+    // conserve energy
+    half4 pixel = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv);
+    reflection.rgb -= min(0.5, pixel.rgb * reflectionIntensity);
+
+    // keep blur factor in alpha channel
+    reflection.a = reflData.z;
+    return reflection;
+}
+
+//---------------------------------------------------
+half4 FragBlur(Varyings input) : SV_Target
+{
+    float2 uv = input.texcoord.xy;
+    // SSR_FRAG_SETUP_GAUSSIAN_UV(input)
+    
+    float2 offset1 = float2(_BlitTexture_TexelSize.x * 1.3846153846 * BLUR_STRENGTH_HORIZ, 0);
+    float2 offset2 = float2(_BlitTexture_TexelSize.x * 3.2307692308 * BLUR_STRENGTH_HORIZ, 0);
+
+    half4 c0 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv);
+    half4 c1 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv + offset1);
+    half4 c2 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv - offset1);
+    half4 c3 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv + offset2);
+    half4 c4 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv - offset2);
+
+    #if SSR_DENOISE
+        half l0 = abs(getLuma(c0.rgb));
+        half l1 = abs(getLuma(c1.rgb));
+        half l2 = abs(getLuma(c2.rgb));
+        half l3 = abs(getLuma(c3.rgb));
+        half l4 = abs(getLuma(c4.rgb));
+
+        half ml = (l0 + l1 + l2 + l3 + l4) * 0.2;
+        c0.rgb *= pow((1.0 + min(ml, l0)) / (1.0 + l0), DENOISE_POWER);
+        c1.rgb *= pow((1.0 + min(ml, l1)) / (1.0 + l1), DENOISE_POWER);
+        c2.rgb *= pow((1.0 + min(ml, l2)) / (1.0 + l2), DENOISE_POWER);
+        c3.rgb *= pow((1.0 + min(ml, l3)) / (1.0 + l3), DENOISE_POWER);
+        c4.rgb *= pow((1.0 + min(ml, l4)) / (1.0 + l4), DENOISE_POWER);
+    #endif
+
+    half4 blurred = c0 * 0.2270270270 + (c1 + c2) * 0.3162162162 + (c3 + c4) * 0.0702702703;
+    return blurred;
+}
+
+/////////////////////////////////////////////////////
+
+half4 Combine(Varyings input)
+{
+    float2 uv = input.texcoord.xy;
+    // exclude skybox from blur bleed
+    float depth = SampleSceneDepth(uv).r;
+    #if UNITY_REVERSED_Z
+        depth = 1.0 - depth;
+    #endif
+    if (depth >= 1.0) return float4(0, 0, 0, 0);
+
+    half4 mip0 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv);
+    half4 mip1 = SAMPLE_TEXTURE2D_X(_BlurRTMip0, sampler_LinearClamp, uv);
+    half4 mip2 = SAMPLE_TEXTURE2D_X(_BlurRTMip1, sampler_LinearClamp, uv);
+    half4 mip3 = SAMPLE_TEXTURE2D_X(_BlurRTMip2, sampler_LinearClamp, uv);
+    half4 mip4 = SAMPLE_TEXTURE2D_X(_BlurRTMip3, sampler_LinearClamp, uv);
+    half4 mip5 = SAMPLE_TEXTURE2D_X(_BlurRTMip4, sampler_LinearClamp, uv);
+
+    half r = mip5.a;
+    half4 reflData = SAMPLE_TEXTURE2D_X(_RayCastRT, sampler_PointClamp, uv);
+    if (reflData.z > 0)
+    {
+        r = min(reflData.z, r);
+    }
+
+    half roughness = clamp(r + _MinimumBlur, 0, 5);
+
+    half w0 = max(0, 1.0 - roughness);
+    half w1 = max(0, 1.0 - abs(roughness - 1.0));
+    half w2 = max(0, 1.0 - abs(roughness - 2.0));
+    half w3 = max(0, 1.0 - abs(roughness - 3.0));
+    half w4 = max(0, 1.0 - abs(roughness - 4.0));
+    half w5 = max(0, 1.0 - abs(roughness - 5.0));
+
+    half4 refl = mip0 * w0 + mip1 * w1 + mip2 * w2 + mip3 * w3 + mip4 * w4 + mip5 * w5;
+    return refl;
+}
+
+half4 FragCombine(Varyings input) : SV_Target
+{
+    return Combine(input);
+}
+
+half4 FragCombineWithCompare(Varyings input) : SV_Target
+{
+    float2 uv = input.texcoord.xy;
+    if (uv.x < SEPARATION_POS - _BlitTexture_TexelSize.x * 3)
+    {
+        return 0;
+    }
+    else if (uv.x < SEPARATION_POS + _BlitTexture_TexelSize.x * 3)
+    {
+        return 1.0;
+    }
+    else
+    {
+        return Combine(input);
+    }
+}
+
+half4 FragCopyExact(Varyings input) : SV_Target
+{
+    float2 uv = input.texcoord.xy;
+    half4 pixel = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_PointClamp, uv);
+    pixel = max(pixel, 0.0);
+    return pixel;
 }
 
 #endif // SCREEN_SPACE_RAYTRACED_REFLECTION_INCLUDED

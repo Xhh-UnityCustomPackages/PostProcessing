@@ -22,8 +22,6 @@ float4 _SSRSettings;
 #define MAX_RAY_LENGTH _SSRSettings.w
 
 float3 _SSRSettings5;
-#define REFLECTIONS_THRESHOLD _SSRSettings5.y
-#define SKYBOX_INTENSITY _SSRSettings5.z
 
 #if SSR_THICKNESS_FINE
     #define THICKNESS_FINE _SSRSettings5.x
@@ -206,42 +204,28 @@ float4 SSR_Pass(float2 uv, float3 normalVS, float3 rayStart, float roughness, fl
     }
 }
 
-#if SSR_SKYBOX
+
+if (collision > 0)
+{
+
     float reflectionIntensity = reflectivity;
-    if (collision <= 0 && sceneDepth > _ProjectionParams.z - 1.0)
-    {
-        zdist = 1;
-        reflectionIntensity *= SKYBOX_INTENSITY;
-    }
-    else
-    {
-        reflectionIntensity *= pow(collision, DECAY);
-    }
-#else
-    if (collision > 0)
-    {
+    reflectionIntensity *= pow(collision, DECAY);
 
-        float reflectionIntensity = reflectivity;
-        reflectionIntensity *= pow(collision, DECAY);
 
-#endif
+    // intersection found
 
-// intersection found
+    float wdist = rayLength * zdist;
+    float fresnel = 1.0 - FRESNEL * abs(dot(normalVS, viewDirVS));
 
-float wdist = rayLength * zdist;
-float fresnel = 1.0 - FRESNEL * abs(dot(normalVS, viewDirVS));
+    float blurAmount = max(0, wdist - CONTACT_HARDENING) * FUZZYNESS * roughness;
 
-float blurAmount = max(0, wdist - CONTACT_HARDENING) * FUZZYNESS * roughness;
+    // apply fresnel
+    float reflectionAmount = reflectionIntensity * fresnel;
 
-// apply fresnel
-float reflectionAmount = reflectionIntensity * fresnel;
-
-// return hit pixel
-return float4(p.xy, blurAmount + 0.001, reflectionAmount);
-#if !SSR_SKYBOX
+    // return hit pixel
+    return float4(p.xy, blurAmount + 0.001, reflectionAmount);
 }
 return float4(0, 0, 0, 0);
-#endif
 }
 
 

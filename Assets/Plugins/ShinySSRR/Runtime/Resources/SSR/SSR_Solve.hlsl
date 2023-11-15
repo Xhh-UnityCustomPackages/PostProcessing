@@ -8,9 +8,6 @@ TEXTURE2D_X(_RayCastRT);
 float4 _SSRSettings2;
 #define ENERGY_CONSERVATION _SSRSettings2.y
 #define REFLECTIONS_MULTIPLIER _SSRSettings2.z
-float4 _SSRSettings4;
-#define REFLECTIONS_MIN_INTENSITY _SSRSettings4.y
-#define REFLECTIONS_MAX_INTENSITY _SSRSettings4.z
 float4 _SSRBlurStrength;
 #define VIGNETTE_SIZE _SSRBlurStrength.z
 #define VIGNETTE_POWER _SSRBlurStrength.w

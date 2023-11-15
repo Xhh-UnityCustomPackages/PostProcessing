@@ -16,7 +16,7 @@ Shader "Hidden/PostProcessing/ScreenSpaceRaytracedReflection"
         Pass
         {
             // 0
-            Name "ScreenSpaceReflection Copy Depth"
+            Name "ScreenSpaceRaytracedReflection Copy Depth"
 
             HLSLPROGRAM
 
@@ -30,7 +30,7 @@ Shader "Hidden/PostProcessing/ScreenSpaceRaytracedReflection"
         Pass
         {
             // 1
-            Name "ScreenSpaceReflection Deferred"
+            Name "ScreenSpaceRaytracedReflection Deferred"
 
             HLSLPROGRAM
 
@@ -38,64 +38,92 @@ Shader "Hidden/PostProcessing/ScreenSpaceRaytracedReflection"
             #pragma multi_compile_local _ SSR_THICKNESS_FINE
             #pragma multi_compile _ _GBUFFER_NORMALS_OCT
             #pragma multi_compile _ SSR_BACK_FACES
-            #pragma multi_compile _ SSR_SKYBOX
 
             #pragma vertex VertSSR
             #pragma fragment FragSSR
             ENDHLSL
         }
 
-        // Pass
-        // {
-        //     // 2
-        //     Name "ScreenSpaceReflection Reproject"
+        Pass
+        {
+            // 2
+            Name "ScreenSpaceRaytracedReflection Resolve"
 
-        //     HLSLPROGRAM
-        //     #pragma vertex Vert
-        //     #pragma fragment FragReproject
-        //     ENDHLSL
-        // }
+            HLSLPROGRAM
+            #pragma vertex Vert
+            #pragma fragment FragResolve
+            ENDHLSL
+        }
 
-        // Pass
-        // {
-        //     // 3
-        //     Name "ScreenSpaceReflection Composite"
+        Pass
+        {
+            // 3
+            Name "ScreenSpaceRaytracedReflection Blur horizontally"
+            HLSLPROGRAM
 
-        //     HLSLPROGRAM
-        //     #pragma multi_compile_local _ DEBUG_SCREEN_SPACE_REFLECTION DEBUG_INDIRECT_SPECULAR
+            #pragma multi_compile_local _ SSR_DENOISE
 
-        //     #pragma multi_compile_fragment _ _REFLECTION_PROBE_BLENDING
-        //     #pragma multi_compile_fragment _ _REFLECTION_PROBE_BOX_PROJECTION
+            #define SSR_BLUR_HORIZ
 
-        //     #pragma vertex Vert
-        //     #pragma fragment FragComposite
-        //     ENDHLSL
-        // }
+            #pragma vertex Vert
+            #pragma fragment FragBlur
+            ENDHLSL
+        }
 
-        // Pass
-        // {
-        //     // 4
-        //     Name "ScreenSpaceReflection MobilePlanarReflection"
+        Pass
+        {
+            // 4
+            Name "ScreenSpaceRaytracedReflection Blur vertically"
+            HLSLPROGRAM
+            
+            #pragma multi_compile_local _ SSR_DENOISE
 
-        //     HLSLPROGRAM
-        //     #pragma multi_compile_local _ DEBUG_SCREEN_SPACE_REFLECTION DEBUG_INDIRECT_SPECULAR
+            #pragma vertex Vert
+            #pragma fragment FragBlur
+            ENDHLSL
+        }
 
-        //     #pragma multi_compile_fragment _ _REFLECTION_PROBE_BLENDING
-        //     #pragma multi_compile_fragment _ _REFLECTION_PROBE_BOX_PROJECTION
+        Pass
+        {
+            // 5
+            Name "ScreenSpaceRaytracedReflection Combine"
+            // Stencil
+            // {
+            //     Ref [_StencilValue]
+            //     Comp [_StencilCompareFunction]
+            // }
+            Blend One One // precomputed alpha in Resolve pass
+            HLSLPROGRAM
+            #pragma vertex Vert
+            #pragma fragment FragCombine
+            ENDHLSL
+        }
 
-        //     #pragma vertex Vert
-        //     #pragma fragment FragMobilePlanarReflection
-        //     ENDHLSL
-        // }
-        // Pass
-        // {
-        //     Name "ScreenSpaceReflection MobileAntiFlicker"
+        Pass
+        {
+            // 6
+            Name "ScreenSpaceRaytracedReflection Combine with compare"
+            // Stencil
+            // {
+            //     Ref [_StencilValue]
+            //     Comp [_StencilCompareFunction]
+            // }
+            Blend One One // precomputed alpha in Resolve pass
+            HLSLPROGRAM
+            #pragma vertex Vert
+            #pragma fragment FragCombineWithCompare
+            ENDHLSL
+        }
 
-        //     HLSLPROGRAM
-        //     #pragma vertex Vert
-        //     #pragma fragment FragMobileAntiFlicker
-        //     ENDHLSL
-        // }
-
+        Pass
+        {
+            // 7
+            Name "ScreenSpaceRaytracedReflection Debug"
+            Blend One Zero
+            HLSLPROGRAM
+            #pragma vertex Vert
+            #pragma fragment FragCopyExact
+            ENDHLSL
+        }
     }
 }

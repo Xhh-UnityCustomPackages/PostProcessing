@@ -502,7 +502,7 @@ namespace ShinySSRR
                         {
                             ssrMat.DisableKeyword(ShaderParams.SKW_REFINE_THICKNESS);
                         }
-                        ssrMat.SetVector(ShaderParams.SSRSettings5, new Vector4(go.thicknessFine * go.thickness, globalSettings.smoothnessThreshold.value, globalSettings.skyboxIntensity.value, 0));
+                        ssrMat.SetVector(ShaderParams.SSRSettings5, new Vector4(go.thicknessFine * go.thickness, 0, 0, 0));
                         ssrMat.SetVector(ShaderParams.SSRSettings2, new Vector4(go.jitter, go.contactHardening + 0.0001f, globalSettings.reflectionsMultiplier.value, reflectivity));
                         ssrMat.SetVector(ShaderParams.SSRSettings, new Vector4(go.thickness, go.sampleCount, go.binarySearchIterations, go.maxRayLength));
                         ssrMat.SetVector(ShaderParams.MaterialData, new Vector4(smoothness, go.fresnel, go.fuzzyness + 1f, go.decay));
@@ -525,7 +525,7 @@ namespace ShinySSRR
                         {
                             ssrMat.DisableKeyword(ShaderParams.SKW_REFINE_THICKNESS);
                         }
-                        ssrMat.SetVector(ShaderParams.SSRSettings5, new Vector4(globalSettings.thicknessFine.value * globalSettings.thickness.value, globalSettings.smoothnessThreshold.value, globalSettings.skyboxIntensity.value, 0));
+                        ssrMat.SetVector(ShaderParams.SSRSettings5, new Vector4(globalSettings.thicknessFine.value * globalSettings.thickness.value, 0, 0, 0));
                         ssrMat.SetVector(ShaderParams.SSRSettings2, new Vector4(globalSettings.jitter.value, globalSettings.contactHardening.value + 0.0001f, globalSettings.reflectionsMultiplier.value, reflectivity));
                         ssrMat.SetVector(ShaderParams.SSRSettings, new Vector4(globalSettings.thickness.value, globalSettings.sampleCount.value, globalSettings.binarySearchIterations.value, globalSettings.maxRayLength.value));
                         ssrMat.SetVector(ShaderParams.MaterialData, new Vector4(smoothness, globalSettings.fresnel.value, globalSettings.fuzzyness.value + 1f, globalSettings.decay.value));

@@ -62,7 +62,6 @@ namespace ShinySSRR
         public const string SKW_SMOOTHNESSMAP = "SSR_SMOOTHNESSMAP";
         public const string SKW_REFINE_THICKNESS = "SSR_THICKNESS_FINE";
         public const string SKW_BACK_FACES = "SSR_BACK_FACES";
-        public const string SKW_SKYBOX = "SSR_SKYBOX";
     }
 
 }

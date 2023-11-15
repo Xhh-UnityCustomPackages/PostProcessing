@@ -89,14 +89,6 @@ namespace ShinySSRR
         [Tooltip("Temporal filter response speed determines how fast the history buffer is discarded")]
         public FloatParameter temporalFilterResponseSpeed = new FloatParameter(1f);
 
-        [Tooltip("Minimum smoothness to receive reflections")]
-        public ClampedFloatParameter smoothnessThreshold = new ClampedFloatParameter(0, 0, 1f);
-
-        [Tooltip("Reflection min intensity")]
-        public ClampedFloatParameter reflectionsMinIntensity = new ClampedFloatParameter(0, 0, 1f);
-
-        [Tooltip("Reflection max intensity")]
-        public ClampedFloatParameter reflectionsMaxIntensity = new ClampedFloatParameter(1f, 0, 1f);
 
         [Tooltip("Reflection intensity mapping curve.")]
         public AnimationCurveParameter reflectionsIntensityCurve = new AnimationCurveParameter(AnimationCurve.Linear(0, 0, 1, 1));
@@ -116,8 +108,6 @@ namespace ShinySSRR
         [Min(0), Tooltip("Power of the specular filter")]
         public FloatParameter specularSoftenPower = new FloatParameter(15f);
 
-        [Tooltip("Skybox reflection intensity. Use only if you wish the sky or camera background to be reflected on the surfaces.")]
-        public ClampedFloatParameter skyboxIntensity = new ClampedFloatParameter(0f, 0f, 1f);
 
         [Tooltip("Controls the attenuation range of effect on screen borders")]
         public ClampedFloatParameter vignetteSize = new ClampedFloatParameter(1.1f, 0.5f, 2f);
@@ -173,7 +163,7 @@ namespace ShinySSRR
         [Tooltip("In deferred, skips full screen deferred pass. This way you can just compute reflections on surfaces with Reflections scripts.")]
         public BoolParameter skipDeferredPass = new BoolParameter(false);
 
-        public bool IsActive() => reflectionsMultiplier.value > 0 && reflectionsMaxIntensity.value > 0;
+        public bool IsActive() => reflectionsMultiplier.value > 0;
 
         public bool IsTileCompatible() => true;
 
@@ -187,7 +177,7 @@ namespace ShinySSRR
             thickness.value = Mathf.Max(0.01f, thickness.value);
             thicknessFine.value = Mathf.Max(0.01f, thicknessFine.value);
             contactHardening.value = Mathf.Max(0, contactHardening.value);
-            reflectionsMaxIntensity.value = Mathf.Max(reflectionsMinIntensity.value, reflectionsMaxIntensity.value);
+
             Vector2 blurStrength = this.blurStrength.value;
             blurStrength.x = Mathf.Max(blurStrength.x, 0f);
             blurStrength.y = Mathf.Max(blurStrength.y, 0f);
