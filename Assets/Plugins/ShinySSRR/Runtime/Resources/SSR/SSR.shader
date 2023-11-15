@@ -59,7 +59,6 @@ Shader "Hidden/Kronnect/SSR_URP"
             #pragma multi_compile_local _ SSR_JITTER
             #pragma multi_compile_local _ SSR_THICKNESS_FINE
             #pragma multi_compile _ SSR_BACK_FACES
-            #pragma multi_compile _ SSR_SKYBOX
             #include "SSR_Surface_Pass.hlsl"
             ENDHLSL
         }
@@ -157,7 +156,6 @@ Shader "Hidden/Kronnect/SSR_URP"
             #pragma multi_compile_local _ SSR_THICKNESS_FINE
             #pragma multi_compile _ _GBUFFER_NORMALS_OCT
             #pragma multi_compile _ SSR_BACK_FACES
-            #pragma multi_compile _ SSR_SKYBOX
             #include "SSR_GBuf_Pass.hlsl"
             ENDHLSL
         }

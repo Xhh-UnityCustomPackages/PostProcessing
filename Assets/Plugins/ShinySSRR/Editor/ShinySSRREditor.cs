@@ -8,23 +8,19 @@ using UnityEngine.Rendering.Universal;
 namespace ShinySSRR
 {
 
-#if UNITY_2022_2_OR_NEWER
     [CustomEditor(typeof(ShinyScreenSpaceRaytracedReflections))]
-#else
-    [VolumeComponentEditor(typeof(ShinyScreenSpaceRaytracedReflections))]
-#endif
     public class ShinySSRREditor : VolumeComponentEditor
     {
 
         SerializedDataParameter reflectionsMultiplier, showInSceneView;
-        SerializedDataParameter reflectionsIntensityCurve, reflectionsSmoothnessCurve, smoothnessThreshold, reflectionsMinIntensity, reflectionsMaxIntensity;
+        SerializedDataParameter reflectionsIntensityCurve, reflectionsSmoothnessCurve;
         SerializedDataParameter downsampling, depthBias, computeBackFaces, thicknessMinimum, computeBackFacesLayerMask;
         SerializedDataParameter outputMode, separationPos, lowPrecision, stopNaN;
         SerializedDataParameter stencilCheck, stencilValue, stencilCompareFunction;
         SerializedDataParameter temporalFilter, temporalFilterResponseSpeed;
         SerializedDataParameter sampleCount, maxRayLength, thickness, binarySearchIterations, refineThickness, thicknessFine, decay, jitter, animatedJitter;
         SerializedDataParameter fresnel, fuzzyness, contactHardening, minimumBlur;
-        SerializedDataParameter blurDownsampling, blurStrength, specularControl, specularSoftenPower, skyboxIntensity, vignetteSize, vignettePower;
+        SerializedDataParameter blurDownsampling, blurStrength, specularControl, specularSoftenPower, vignetteSize, vignettePower;
         SerializedDataParameter useReflectionsScripts, reflectionsScriptsLayerMask, skipDeferredPass;
 
         Reflections[] reflections;
@@ -41,9 +37,6 @@ namespace ShinySSRR
             reflectionsMultiplier = Unpack(o.Find(x => x.reflectionsMultiplier));
             reflectionsIntensityCurve = Unpack(o.Find(x => x.reflectionsIntensityCurve));
             reflectionsSmoothnessCurve = Unpack(o.Find(x => x.reflectionsSmoothnessCurve));
-            smoothnessThreshold = Unpack(o.Find(x => x.smoothnessThreshold));
-            reflectionsMinIntensity = Unpack(o.Find(x => x.reflectionsMinIntensity));
-            reflectionsMaxIntensity = Unpack(o.Find(x => x.reflectionsMaxIntensity));
             computeBackFaces = Unpack(o.Find(x => x.computeBackFaces));
             computeBackFacesLayerMask = Unpack(o.Find(x => x.computeBackFacesLayerMask));
             thicknessMinimum = Unpack(o.Find(x => x.thicknessMinimum));
@@ -75,7 +68,6 @@ namespace ShinySSRR
             blurStrength = Unpack(o.Find(x => x.blurStrength));
             specularControl = Unpack(o.Find(x => x.specularControl));
             specularSoftenPower = Unpack(o.Find(x => x.specularSoftenPower));
-            skyboxIntensity = Unpack(o.Find(x => x.skyboxIntensity));
             vignetteSize = Unpack(o.Find(x => x.vignetteSize));
             vignettePower = Unpack(o.Find(x => x.vignettePower));
             useReflectionsScripts = Unpack(o.Find(x => x.useReflectionsScripts));
@@ -214,7 +206,8 @@ namespace ShinySSRR
             PropertyField(animatedJitter);
 #if UNITY_2021_3_OR_NEWER
             PropertyField(temporalFilter);
-            if (temporalFilter.value.boolValue) {
+            if (temporalFilter.value.boolValue)
+            {
                 EditorGUI.indentLevel++;
                 PropertyField(temporalFilterResponseSpeed, new GUIContent("Response Speed"));
                 EditorGUI.indentLevel--;
@@ -239,7 +232,6 @@ namespace ShinySSRR
                 PropertyField(specularSoftenPower, new GUIContent("Soften Power"));
                 EditorGUI.indentLevel--;
             }
-            PropertyField(skyboxIntensity);
             PropertyField(vignetteSize);
             PropertyField(vignettePower);
 
