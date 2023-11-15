@@ -447,7 +447,7 @@ half4 CombineReflectionColor(Varyings i) : SV_Target
     half3 ScreenPos = GetScreenSpacePos(uv, SceneDepth);
     half3 positionWS = GetWorldSpacePos(ScreenPos, _SSR_InverseViewProjectionMatrix);
     half3 ViewDir = GetViewDir(positionWS, _WorldSpaceCameraPos);
-    half3 reflectVector = reflect(-ViewDir, normalWS);
+    half3 reflectVector = normalize(reflect(-ViewDir, normalWS));
     half NoV = saturate(dot(normalWS, ViewDir));
     half3 EnergyCompensation;
     //反射部分的采样
@@ -477,7 +477,9 @@ half4 CombineReflectionColor(Varyings i) : SV_Target
         return half4(ReflectionColor.rgb, 1);
     #endif
 
-    return SceneColor + ReflectionColor ;
+    return SSRMask;
+
+    return SceneColor + ReflectionColor  ;
 }
 
 #endif

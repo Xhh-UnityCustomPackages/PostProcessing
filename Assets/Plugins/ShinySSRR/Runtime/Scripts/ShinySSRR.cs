@@ -168,7 +168,7 @@ namespace ShinySSRR
                     Shader.DisableKeyword(ShaderParams.SKW_SKYBOX);
                 }
 
-                if (ssrFeature.useDeferred || ssrFeature.customSmoothnessMetallicPass)
+                if (ssrFeature.useDeferred)
                 {
                     if (settings.jitter.value > 0)
                     {
@@ -300,9 +300,9 @@ namespace ShinySSRR
                 bool useReflectionsScripts = true;
                 int count = Reflections.instances.Count;
                 bool usingDeferredPass = ssrFeature.useDeferred && !settings.skipDeferredPass.value;
-                if (usingDeferredPass || ssrFeature.customSmoothnessMetallicPass)
+                if (usingDeferredPass)
                 {
-                    useReflectionsScripts = settings.useReflectionsScripts.value && !ssrFeature.customSmoothnessMetallicPass;
+                    useReflectionsScripts = settings.useReflectionsScripts.value;
 
                     // init command buffer
                     cmd = CommandBufferPool.Get(SHINY_CBUFNAME);
@@ -609,9 +609,7 @@ namespace ShinySSRR
             {
                 RenderTargetIdentifier rti = new RenderTargetIdentifier(ShaderParams.DownscaledBackDepthRT, 0, CubemapFace.Unknown, -1);
                 m_Depth = RTHandles.Alloc(rti, name: ShaderParams.DownscaledBackDepthTextureName);
-                m_ShaderTagIdList.Add(new ShaderTagId("SRPDefaultUnlit"));
                 m_ShaderTagIdList.Add(new ShaderTagId("UniversalForward"));
-                m_ShaderTagIdList.Add(new ShaderTagId("LightweightForward"));
                 m_FilteringSettings = new FilteringSettings(RenderQueueRange.opaque, -1);
             }
 
@@ -681,12 +679,6 @@ namespace ShinySSRR
         [Tooltip("Requests screen space normals to be used with Reflections scripts that need them")]
         public bool enableScreenSpaceNormalsPass;
 
-        [Tooltip("Executes a SmoothnessMetallic pass on shaders that support it in forward rendering path")]
-        public bool customSmoothnessMetallicPass;
-
-        [Tooltip("Allows Shiny to be executed even if camera has Post Processing option disabled.")]
-        public bool ignorePostProcessingOption = true;
-
         [Tooltip("On which cameras should Shiny effects be applied")]
         public LayerMask cameraLayerMask = -1;
 
@@ -696,7 +688,6 @@ namespace ShinySSRR
 
         public static bool installed;
         public static bool isDeferredActive;
-        public static bool isSmoothnessMetallicPassActive;
         public static bool isUsingScreenSpaceNormals;
         public static bool isEnabled = true;
 
@@ -741,20 +732,15 @@ namespace ShinySSRR
             installed = true;
             if (!isEnabled) return;
             isDeferredActive = useDeferred;
-            isSmoothnessMetallicPassActive = customSmoothnessMetallicPass && !useDeferred;
             isUsingScreenSpaceNormals = enableScreenSpaceNormalsPass && !useDeferred;
 
-            if (!renderingData.postProcessingEnabled && !ignorePostProcessingOption) return;
+            if (!renderingData.postProcessingEnabled) return;
 
             Camera cam = renderingData.cameraData.camera;
             if ((cameraLayerMask.value & (1 << cam.gameObject.layer)) == 0) return;
 
             if (renderPass.Setup(renderer, this))
             {
-                if (isSmoothnessMetallicPassActive)
-                {
-                    renderer.EnqueuePass(smoothnessMetallicPass);
-                }
                 if (renderPass.settings.computeBackFaces.value)
                 {
                     backfacesPass.Setup(renderPass.settings);

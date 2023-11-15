@@ -1,30 +1,50 @@
-#ifndef SSR_GBUF_PASS
-#define SSR_GBUF_PASS
+#ifndef SCREEN_SPACE_RAYTRACED_REFLECTION_INCLUDED
+#define SCREEN_SPACE_RAYTRACED_REFLECTION_INCLUDED
 
-// Copyright 2021 Kronnect - All Rights Reserved.
-
-
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/UnityGBuffer.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/Shaders/PostProcessing/Common.hlsl"
 
 
-TEXTURE2D(_NoiseTex);
-float4 _NoiseTex_TexelSize;
+TEXTURE2D_HALF(_GBuffer0);
+TEXTURE2D_HALF(_GBuffer1);
+TEXTURE2D_HALF(_GBuffer2);
 
-float4 _MaterialData;
-#define SMOOTHNESS _MaterialData.x
-#define FRESNEL _MaterialData.y
-#define FUZZYNESS _MaterialData.z
-#define DECAY _MaterialData.w
+TEXTURE2D(_MetallicGradientTex);
+TEXTURE2D(_SmoothnessGradientTex);
+
+TEXTURE2D(_DownscaledShinyDepthRT);
+
+TEXTURE2D(_NoiseTex);   float4 _NoiseTex_TexelSize;
+
+float4x4 _InverseProjectionMatrix;
+float4x4 _WorldToViewDir;
 
 float4 _SSRSettings;
-#define THICKNESS _SSRSettings.x
-#define SAMPLES _SSRSettings.y
-#define BINARY_SEARCH_ITERATIONS _SSRSettings.z
-#define MAX_RAY_LENGTH _SSRSettings.w
+float4 _SSRSettings2;
+float4 _SSRSettings3;
+float4 _SSRSettings4;
+float4 _SSRSettings5;
 
-float3 _SSRSettings5;
-#define REFLECTIONS_THRESHOLD _SSRSettings5.y
-#define SKYBOX_INTENSITY _SSRSettings5.z
+#define THICKNESS                   _SSRSettings.x
+#define SAMPLES                     _SSRSettings.y
+#define BINARY_SEARCH_ITERATIONS    _SSRSettings.z
+#define MAX_RAY_LENGTH              _SSRSettings.w
+#define JITTER                      _SSRSettings2.x
+#define CONTACT_HARDENING           _SSRSettings2.y
+#define REFLECTIVITY                _SSRSettings2.w
+#define INPUT_SIZE                  _SSRSettings3.xy
+#define GOLDEN_RATIO_ACUM           _SSRSettings3.z
+#define DEPTH_BIAS                  _SSRSettings3.w
+
+float4 _MaterialData;
+#define SMOOTHNESS                  _MaterialData.x
+#define FRESNEL                     _MaterialData.y
+#define FUZZYNESS                   _MaterialData.z
+#define DECAY                       _MaterialData.w
+
+
 
 #if SSR_THICKNESS_FINE
     #define THICKNESS_FINE _SSRSettings5.x
@@ -32,60 +52,44 @@ float3 _SSRSettings5;
     #define THICKNESS_FINE THICKNESS
 #endif
 
-float4 _SSRSettings2;
-#define JITTER _SSRSettings2.x
-#define CONTACT_HARDENING _SSRSettings2.y
 
-float4 _SSRSettings3;
-#define INPUT_SIZE _SSRSettings3.xy
-#define GOLDEN_RATIO_ACUM _SSRSettings3.z
-#define DEPTH_BIAS _SSRSettings3.w
-
-float4x4 _WorldToViewDir;
-
-TEXTURE2D_X(_GBuffer0);
-TEXTURE2D_X(_GBuffer1);
-TEXTURE2D_X(_GBuffer2);
-TEXTURE2D_X(_SmoothnessMetallicRT);
-TEXTURE2D(_MetallicGradientTex);
-TEXTURE2D(_SmoothnessGradientTex);
-
-struct AttributesFS
+inline half3 GetScreenSpacePos(half2 uv, half depth)
 {
-    float4 positionHCS : POSITION;
-    float4 uv : TEXCOORD0;
-    UNITY_VERTEX_INPUT_INSTANCE_ID
-};
-
-struct VaryingsSSR
-{
-    float4 positionCS : SV_POSITION;
-    float4 uv : TEXCOORD0;
-    UNITY_VERTEX_INPUT_INSTANCE_ID
-    UNITY_VERTEX_OUTPUT_STEREO
-};
-
-
-VaryingsSSR VertSSR(AttributesFS input)
-{
-    VaryingsSSR output;
-    UNITY_SETUP_INSTANCE_ID(input);
-    UNITY_TRANSFER_INSTANCE_ID(input, output);
-    UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
-    output.positionCS = float4(input.positionHCS.xyz, 1.0);
-
-    #if UNITY_UV_STARTS_AT_TOP
-        output.positionCS.y *= -1;
-    #endif
-
-    output.uv = input.uv;
-    float4 projPos = output.positionCS * 0.5;
-    projPos.xy = projPos.xy + projPos.w;
-    output.uv.zw = projPos.xy;
-    return output;
+    return half3(uv.xy * 2 - 1, depth.r);
 }
 
-float4 SSR_Pass(float2 uv, float3 normalVS, float3 rayStart, float roughness, float reflectivity)
+inline half3 GetViewSpacePos(half3 screenPos, half4x4 _InverseProjectionMatrix)
+{
+    half4 viewPos = mul(_InverseProjectionMatrix, half4(screenPos, 1));
+    return viewPos.xyz / viewPos.w;
+}
+
+
+inline float GetLinearDepth(float2 uv)
+{
+    float depth = SAMPLE_TEXTURE2D_X_LOD(_DownscaledShinyDepthRT, sampler_PointClamp, uv, 0).r;
+    return depth;
+}
+
+//--------------------------------------------------------------
+half4 FragCopyDepth(Varyings input) : SV_Target
+{
+    float2 uv = input.texcoord;
+    float depth = SampleSceneDepth(uv).r;
+    depth = LinearEyeDepth(depth, _ZBufferParams);
+    // #if SSR_BACK_FACES
+    //     float backDepth = SAMPLE_TEXTURE2D_X(_DownscaledShinyBackDepthRT, sampler_PointClamp, i.uv.xy).r;
+    //     backDepth = LinearEyeDepth(backDepth, _ZBufferParams);
+    //     backDepth = clamp(backDepth, depth + MINIMUM_THICKNESS, depth + THICKNESS);
+    //     return half4(depth, backDepth, 0, 1.0);
+    // #else
+        return half4(depth.xxx, 1.0);
+    // #endif
+
+}
+
+//----------------------------------------------------------------
+float4 SSR_Pass(float2 uv, float3 normalVS, float3 rayStart, float roughness, float metallic)
 {
     float3 viewDirVS = normalize(rayStart);
     float3 rayDir = reflect(viewDirVS, normalVS);
@@ -175,7 +179,7 @@ float4 SSR_Pass(float2 uv, float3 normalVS, float3 rayStart, float roughness, fl
     }
 
     #if SSR_SKYBOX
-        float reflectionIntensity = reflectivity;
+        float reflectionIntensity = metallic;
         if (collision <= 0 && sceneDepth > _ProjectionParams.z - 1.0)
         {
             zdist = 1;
@@ -188,7 +192,7 @@ float4 SSR_Pass(float2 uv, float3 normalVS, float3 rayStart, float roughness, fl
     #else
         if (collision > 0)
         {
-            float reflectionIntensity = reflectivity;
+            float reflectionIntensity = metallic;
             reflectionIntensity *= pow(collision, DECAY);
 
     #endif
@@ -214,25 +218,48 @@ float4 SSR_Pass(float2 uv, float3 normalVS, float3 rayStart, float roughness, fl
     return float4(0, 0, 0, 0);
 }
 
-
-float4 FragSSR(VaryingsSSR input) : SV_Target
+struct VaryingsSSR
 {
+    float4 positionCS : SV_POSITION;
+    float4 texcoord : TEXCOORD0;
+    UNITY_VERTEX_OUTPUT_STEREO
+};
 
+
+VaryingsSSR VertSSR(Attributes input)
+{
+    VaryingsSSR output;
     UNITY_SETUP_INSTANCE_ID(input);
-    UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
+    UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
 
-    float depth = SampleSceneDepth(input.uv.xy).r;
+    float4 pos = GetFullScreenTriangleVertexPosition(input.vertexID);
+    float2 uv = GetFullScreenTriangleTexCoord(input.vertexID);
+
+    output.positionCS = pos;
+    output.texcoord.xy = uv * _BlitScaleBias.xy + _BlitScaleBias.zw;
+
+    float4 projPos = output.positionCS * 0.5;
+    projPos.xy = projPos.xy + projPos.w;
+    output.texcoord.zw = projPos.xy;
+
+    return output;
+}
+
+half4 FragSSR(VaryingsSSR input) : SV_Target
+{
+    float2 uv = input.texcoord.xy;
+    
+    float depth = SampleSceneDepth(uv);
     #if UNITY_REVERSED_Z
         depth = 1.0 - depth;
     #endif
-    if (depth >= 1.0) return float4(0, 0, 0, 0);
+    if (depth >= 1.0)
+        return float4(0, 0, 0, 0);
 
-    depth = 2.0 * depth - 1.0;
-    float2 zw = SSRStereoTransformScreenSpaceTex(input.uv.zw);
-    float3 positionVS = ComputeViewSpacePosition(zw, depth, unity_CameraInvProjection);
+    // half3 ScreenPos = GetScreenSpacePos(uv, depth);
+    // half3 positionVS = GetViewSpacePos(ScreenPos, _InverseProjectionMatrix);
+    float3 positionVS = ComputeViewSpacePosition(input.texcoord.zw, depth, unity_CameraInvProjection);
     // return half4(positionVS, 1);
-    float2 uv = SSRStereoTransformScreenSpaceTex(input.uv.xy);
-
     
     float4 gbuffer0 = SAMPLE_TEXTURE2D_X(_GBuffer0, sampler_PointClamp, uv);
     float4 gbuffer1 = SAMPLE_TEXTURE2D_X(_GBuffer1, sampler_PointClamp, uv);
@@ -243,14 +270,13 @@ float4 FragSSR(VaryingsSSR input) : SV_Target
         half2 octNormalWS = remappedOctNormalWS.xy * 2.0h - 1.0h;    // values between [-1, +1]
         float3 normalWS = UnpackNormalOctQuadEncode(octNormalWS);
     #else
-        // float3 normalWS = normals.xyz;
         float3 normalWS = normalize(UnpackNormal(gbuffer2.xyz));
     #endif
-
+    
     float3 normalVS = mul((float3x3)_WorldToViewDir, normalWS);
     normalVS.z *= -1.0;
 
-    float metallic = gbuffer1.r;
+    float metallic = gbuffer1.r;//金属度
     float smoothness = gbuffer2.a;
 
     metallic = SAMPLE_TEXTURE2D_LOD(_MetallicGradientTex, sampler_LinearClamp, float2(metallic, 0), 0).r;
@@ -262,5 +288,4 @@ float4 FragSSR(VaryingsSSR input) : SV_Target
     return reflection;
 }
 
-
-#endif // SSR_GBUF_PASS
+#endif // SCREEN_SPACE_RAYTRACED_REFLECTION_INCLUDED

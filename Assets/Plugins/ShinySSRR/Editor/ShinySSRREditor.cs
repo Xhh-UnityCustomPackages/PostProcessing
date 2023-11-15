@@ -278,11 +278,7 @@ namespace ShinySSRR
                 }
                 EditorGUILayout.Separator();
                 EditorGUILayout.LabelField("Reflections scripts in Scene", EditorStyles.helpBox);
-                if (ShinySSRR.isSmoothnessMetallicPassActive)
-                {
-                    EditorGUILayout.HelpBox("When 'Custom Smoothness Metallic Pass' option is enabled, Reflections scripts are not used.", MessageType.Info);
-                }
-                else if (ShinySSRR.isDeferredActive)
+                if (ShinySSRR.isDeferredActive)
                 {
                     EditorGUILayout.HelpBox("In deferred mode, you don't need to use Reflections scripts. But they can be used to force adding custom reflections on transparent objects like puddles.", MessageType.Info);
                     PropertyField(useReflectionsScripts);
