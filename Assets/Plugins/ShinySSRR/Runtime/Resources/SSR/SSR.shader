@@ -39,7 +39,7 @@ Shader "Hidden/Kronnect/SSR_URP"
             // 0
             Name "Copy exact"
             HLSLPROGRAM
-            #pragma vertex Vert
+            #pragma vertex VertSSR
             #pragma fragment FragCopyExact
             #include "SSR_Blends.hlsl"
             ENDHLSL
@@ -58,6 +58,7 @@ Shader "Hidden/Kronnect/SSR_URP"
             #pragma multi_compile_local _ SSR_SMOOTHNESSMAP
             #pragma multi_compile_local _ SSR_JITTER
             #pragma multi_compile_local _ SSR_THICKNESS_FINE
+            #pragma multi_compile_local _ SSR_METALLIC_WORKFLOW
             #pragma multi_compile _ SSR_BACK_FACES
             #include "SSR_Surface_Pass.hlsl"
             ENDHLSL
@@ -68,7 +69,7 @@ Shader "Hidden/Kronnect/SSR_URP"
             // 2
             Name "Resolve"
             HLSLPROGRAM
-            #pragma vertex Vert
+            #pragma vertex VertSSR
             #pragma fragment FragResolve
             #include "SSR_Solve.hlsl"
             ENDHLSL
@@ -105,7 +106,7 @@ Shader "Hidden/Kronnect/SSR_URP"
             Name "Debug"
             Blend One Zero
             HLSLPROGRAM
-            #pragma vertex Vert
+            #pragma vertex VertSSR
             #pragma fragment FragCopyExact
             #include "SSR_Blends.hlsl"
             ENDHLSL
@@ -122,7 +123,7 @@ Shader "Hidden/Kronnect/SSR_URP"
             }
             Blend One One // precomputed alpha in Resolve pass
             HLSLPROGRAM
-            #pragma vertex Vert
+            #pragma vertex VertSSR
             #pragma fragment FragCombine
             #include "SSR_Blends.hlsl"
             ENDHLSL
@@ -139,7 +140,7 @@ Shader "Hidden/Kronnect/SSR_URP"
             }
             Blend One One // precomputed alpha in Resolve pass
             HLSLPROGRAM
-            #pragma vertex Vert
+            #pragma vertex VertSSR
             #pragma fragment FragCombineWithCompare
             #include "SSR_Blends.hlsl"
             ENDHLSL
@@ -154,6 +155,8 @@ Shader "Hidden/Kronnect/SSR_URP"
             #pragma fragment FragSSR
             #pragma multi_compile_local _ SSR_JITTER
             #pragma multi_compile_local _ SSR_THICKNESS_FINE
+            #pragma multi_compile_local _ SSR_METALLIC_WORKFLOW
+            #pragma multi_compile_local _ SSR_CUSTOM_SMOOTHNESS_METALLIC_PASS
             #pragma multi_compile _ _GBUFFER_NORMALS_OCT
             #pragma multi_compile _ SSR_BACK_FACES
             #include "SSR_GBuf_Pass.hlsl"

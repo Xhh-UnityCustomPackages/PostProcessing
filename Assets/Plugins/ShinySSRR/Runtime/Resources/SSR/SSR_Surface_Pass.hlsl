@@ -22,6 +22,8 @@ float4 _SSRSettings;
 #define MAX_RAY_LENGTH _SSRSettings.w
 
 float3 _SSRSettings5;
+#define REFLECTIONS_THRESHOLD _SSRSettings5.y
+#define SKYBOX_INTENSITY _SSRSettings5.z
 
 #if SSR_THICKNESS_FINE
     #define THICKNESS_FINE _SSRSettings5.x
@@ -107,110 +109,118 @@ VaryingsSSRSurf VertSSRSurf(AttributesSurf input)
 }
 
 
-float4 SSR_Pass(float2 uv, float3 normalVS, float3 rayStart, float roughness, float reflectivity)
+#if SSR_METALLIC_WORKFLOW
+    float4 SSR_Pass(float2 uv, float3 normalVS, float3 rayStart, float roughness, float reflectivity)
+    {
+#else
+    float4 SSR_Pass(float2 uv, float3 normalVS, float3 rayStart, float roughness)
+    {
+#endif
+
+float3 viewDirVS = normalize(rayStart);
+float3 rayDir = reflect(viewDirVS, normalVS);
+
+// if ray is toward the camera, early exit (optional)
+//if (rayDir.z < 0) return 0.0.xxxx;
+
+float rayLength = MAX_RAY_LENGTH;
+
+float3 rayEnd = rayStart + rayDir * rayLength;
+if (rayEnd.z < _ProjectionParams.y)
 {
+    rayLength = (_ProjectionParams.y - rayStart.z) / rayDir.z;
+    rayEnd = rayStart + rayDir * rayLength;
+}
 
-    float3 viewDirVS = normalize(rayStart);
-    float3 rayDir = reflect(viewDirVS, normalVS);
+float4 sposStart = mul(unity_CameraProjection, float4(rayStart, 1.0));
+float4 sposEnd = mul(unity_CameraProjection, float4(rayEnd, 1.0));
+float k0 = rcp(sposStart.w);
+float q0 = rayStart.z * k0;
+float k1 = rcp(sposEnd.w);
+float q1 = rayEnd.z * k1;
+float4 p = float4(uv, q0, k0);
 
-    // if ray is toward the camera, early exit (optional)
-    //if (rayDir.z < 0) return 0.0.xxxx;
+// depth clip check
+float sceneDepth = GetLinearDepth(p.xy);
+float pz = p.z / p.w;
+if (sceneDepth < pz - DEPTH_BIAS) return 0;
 
-    float rayLength = MAX_RAY_LENGTH;
+// length in pixels
+float2 uv1 = (sposEnd.xy * rcp(rayEnd.z) + 1.0) * 0.5;
+float2 duv = uv1 - uv;
+float2 duvPixel = abs(duv * INPUT_SIZE);
+float pixelDistance = max(duvPixel.x, duvPixel.y);
+int sampleCount = (int)clamp(pixelDistance, 1, SAMPLES);
+float4 pincr = float4(duv, q1 - q0, k1 - k0) * rcp(sampleCount);
 
-    float3 rayEnd = rayStart + rayDir * rayLength;
-    if (rayEnd.z < _ProjectionParams.y)
-    {
-        rayLength = (_ProjectionParams.y - rayStart.z) / rayDir.z;
-        rayEnd = rayStart + rayDir * rayLength;
-    }
+#if SSR_JITTER
+    float jitter = SAMPLE_TEXTURE2D(_NoiseTex, sampler_PointRepeat, uv * INPUT_SIZE * _NoiseTex_TexelSize.xy + GOLDEN_RATIO_ACUM).r;
+    pincr *= 1.0 + jitter * JITTER;
+    p += pincr * (jitter * JITTER);
+#endif
 
-    float4 sposStart = mul(unity_CameraProjection, float4(rayStart, 1.0));
-    float4 sposEnd = mul(unity_CameraProjection, float4(rayEnd, 1.0));
-    float k0 = rcp(sposStart.w);
-    float q0 = rayStart.z * k0;
-    float k1 = rcp(sposEnd.w);
-    float q1 = rayEnd.z * k1;
-    float4 p = float4(uv, q0, k0);
+float collision = 0;
+float dist = 0;
+float zdist = 0;
 
-    // depth clip check
-    float sceneDepth = GetLinearDepth(p.xy);
+UNITY_LOOP
+for (int k = 0; k < sampleCount; k++)
+{
+    p += pincr;
+    if (any(floor(p.xy) != 0)) return 0.0.xxxx; // exit if out of screen space
     float pz = p.z / p.w;
-    if (sceneDepth < pz - DEPTH_BIAS) return 0;
 
-    // length in pixels
-    float2 uv1 = (sposEnd.xy * rcp(rayEnd.z) + 1.0) * 0.5;
-    float2 duv = uv1 - uv;
-    float2 duvPixel = abs(duv * INPUT_SIZE);
-    float pixelDistance = max(duvPixel.x, duvPixel.y);
-    int sampleCount = (int)clamp(pixelDistance, 1, SAMPLES);
-    float4 pincr = float4(duv, q1 - q0, k1 - k0) * rcp(sampleCount);
-
-    #if SSR_JITTER
-        float jitter = SAMPLE_TEXTURE2D(_NoiseTex, sampler_PointRepeat, uv * INPUT_SIZE * _NoiseTex_TexelSize.xy + GOLDEN_RATIO_ACUM).r;
-        pincr *= 1.0 + jitter * JITTER;
-        p += pincr * (jitter * JITTER);
-    #endif
-
-    float collision = 0;
-    float dist = 0;
-    float zdist = 0;
-
-    UNITY_LOOP
-    for (int k = 0; k < sampleCount; k++)
-    {
-        p += pincr;
-        if (any(floor(p.xy) != 0)) return 0.0.xxxx; // exit if out of screen space
-        float pz = p.z / p.w;
-
-        float sceneBackDepth, depthDiff;
-        #if SSR_BACK_FACES
-            GetLinearDepths(p.xy, sceneDepth, sceneBackDepth);
-            if (pz >= sceneDepth && pz <= sceneBackDepth)
-            {
-        #else
-            sceneDepth = GetLinearDepth(p.xy);
-            depthDiff = pz - sceneDepth;
-            if (depthDiff > 0 && depthDiff < THICKNESS)
-            {
-        #endif
-        float4 origPincr = pincr;
-        p -= pincr;
-        float reduction = 1.0;
-        UNITY_LOOP
-        for (int j = 0; j < BINARY_SEARCH_ITERATIONS; j++)
+    float sceneBackDepth, depthDiff;
+    #if SSR_BACK_FACES
+        GetLinearDepths(p.xy, sceneDepth, sceneBackDepth);
+        if (pz >= sceneDepth && pz <= sceneBackDepth)
         {
-            reduction *= 0.5;
-            p += pincr * reduction;
-            pz = p.z / p.w;
-            sceneDepth = GetLinearDepth(p.xy);
-            depthDiff = sceneDepth - pz;
-            pincr = sign(depthDiff) * origPincr;
-        }
-        #if SSR_THICKNESS_FINE
-            if (abs(depthDiff) < THICKNESS_FINE)
-            {
-        #endif
-        float hitAccuracy = 1.0 - abs(depthDiff) / THICKNESS_FINE;
-        zdist = (pz - rayStart.z) / (0.0001 + rayEnd.z - rayStart.z);
-        float rayFade = 1.0 - saturate(zdist);
-        collision = hitAccuracy * rayFade;
-        break;
-        #if SSR_THICKNESS_FINE
-        }
-        pincr = origPincr;
-        p += pincr;
-        #endif
+    #else
+        sceneDepth = GetLinearDepth(p.xy);
+        depthDiff = pz - sceneDepth;
+        if (depthDiff > 0 && depthDiff < THICKNESS)
+        {
+    #endif
+    float4 origPincr = pincr;
+    p -= pincr;
+    float reduction = 1.0;
+    UNITY_LOOP
+    for (int j = 0; j < BINARY_SEARCH_ITERATIONS; j++)
+    {
+        reduction *= 0.5;
+        p += pincr * reduction;
+        pz = p.z / p.w;
+        sceneDepth = GetLinearDepth(p.xy);
+        depthDiff = sceneDepth - pz;
+        pincr = sign(depthDiff) * origPincr;
     }
+    #if SSR_THICKNESS_FINE
+        if (abs(depthDiff) < THICKNESS_FINE)
+        {
+    #endif
+    float hitAccuracy = 1.0 - abs(depthDiff) / THICKNESS_FINE;
+    zdist = (pz - rayStart.z) / (0.0001 + rayEnd.z - rayStart.z);
+    float rayFade = 1.0 - saturate(zdist);
+    collision = hitAccuracy * rayFade;
+    break;
+    #if SSR_THICKNESS_FINE
+    }
+    pincr = origPincr;
+    p += pincr;
+    #endif
+}
 }
 
 
 if (collision > 0)
 {
 
-    float reflectionIntensity = reflectivity;
+    #if SSR_METALLIC_WORKFLOW
+        float reflectionIntensity = reflectivity;
+    #else
+        float reflectionIntensity = (1.0 - roughness);
+    #endif
     reflectionIntensity *= pow(collision, DECAY);
-
 
     // intersection found
 
@@ -255,14 +265,24 @@ float4 FragSSRSurf(VaryingsSSRSurf input) : SV_Target
         float3 normalVS = input.normal;
     #endif
 
-    // #if SSR_SMOOTHNESSMAP
-    //     float reflectivity = REFLECTIVITY * SAMPLE_TEXTURE2D(_SmoothnessMap, sampler_PointRepeat, input.uv).a;
-    // #else
-        float reflectivity = REFLECTIVITY;
-    // #endif
-    reflectivity = SAMPLE_TEXTURE2D_LOD(_MetallicGradientTex, sampler_LinearClamp, float2(reflectivity, 0), 0).r;
-    float roughness = SAMPLE_TEXTURE2D_LOD(_SmoothnessGradientTex, sampler_LinearClamp, float2(1.0 - SMOOTHNESS, 0), 0).r;
-    float4 reflection = SSR_Pass(input.scrPos.xy, normalVS, input.positionVS, roughness, reflectivity);
+    #if SSR_METALLIC_WORKFLOW
+        #if SSR_SMOOTHNESSMAP
+            float reflectivity = REFLECTIVITY * SAMPLE_TEXTURE2D(_SmoothnessMap, sampler_PointRepeat, input.uv).a;
+        #else
+            float reflectivity = REFLECTIVITY;
+        #endif
+        reflectivity = SAMPLE_TEXTURE2D_LOD(_MetallicGradientTex, sampler_LinearClamp, float2(reflectivity, 0), 0).r;
+        float roughness = SAMPLE_TEXTURE2D_LOD(_SmoothnessGradientTex, sampler_LinearClamp, float2(1.0 - SMOOTHNESS, 0), 0).r;
+        float4 reflection = SSR_Pass(input.scrPos.xy, normalVS, input.positionVS, roughness, reflectivity);
+    #else
+        #if SSR_SMOOTHNESSMAP
+            float smoothness = SMOOTHNESS * SAMPLE_TEXTURE2D(_SmoothnessMap, sampler_PointRepeat, input.uv).a;
+        #else
+            float smoothness = SMOOTHNESS;
+        #endif
+        float roughness = 1.0 - max(0, smoothness - REFLECTIONS_THRESHOLD);
+        float4 reflection = SSR_Pass(input.scrPos.xy, normalVS, input.positionVS, roughness);
+    #endif
 
     return reflection;
 }

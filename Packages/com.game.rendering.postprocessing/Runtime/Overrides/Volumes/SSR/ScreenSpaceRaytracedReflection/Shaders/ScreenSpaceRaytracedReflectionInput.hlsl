@@ -48,6 +48,8 @@ float4 _SSRSettings5;
 #define GOLDEN_RATIO_ACUM           _SSRSettings3.z
 #define DEPTH_BIAS                  _SSRSettings3.w
 #define SEPARATION_POS              _SSRSettings4.x
+#define REFLECTIONS_MIN_INTENSITY   _SSRSettings4.y
+#define REFLECTIONS_MAX_INTENSITY   _SSRSettings4.z
 #define DENOISE_POWER               _SSRSettings4.w
 
 float4 _MaterialData;
@@ -97,6 +99,10 @@ inline float GetLinearDepth(float2 uv)
     return depth;
 }
 
-
+#if defined(SSR_BLUR_HORIZ)
+    #define SSR_FRAG_SETUP_GAUSSIAN_UV(i) float2 offset1 = float2(_BlitTexture_TexelSize.x * 1.3846153846 * BLUR_STRENGTH_HORIZ, 0); float2 offset2 = float2(_BlitTexture_TexelSize.x * 3.2307692308 * BLUR_STRENGTH_HORIZ, 0);
+#else
+    #define SSR_FRAG_SETUP_GAUSSIAN_UV(i) float2 offset1 = float2(0, _BlitTexture_TexelSize.y * 1.3846153846 * BLUR_STRENGTH_VERT); float2 offset2 = float2(0, _BlitTexture_TexelSize.y * 3.2307692308 * BLUR_STRENGTH_VERT);
+#endif
 
 #endif // SCREEN_SPACE_RAYTRACED_REFLECTION_INPUT_INCLUDED

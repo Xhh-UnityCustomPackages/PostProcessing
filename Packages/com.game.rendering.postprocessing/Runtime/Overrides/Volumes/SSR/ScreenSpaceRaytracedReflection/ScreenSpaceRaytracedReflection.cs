@@ -95,14 +95,18 @@ namespace Game.Core.PostProcessing
 
         [Tooltip("Reflection smooothness mapping curve.")]
         public AnimationCurveParameter reflectionsSmoothnessCurve = new AnimationCurveParameter(new AnimationCurve(new Keyframe(0, 0f, 0, 0.166666f), new Keyframe(0.5f, 0.25f, 0.833333f, 1.166666f), new Keyframe(1, 1f, 1.833333f, 0)));
+        [Tooltip("Reflection min intensity")]
+        public ClampedFloatParameter reflectionsMinIntensity = new ClampedFloatParameter(0, 0, 1f);
 
+        [Tooltip("Reflection max intensity")]
+        public ClampedFloatParameter reflectionsMaxIntensity = new ClampedFloatParameter(1f, 0, 1f);
 
 
         [Tooltip("Reduces reflection based on view angle")]
         public ClampedFloatParameter fresnel = new ClampedFloatParameter(0.75f, 0, 1f);
 
         [Tooltip("Reflection decay with distance to reflective point")]
-        public FloatParameter decay = new FloatParameter(2f);
+        public MinFloatParameter decay = new MinFloatParameter(2f, 0);
 
         [Tooltip("Reduces intensity of specular reflections")]
         public BoolParameter specularControl = new BoolParameter(true);
@@ -282,7 +286,7 @@ namespace Game.Core.PostProcessing
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
         {
             RenderTextureDescriptor sourceDesc = renderingData.cameraData.cameraTargetDescriptor;
-            sourceDesc.colorFormat = settings.isHDR.value ? RenderTextureFormat.ARGB32 : RenderTextureFormat.ARGBHalf;
+            sourceDesc.colorFormat = !settings.isHDR.value ? RenderTextureFormat.ARGB32 : RenderTextureFormat.ARGBHalf;
             DescriptorDownSample(ref sourceDesc, settings.downsampling.value);
             sourceDesc.msaaSamples = 1;
             sourceDesc.depthBufferBits = 0;
@@ -382,11 +386,12 @@ namespace Game.Core.PostProcessing
             m_RayCastTargetHandle?.Release();
             m_DownscaleDepthTargetHandle?.Release();
 
-            for (int k = 0; k < MIP_COUNT; k++)
-            {
-                m_BlurMipDownTargetHandles[k]?.Release();
-                m_BlurMipDownTargetHandles2[k]?.Release();
-            }
+            if (m_BlurMipDownTargetHandles != null)
+                for (int k = 0; k < MIP_COUNT; k++)
+                {
+                    m_BlurMipDownTargetHandles[k]?.Release();
+                    m_BlurMipDownTargetHandles2[k]?.Release();
+                }
         }
 
 
@@ -410,7 +415,7 @@ namespace Game.Core.PostProcessing
             material.SetVector(ShaderConstants.SSRSettings, new Vector4(settings.thickness.value, settings.sampleCount.value, settings.binarySearchIterations.value, settings.maxRayLength.value));
             material.SetVector(ShaderConstants.SSRSettings2, new Vector4(settings.jitter.value, settings.contactHardening.value + 0.0001f, settings.intensity.value, 0));
             material.SetVector(ShaderConstants.SSRSettings3, new Vector4(m_RayCastTargetHandle.referenceSize.x, m_RayCastTargetHandle.referenceSize.y, goldenFactor, settings.depthBias.value));
-            material.SetVector(ShaderConstants.SSRSettings4, new Vector4(settings.separationPos.value, 0, 0, settings.specularSoftenPower.value));
+            material.SetVector(ShaderConstants.SSRSettings4, new Vector4(settings.separationPos.value, settings.reflectionsMinIntensity.value, settings.reflectionsMaxIntensity.value, settings.specularSoftenPower.value));
             material.SetVector(ShaderConstants.SSRSettings5, new Vector4(settings.thicknessFine.value * settings.thickness.value, 0, 0, 0));
             material.SetVector(ShaderConstants.SSRBlurStrength, new Vector4(settings.blurStrength.value.x, settings.blurStrength.value.y, settings.vignetteSize.value, settings.vignettePower.value));
 

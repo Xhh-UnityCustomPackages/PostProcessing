@@ -4,11 +4,9 @@
 
 using UnityEngine;
 
-namespace ShinySSRR
-{
+namespace ShinySSRR {
 
-    public static class ShaderParams
-    {
+    public static class ShaderParams {
 
         // input textures
         public static int MainTex = Shader.PropertyToID("_MainTex");
@@ -61,7 +59,10 @@ namespace ShinySSRR
         public const string SKW_DENOISE = "SSR_DENOISE";
         public const string SKW_SMOOTHNESSMAP = "SSR_SMOOTHNESSMAP";
         public const string SKW_REFINE_THICKNESS = "SSR_THICKNESS_FINE";
+        public const string SKW_METALLIC_WORKFLOW = "SSR_METALLIC_WORKFLOW";
         public const string SKW_BACK_FACES = "SSR_BACK_FACES";
+        public const string SKW_CUSTOM_SMOOTHNESS_METALLIC_PASS = "SSR_CUSTOM_SMOOTHNESS_METALLIC_PASS";
+        public const string SKW_SKYBOX = "SSR_SKYBOX";
     }
 
 }

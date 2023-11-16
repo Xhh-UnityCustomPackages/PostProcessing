@@ -78,14 +78,15 @@ float4 SSR_Pass(float2 uv, float3 normalVS, float3 rayStart, float roughness, fl
         if (any(floor(p.xy) != 0)) return 0.0.xxxx; // exit if out of screen space
         float pz = p.z / p.w;
 
-        #if SSR_BACK_FACES
-            GetLinearDepths(p.xy, sceneDepth, sceneBackDepth);
-            if (pz >= sceneDepth && pz <= sceneBackDepth)
-        #else
+        // #if SSR_BACK_FACES
+        //     GetLinearDepths(p.xy, sceneDepth, sceneBackDepth);
+        //     if (pz >= sceneDepth && pz <= sceneBackDepth)
+        // #else
             sceneDepth = GetLinearDepth(p.xy);
-            depthDiff = pz - sceneDepth;
-            if (depthDiff > 0 && depthDiff < THICKNESS)
-        #endif
+        depthDiff = pz - sceneDepth;
+        if (depthDiff > 0 && depthDiff < THICKNESS)
+        // #endif
+
         {
             float4 origPincr = pincr;
             p -= pincr;
@@ -213,15 +214,16 @@ half4 FragResolve(Varyings input) : SV_Target
 {
     float2 uv = input.texcoord.xy;
     half4 reflData = SAMPLE_TEXTURE2D(_RayCastRT, sampler_PointClamp, uv);
-    half4 reflection = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, reflData.xy);
+    half4 reflection = SAMPLE_TEXTURE2D(_BlitTexture, sampler_LinearClamp, reflData.xy);
 
     reflection.rgb = min(reflection.rgb, 8.0); // stop NAN pixels
-
     half vd = dot2((reflData.xy - 0.5) * 2.0);
     half vignette = saturate(VIGNETTE_SIZE - vd * vd);
     vignette = pow(vignette, VIGNETTE_POWER);
 
-    half reflectionIntensity = reflData.a * REFLECTIONS_MULTIPLIER;
+
+    half reflectionIntensity = clamp(reflData.a * REFLECTIONS_MULTIPLIER, REFLECTIONS_MIN_INTENSITY, REFLECTIONS_MAX_INTENSITY);
+    
 
     reflectionIntensity *= vignette;
     reflection.rgb *= reflectionIntensity;
@@ -229,7 +231,7 @@ half4 FragResolve(Varyings input) : SV_Target
     reflection.rgb = min(reflection.rgb, 1.2); // clamp max brightness
 
     // conserve energy
-    half4 pixel = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv);
+    half4 pixel = SAMPLE_TEXTURE2D(_BlitTexture, sampler_LinearClamp, uv);
     reflection.rgb -= min(0.5, pixel.rgb * reflectionIntensity);
 
     // keep blur factor in alpha channel
@@ -243,8 +245,7 @@ half4 FragBlur(Varyings input) : SV_Target
     float2 uv = input.texcoord.xy;
     // SSR_FRAG_SETUP_GAUSSIAN_UV(input)
     
-    float2 offset1 = float2(_BlitTexture_TexelSize.x * 1.3846153846 * BLUR_STRENGTH_HORIZ, 0);
-    float2 offset2 = float2(_BlitTexture_TexelSize.x * 3.2307692308 * BLUR_STRENGTH_HORIZ, 0);
+    SSR_FRAG_SETUP_GAUSSIAN_UV(input)
 
     half4 c0 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv);
     half4 c1 = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv + offset1);

@@ -5,38 +5,43 @@ using System.Text;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
-namespace ShinySSRR
-{
+namespace ShinySSRR {
 
+#if UNITY_2022_2_OR_NEWER
     [CustomEditor(typeof(ShinyScreenSpaceRaytracedReflections))]
-    public class ShinySSRREditor : VolumeComponentEditor
-    {
+#else
+    [VolumeComponentEditor(typeof(ShinyScreenSpaceRaytracedReflections))]
+#endif
+    public class ShinySSRREditor : VolumeComponentEditor {
 
-        SerializedDataParameter reflectionsMultiplier, showInSceneView;
-        SerializedDataParameter reflectionsIntensityCurve, reflectionsSmoothnessCurve;
+        SerializedDataParameter reflectionsMultiplier, showInSceneView, reflectionsWorkflow;
+        SerializedDataParameter reflectionsIntensityCurve, reflectionsSmoothnessCurve, smoothnessThreshold, reflectionsMinIntensity, reflectionsMaxIntensity;
         SerializedDataParameter downsampling, depthBias, computeBackFaces, thicknessMinimum, computeBackFacesLayerMask;
         SerializedDataParameter outputMode, separationPos, lowPrecision, stopNaN;
         SerializedDataParameter stencilCheck, stencilValue, stencilCompareFunction;
         SerializedDataParameter temporalFilter, temporalFilterResponseSpeed;
         SerializedDataParameter sampleCount, maxRayLength, thickness, binarySearchIterations, refineThickness, thicknessFine, decay, jitter, animatedJitter;
         SerializedDataParameter fresnel, fuzzyness, contactHardening, minimumBlur;
-        SerializedDataParameter blurDownsampling, blurStrength, specularControl, specularSoftenPower, vignetteSize, vignettePower;
+        SerializedDataParameter blurDownsampling, blurStrength, specularControl, specularSoftenPower, skyboxIntensity, vignetteSize, vignettePower;
         SerializedDataParameter useReflectionsScripts, reflectionsScriptsLayerMask, skipDeferredPass;
 
         Reflections[] reflections;
         public Texture bulbOnIcon, bulbOffIcon, deleteIcon, arrowRight;
         readonly StringBuilder sb = new StringBuilder();
 
-        public override void OnEnable()
-        {
+        public override void OnEnable() {
             base.OnEnable();
 
             var o = new PropertyFetcher<ShinyScreenSpaceRaytracedReflections>(serializedObject);
 
             showInSceneView = Unpack(o.Find(x => x.showInSceneView));
             reflectionsMultiplier = Unpack(o.Find(x => x.reflectionsMultiplier));
+            reflectionsWorkflow = Unpack(o.Find(x => x.reflectionsWorkflow));
             reflectionsIntensityCurve = Unpack(o.Find(x => x.reflectionsIntensityCurve));
             reflectionsSmoothnessCurve = Unpack(o.Find(x => x.reflectionsSmoothnessCurve));
+            smoothnessThreshold = Unpack(o.Find(x => x.smoothnessThreshold));
+            reflectionsMinIntensity = Unpack(o.Find(x => x.reflectionsMinIntensity));
+            reflectionsMaxIntensity = Unpack(o.Find(x => x.reflectionsMaxIntensity));
             computeBackFaces = Unpack(o.Find(x => x.computeBackFaces));
             computeBackFacesLayerMask = Unpack(o.Find(x => x.computeBackFacesLayerMask));
             thicknessMinimum = Unpack(o.Find(x => x.thicknessMinimum));
@@ -68,6 +73,7 @@ namespace ShinySSRR
             blurStrength = Unpack(o.Find(x => x.blurStrength));
             specularControl = Unpack(o.Find(x => x.specularControl));
             specularSoftenPower = Unpack(o.Find(x => x.specularSoftenPower));
+            skyboxIntensity = Unpack(o.Find(x => x.skyboxIntensity));
             vignetteSize = Unpack(o.Find(x => x.vignetteSize));
             vignettePower = Unpack(o.Find(x => x.vignettePower));
             useReflectionsScripts = Unpack(o.Find(x => x.useReflectionsScripts));
@@ -86,33 +92,24 @@ namespace ShinySSRR
             deleteIcon = Resources.Load<Texture>("delete");
         }
 
-        public override void OnInspectorGUI()
-        {
+        public override void OnInspectorGUI() {
 
             UniversalRenderPipelineAsset pipe = GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset;
-            if (pipe == null)
-            {
+            if (pipe == null) {
                 EditorGUILayout.HelpBox("Universal Rendering Pipeline asset is not set in 'Project Settings / Graphics or Quality' !", MessageType.Error);
                 EditorGUILayout.Separator();
                 GUI.enabled = false;
-            }
-            else if (!ShinySSRR.installed)
-            {
+            } else if (!ShinySSRR.installed) {
                 EditorGUILayout.HelpBox("Shiny SSRR Render Feature must be added to the rendering pipeline renderer.", MessageType.Error);
-                if (GUILayout.Button("Go to Universal Rendering Pipeline Asset"))
-                {
+                if (GUILayout.Button("Go to Universal Rendering Pipeline Asset")) {
                     Selection.activeObject = pipe;
                 }
                 EditorGUILayout.Separator();
                 GUI.enabled = false;
-            }
-            else
-            {
-                if (!pipe.supportsCameraDepthTexture)
-                {
+            } else {
+                if (!pipe.supportsCameraDepthTexture) {
                     EditorGUILayout.HelpBox("Depth Texture option is required. Check Universal Rendering Pipeline asset!", MessageType.Warning);
-                    if (GUILayout.Button("Go to Universal Rendering Pipeline Asset"))
-                    {
+                    if (GUILayout.Button("Go to Universal Rendering Pipeline Asset")) {
                         Selection.activeObject = pipe;
                     }
                     EditorGUILayout.Separator();
@@ -120,18 +117,14 @@ namespace ShinySSRR
                 }
             }
 
-            if (pipe != null)
-            {
+            if (pipe != null) {
                 EditorGUILayout.BeginVertical(GUI.skin.box);
-                if (GUILayout.Button("Show URP Renderer Settings"))
-                {
+                if (GUILayout.Button("Show URP Renderer Settings")) {
                     var so = new SerializedObject(pipe);
                     var prop = so.FindProperty("m_RendererDataList");
-                    if (prop != null && prop.arraySize > 0)
-                    {
+                    if (prop != null && prop.arraySize > 0) {
                         var o = prop.GetArrayElementAtIndex(0);
-                        if (o != null)
-                        {
+                        if (o != null) {
                             Selection.SetActiveObjectWithContext(o.objectReferenceValue, null);
                             GUIUtility.ExitGUI();
                         }
@@ -146,6 +139,7 @@ namespace ShinySSRR
             int reflectionsCount = reflections != null ? reflections.Length : 0;
 
             PropertyField(reflectionsMultiplier, new GUIContent("Intensity"));
+            PropertyField(reflectionsWorkflow, new GUIContent("Workflow"));
             PropertyField(showInSceneView);
 
             EditorGUILayout.Separator();
@@ -153,28 +147,23 @@ namespace ShinySSRR
             EditorGUILayout.BeginHorizontal();
             EditorGUILayout.LabelField("Apply Preset:", GUILayout.Width(EditorGUIUtility.labelWidth));
             ShinyScreenSpaceRaytracedReflections ssr = (ShinyScreenSpaceRaytracedReflections)target;
-            if (GUILayout.Button("Fast"))
-            {
+            if (GUILayout.Button("Fast")) {
                 ssr.ApplyRaytracingPreset(RaytracingPreset.Fast);
                 EditorUtility.SetDirty(target);
             }
-            if (GUILayout.Button("Medium"))
-            {
+            if (GUILayout.Button("Medium")) {
                 ssr.ApplyRaytracingPreset(RaytracingPreset.Medium);
                 EditorUtility.SetDirty(target);
             }
-            if (GUILayout.Button("High"))
-            {
+            if (GUILayout.Button("High")) {
                 ssr.ApplyRaytracingPreset(RaytracingPreset.High);
                 EditorUtility.SetDirty(target);
             }
-            if (GUILayout.Button("Superb"))
-            {
+            if (GUILayout.Button("Superb")) {
                 ssr.ApplyRaytracingPreset(RaytracingPreset.Superb);
                 EditorUtility.SetDirty(target);
             }
-            if (GUILayout.Button("Ultra"))
-            {
+            if (GUILayout.Button("Ultra")) {
                 ssr.ApplyRaytracingPreset(RaytracingPreset.Ultra);
                 EditorUtility.SetDirty(target);
             }
@@ -183,21 +172,17 @@ namespace ShinySSRR
             PropertyField(maxRayLength);
             PropertyField(binarySearchIterations);
             PropertyField(computeBackFaces);
-            if (computeBackFaces.value.boolValue)
-            {
+            if (computeBackFaces.value.boolValue) {
                 EditorGUI.indentLevel++;
                 PropertyField(thicknessMinimum, new GUIContent("Min Thickness"));
                 PropertyField(thickness, new GUIContent("Max Thickness"));
                 PropertyField(computeBackFacesLayerMask, new GUIContent("Layer Mask"));
                 EditorGUI.indentLevel--;
-            }
-            else
-            {
+            } else {
                 PropertyField(thickness, new GUIContent("Max Thickness"));
             }
             PropertyField(refineThickness);
-            if (refineThickness.value.boolValue)
-            {
+            if (refineThickness.value.boolValue) {
                 EditorGUI.indentLevel++;
                 PropertyField(thicknessFine);
                 EditorGUI.indentLevel--;
@@ -206,8 +191,7 @@ namespace ShinySSRR
             PropertyField(animatedJitter);
 #if UNITY_2021_3_OR_NEWER
             PropertyField(temporalFilter);
-            if (temporalFilter.value.boolValue)
-            {
+            if (temporalFilter.value.boolValue) {
                 EditorGUI.indentLevel++;
                 PropertyField(temporalFilterResponseSpeed, new GUIContent("Response Speed"));
                 EditorGUI.indentLevel--;
@@ -218,20 +202,23 @@ namespace ShinySSRR
 
             EditorGUILayout.Separator();
             EditorGUILayout.LabelField("Reflection Intensity", EditorStyles.miniLabel);
-
-
-            PropertyField(reflectionsIntensityCurve, new GUIContent("Metallic Curve"));
-            PropertyField(reflectionsSmoothnessCurve, new GUIContent("Smoothness Curve"));
-
+            if (reflectionsWorkflow.value.intValue == (int)ReflectionsWorkflow.SmoothnessOnly) {
+                PropertyField(smoothnessThreshold, new GUIContent("Smoothness Threshold", "Minimum smoothness to receive reflections"));
+                PropertyField(reflectionsMinIntensity, new GUIContent("Min Intensity"));
+                PropertyField(reflectionsMaxIntensity, new GUIContent("Max Intensity"));
+            } else {
+                PropertyField(reflectionsIntensityCurve, new GUIContent("Metallic Curve"));
+                PropertyField(reflectionsSmoothnessCurve, new GUIContent("Smoothness Curve"));
+            }
             PropertyField(fresnel);
             PropertyField(decay);
             PropertyField(specularControl);
-            if (specularControl.value.boolValue)
-            {
+            if (specularControl.value.boolValue) {
                 EditorGUI.indentLevel++;
                 PropertyField(specularSoftenPower, new GUIContent("Soften Power"));
                 EditorGUI.indentLevel--;
             }
+            PropertyField(skyboxIntensity);
             PropertyField(vignetteSize);
             PropertyField(vignettePower);
 
@@ -244,8 +231,7 @@ namespace ShinySSRR
 
             EditorGUILayout.Separator();
             PropertyField(outputMode);
-            if (outputMode.value.intValue == (int)OutputMode.SideBySideComparison)
-            {
+            if (outputMode.value.intValue == (int)OutputMode.SideBySideComparison) {
                 EditorGUI.indentLevel++;
                 PropertyField(separationPos);
                 EditorGUI.indentLevel--;
@@ -253,55 +239,47 @@ namespace ShinySSRR
             PropertyField(lowPrecision);
             PropertyField(stopNaN, new GUIContent("Stop NaN"));
             PropertyField(stencilCheck);
-            if (stencilCheck.value.boolValue)
-            {
+            if (stencilCheck.value.boolValue) {
                 EditorGUI.indentLevel++;
                 PropertyField(stencilValue, new GUIContent("Value"));
                 PropertyField(stencilCompareFunction, new GUIContent("Compare Funciton"));
                 EditorGUI.indentLevel--;
             }
 
-            if (reflectionsCount > 0)
-            {
+            if (reflectionsCount > 0) {
                 EditorGUILayout.Separator();
-                if (!ShinySSRR.isDeferredActive)
-                {
+                if (!ShinySSRR.isDeferredActive) {
                     EditorGUILayout.HelpBox("Some settings may be overridden by Reflections scripts on specific objects.", MessageType.Info);
                 }
                 EditorGUILayout.Separator();
                 EditorGUILayout.LabelField("Reflections scripts in Scene", EditorStyles.helpBox);
-                if (ShinySSRR.isDeferredActive)
-                {
+                if (ShinySSRR.isSmoothnessMetallicPassActive) {
+                    EditorGUILayout.HelpBox("When 'Custom Smoothness Metallic Pass' option is enabled, Reflections scripts are not used.", MessageType.Info);
+                } else if (ShinySSRR.isDeferredActive) {
                     EditorGUILayout.HelpBox("In deferred mode, you don't need to use Reflections scripts. But they can be used to force adding custom reflections on transparent objects like puddles.", MessageType.Info);
                     PropertyField(useReflectionsScripts);
-                    if (useReflectionsScripts.value.boolValue)
-                    {
+                    if (useReflectionsScripts.value.boolValue) {
                         PropertyField(skipDeferredPass);
                     }
                 }
                 PropertyField(reflectionsScriptsLayerMask, new GUIContent("Layer Mask", "Which reflections scripts can be used."));
-                for (int k = 0; k < reflectionsCount; k++)
-                {
+                for (int k = 0; k < reflectionsCount; k++) {
                     Reflections refl = reflections[k];
                     if (refl == null) continue;
                     EditorGUILayout.BeginHorizontal();
                     GUI.enabled = refl.gameObject.activeInHierarchy;
-                    if (GUILayout.Button(new GUIContent(refl.enabled ? bulbOnIcon : bulbOffIcon, "Toggle on/off this reflection"), EditorStyles.miniButton, GUILayout.Width(35)))
-                    {
+                    if (GUILayout.Button(new GUIContent(refl.enabled ? bulbOnIcon : bulbOffIcon, "Toggle on/off this reflection"), EditorStyles.miniButton, GUILayout.Width(35))) {
                         refl.enabled = !refl.enabled;
                     }
                     GUI.enabled = true;
-                    if (GUILayout.Button(new GUIContent(deleteIcon, "Remove this reflection script"), EditorStyles.miniButton, GUILayout.Width(35)))
-                    {
-                        if (EditorUtility.DisplayDialog("Confirmation", "Remove the reflection script on " + refl.gameObject.name + "?", "Ok", "Cancel"))
-                        {
+                    if (GUILayout.Button(new GUIContent(deleteIcon, "Remove this reflection script"), EditorStyles.miniButton, GUILayout.Width(35))) {
+                        if (EditorUtility.DisplayDialog("Confirmation", "Remove the reflection script on " + refl.gameObject.name + "?", "Ok", "Cancel")) {
                             GameObject.DestroyImmediate(refl);
                             reflections[k] = null;
                             continue;
                         }
                     }
-                    if (GUILayout.Button(new GUIContent(arrowRight, "Select this reflection script"), EditorStyles.miniButton, GUILayout.Width(35), GUILayout.Width(40)))
-                    {
+                    if (GUILayout.Button(new GUIContent(arrowRight, "Select this reflection script"), EditorStyles.miniButton, GUILayout.Width(35), GUILayout.Width(40))) {
                         Selection.activeObject = refl.gameObject;
                         EditorGUIUtility.PingObject(refl.gameObject);
                         GUIUtility.ExitGUI();
@@ -309,23 +287,18 @@ namespace ShinySSRR
                     GUI.enabled = refl.isActiveAndEnabled;
                     sb.Clear();
                     sb.Append(refl.name);
-                    if (!refl.gameObject.activeInHierarchy)
-                    {
+                    if (!refl.gameObject.activeInHierarchy) {
                         sb.Append(" (hidden gameobject)");
                     }
-                    if (refl.overrideGlobalSettings)
-                    {
+                    if (refl.overrideGlobalSettings) {
                         sb.Append(" (uses custom settings)");
                     }
                     GUILayout.Label(sb.ToString());
                     GUI.enabled = true;
                     EditorGUILayout.EndHorizontal();
                 }
-            }
-            else if (reflectionsCount == 0)
-            {
-                if (!ShinySSRR.isDeferredActive)
-                {
+            } else if (reflectionsCount == 0) {
+                if (!ShinySSRR.isDeferredActive) {
                     EditorGUILayout.Separator();
                     EditorGUILayout.LabelField("Reflections in Scene", EditorStyles.helpBox);
                     EditorGUILayout.HelpBox("In forward rendering path, add a Reflections script to any object or group of objects that you want to get reflections.", MessageType.Info);
@@ -333,8 +306,7 @@ namespace ShinySSRR
 
             }
 
-            if (serializedObject.ApplyModifiedProperties())
-            {
+            if (serializedObject.ApplyModifiedProperties()) {
                 Reflections.needUpdateMaterials = true; // / reflections scripts that do not override global settings need to be updated as well
             }
 

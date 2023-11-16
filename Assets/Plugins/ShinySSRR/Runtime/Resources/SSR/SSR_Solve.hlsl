@@ -8,6 +8,9 @@ TEXTURE2D_X(_RayCastRT);
 float4 _SSRSettings2;
 #define ENERGY_CONSERVATION _SSRSettings2.y
 #define REFLECTIONS_MULTIPLIER _SSRSettings2.z
+float4 _SSRSettings4;
+#define REFLECTIONS_MIN_INTENSITY _SSRSettings4.y
+#define REFLECTIONS_MAX_INTENSITY _SSRSettings4.z
 float4 _SSRBlurStrength;
 #define VIGNETTE_SIZE _SSRBlurStrength.z
 #define VIGNETTE_POWER _SSRBlurStrength.w
@@ -46,12 +49,8 @@ VaryingsSSR VertSSR(AttributesFS input)
 
 half4 FragResolve(VaryingsSSR i) : SV_Target
 {
-
-    UNITY_SETUP_INSTANCE_ID(i);
-    UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
-    i.uv = SSRStereoTransformScreenSpaceTex(i.uv);
-
-    half4 reflData = SAMPLE_TEXTURE2D_X(_RayCastRT, sampler_PointClamp, i.uv);
+    float2 uv = i.uv;
+    half4 reflData = SAMPLE_TEXTURE2D_X(_RayCastRT, sampler_PointClamp, uv);
     half4 reflection = SAMPLE_TEXTURE2D_X(_MainTex, sampler_LinearClamp, reflData.xy);
 
     reflection.rgb = min(reflection.rgb, 8.0); // stop NAN pixels
@@ -59,7 +58,9 @@ half4 FragResolve(VaryingsSSR i) : SV_Target
     half vignette = saturate(VIGNETTE_SIZE - vd * vd);
     vignette = pow(vignette, VIGNETTE_POWER);
 
-    half reflectionIntensity = reflData.a * REFLECTIONS_MULTIPLIER;
+
+    half reflectionIntensity = clamp(reflData.a * REFLECTIONS_MULTIPLIER, REFLECTIONS_MIN_INTENSITY, REFLECTIONS_MAX_INTENSITY);
+    
 
     reflectionIntensity *= vignette;
     reflection.rgb *= reflectionIntensity;
@@ -67,7 +68,7 @@ half4 FragResolve(VaryingsSSR i) : SV_Target
     reflection.rgb = min(reflection.rgb, 1.2); // clamp max brightness
 
     // conserve energy
-    half4 pixel = SAMPLE_TEXTURE2D_X(_MainTex, sampler_LinearClamp, i.uv);
+    half4 pixel = SAMPLE_TEXTURE2D_X(_MainTex, sampler_LinearClamp, uv);
     reflection.rgb -= min(0.5, pixel.rgb * reflectionIntensity);
 
     // keep blur factor in alpha channel

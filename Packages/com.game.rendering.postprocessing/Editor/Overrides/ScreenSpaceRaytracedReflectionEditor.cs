@@ -17,6 +17,7 @@ namespace Game.Core.PostProcessing.UnityEditor
         SerializedDataParameter downsampling, depthBias, computeBackFaces, thicknessMinimum, computeBackFacesLayerMask;
         SerializedDataParameter outputMode, separationPos, lowPrecision;
         SerializedDataParameter stencilCheck, stencilValue, stencilCompareFunction;
+        SerializedDataParameter noiseTex;
         // SerializedDataParameter temporalFilter, temporalFilterResponseSpeed;
         SerializedDataParameter sampleCount, maxRayLength, thickness, binarySearchIterations, refineThickness, thicknessFine, decay, jitter, animatedJitter;
         SerializedDataParameter fresnel, fuzzyness, contactHardening, minimumBlur;
@@ -40,6 +41,7 @@ namespace Game.Core.PostProcessing.UnityEditor
             outputMode = Unpack(o.Find(x => x.outputMode));
             separationPos = Unpack(o.Find(x => x.separationPos));
             lowPrecision = Unpack(o.Find(x => x.isHDR));
+            noiseTex = Unpack(o.Find(x => x.noiseTex));
             // stopNaN = Unpack(o.Find(x => x.stopNaN));
             // stencilCheck = Unpack(o.Find(x => x.stencilCheck));
             // stencilValue = Unpack(o.Find(x => x.stencilValue));
@@ -140,6 +142,7 @@ namespace Game.Core.PostProcessing.UnityEditor
 
             PropertyField(downsampling);
             PropertyField(depthBias);
+            PropertyField(noiseTex);
 
             EditorGUILayout.Separator();
             // EditorGUILayout.LabelField("Reflection Intensity", EditorStyles.miniLabel);

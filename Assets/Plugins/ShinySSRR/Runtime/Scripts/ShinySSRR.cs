@@ -134,11 +134,17 @@ namespace ShinySSRR
 
                 // set global settings
                 sMat.SetVector(ShaderParams.SSRSettings2, new Vector4(settings.jitter.value, settings.contactHardening.value + 0.0001f, settings.reflectionsMultiplier.value, 0));
-                sMat.SetVector(ShaderParams.SSRSettings4, new Vector4(settings.separationPos.value, 0, 0, settings.specularSoftenPower.value));
+                sMat.SetVector(ShaderParams.SSRSettings4, new Vector4(settings.separationPos.value, settings.reflectionsMinIntensity.value, settings.reflectionsMaxIntensity.value, settings.specularSoftenPower.value));
                 sMat.SetVector(ShaderParams.SSRBlurStrength, new Vector4(settings.blurStrength.value.x, settings.blurStrength.value.y, settings.vignetteSize.value, settings.vignettePower.value));
-                sMat.SetVector(ShaderParams.SSRSettings5, new Vector4(settings.thicknessFine.value * settings.thickness.value, 0, 0, 0));
-
-                CoreUtils.SetKeyword(sMat, ShaderParams.SKW_DENOISE, settings.specularControl.value);
+                sMat.SetVector(ShaderParams.SSRSettings5, new Vector4(settings.thicknessFine.value * settings.thickness.value, settings.smoothnessThreshold.value, settings.skyboxIntensity.value, 0));
+                if (settings.specularControl.value)
+                {
+                    sMat.EnableKeyword(ShaderParams.SKW_DENOISE);
+                }
+                else
+                {
+                    sMat.DisableKeyword(ShaderParams.SKW_DENOISE);
+                }
                 sMat.SetFloat(ShaderParams.MinimumBlur, settings.minimumBlur.value);
                 sMat.SetInt(ShaderParams.StencilValue, settings.stencilValue.value);
                 sMat.SetInt(ShaderParams.StencilCompareFunction, settings.stencilCheck.value ? (int)settings.stencilCompareFunction.value : (int)CompareFunction.Always);
@@ -153,18 +159,54 @@ namespace ShinySSRR
                     Shader.DisableKeyword(ShaderParams.SKW_BACK_FACES);
                 }
 
+                if (settings.skyboxIntensity.value > 0)
+                {
+                    Shader.EnableKeyword(ShaderParams.SKW_SKYBOX);
+                }
+                else
+                {
+                    Shader.DisableKeyword(ShaderParams.SKW_SKYBOX);
+                }
 
+                if (ssrFeature.useDeferred || ssrFeature.customSmoothnessMetallicPass)
+                {
+                    if (settings.jitter.value > 0)
+                    {
+                        sMat.EnableKeyword(ShaderParams.SKW_JITTER);
+                    }
+                    else
+                    {
+                        sMat.DisableKeyword(ShaderParams.SKW_JITTER);
+                    }
+                    if (settings.refineThickness.value)
+                    {
+                        sMat.EnableKeyword(ShaderParams.SKW_REFINE_THICKNESS);
+                    }
+                    else
+                    {
+                        sMat.DisableKeyword(ShaderParams.SKW_REFINE_THICKNESS);
+                    }
+                    if (ssrFeature.customSmoothnessMetallicPass)
+                    {
+                        sMat.EnableKeyword(ShaderParams.SKW_CUSTOM_SMOOTHNESS_METALLIC_PASS);
+                    }
+                    else
+                    {
+                        sMat.DisableKeyword(ShaderParams.SKW_CUSTOM_SMOOTHNESS_METALLIC_PASS);
+                    }
+                    sMat.SetVector(ShaderParams.SSRSettings, new Vector4(settings.thickness.value, settings.sampleCount.value, settings.binarySearchIterations.value, settings.maxRayLength.value));
+                    sMat.SetVector(ShaderParams.MaterialData, new Vector4(0, settings.fresnel.value, settings.fuzzyness.value + 1f, settings.decay.value));
+                }
 
-
-                CoreUtils.SetKeyword(sMat, ShaderParams.SKW_JITTER, settings.jitter.value > 0);
-                CoreUtils.SetKeyword(sMat, ShaderParams.SKW_REFINE_THICKNESS, settings.refineThickness.value);
-
-                sMat.SetVector(ShaderParams.SSRSettings, new Vector4(settings.thickness.value, settings.sampleCount.value, settings.binarySearchIterations.value, settings.maxRayLength.value));
-                sMat.SetVector(ShaderParams.MaterialData, new Vector4(0, settings.fresnel.value, settings.fuzzyness.value + 1f, settings.decay.value));
-
-
-
-                UpdateGradientTextures();
+                if (settings.reflectionsWorkflow == ReflectionsWorkflow.MetallicAndSmoothness)
+                {
+                    sMat.EnableKeyword(ShaderParams.SKW_METALLIC_WORKFLOW);
+                    UpdateGradientTextures();
+                }
+                else
+                {
+                    sMat.DisableKeyword(ShaderParams.SKW_METALLIC_WORKFLOW);
+                }
 
                 if (rtPyramid == null || rtPyramid.Length != MIP_COUNT)
                 {
@@ -255,6 +297,7 @@ namespace ShinySSRR
                 sourceDesc.width /= settings.downsampling.value;
                 sourceDesc.height /= settings.downsampling.value;
                 sourceDesc.msaaSamples = 1;
+                sourceDesc.depthBufferBits = 0;
 
                 float goldenFactor = GOLDEN_RATIO;
                 if (settings.animatedJitter.value)
@@ -264,16 +307,18 @@ namespace ShinySSRR
                 Shader.SetGlobalVector(ShaderParams.SSRSettings3, new Vector4(sourceDesc.width, sourceDesc.height, goldenFactor, settings.depthBias.value));
 
                 CommandBuffer cmd = null;
-
+#if UNITY_2022_2_OR_NEWER
                 RTHandle source = renderer.cameraColorTargetHandle;
-
+#else
+                RenderTargetIdentifier source = renderer.cameraColorTarget;
+#endif
 
                 bool useReflectionsScripts = true;
-                // int count = Reflections.instances.Count;
+                int count = Reflections.instances.Count;
                 bool usingDeferredPass = ssrFeature.useDeferred && !settings.skipDeferredPass.value;
-                if (usingDeferredPass)
+                if (usingDeferredPass || ssrFeature.customSmoothnessMetallicPass)
                 {
-                    useReflectionsScripts = settings.useReflectionsScripts.value;
+                    useReflectionsScripts = settings.useReflectionsScripts.value && !ssrFeature.customSmoothnessMetallicPass;
 
                     // init command buffer
                     cmd = CommandBufferPool.Get(SHINY_CBUFNAME);
@@ -285,15 +330,111 @@ namespace ShinySSRR
 
                     // prepare ssr target
                     cmd.GetTemporaryRT(ShaderParams.RayCast, sourceDesc, FilterMode.Point);
-                    // if (count > 0 && useReflectionsScripts)
-                    // {
-                    //     cmd.SetRenderTarget(ShaderParams.RayCast);
-                    //     cmd.ClearRenderTarget(true, false, new Color(0, 0, 0, 0));
-                    // }
+                    if (count > 0 && useReflectionsScripts)
+                    {
+                        cmd.SetRenderTarget(ShaderParams.RayCast);
+                        cmd.ClearRenderTarget(true, false, new Color(0, 0, 0, 0));
+                    }
 
                     // raytrace using gbuffers
                     FullScreenBlit(cmd, source, ShaderParams.RayCast, Pass.GBuffPass);
 
+                }
+
+                // early exit if no reflection objects
+                if (count == 0 && !usingDeferredPass) return;
+
+                if (count > 0 && useReflectionsScripts)
+                {
+                    bool firstSSR = !usingDeferredPass;
+
+                    GeometryUtility.CalculateFrustumPlanes(cam, frustumPlanes);
+                    int reflectionsScriptsLayerMask = settings.reflectionsScriptsLayerMask.value;
+
+                    for (int k = 0; k < count; k++)
+                    {
+                        Reflections go = Reflections.instances[k];
+                        if (go == null || (reflectionsScriptsLayerMask & (1 << go.gameObject.layer)) == 0) continue;
+                        int rendererCount = go.ssrRenderers.Count;
+                        for (int j = 0; j < rendererCount; j++)
+                        {
+                            Reflections.SSR_Renderer ssrRenderer = go.ssrRenderers[j];
+
+                            if (Reflections.needUpdateMaterials)
+                            {
+                                ssrRenderer.CheckMaterialChanges(sMat);
+                                ssrRenderer.UpdateMaterialProperties(go, settings);
+                            }
+
+                            Renderer goRenderer = ssrRenderer.renderer;
+                            if (goRenderer == null || !goRenderer.isVisible) continue;
+
+                            // if object is part of static batch, check collider bounds (if existing)
+                            if (goRenderer.isPartOfStaticBatch)
+                            {
+                                if (ssrRenderer.hasStaticBounds)
+                                {
+                                    // check artifically computed bounds
+                                    if (!GeometryUtility.TestPlanesAABB(frustumPlanes, ssrRenderer.staticBounds)) continue;
+                                }
+                                else if (ssrRenderer.collider != null)
+                                {
+                                    // check if object is visible by current camera using collider bounds
+                                    if (!GeometryUtility.TestPlanesAABB(frustumPlanes, ssrRenderer.collider.bounds)) continue;
+                                }
+                            }
+                            else
+                            {
+                                // check if object is visible by current camera using renderer bounds
+                                if (!GeometryUtility.TestPlanesAABB(frustumPlanes, goRenderer.bounds)) continue;
+                            }
+
+                            if (!ssrRenderer.isInitialized)
+                            {
+                                ssrRenderer.Init(sMat);
+                                ssrRenderer.UpdateMaterialProperties(go, settings);
+                            }
+#if UNITY_EDITOR
+                            else if (!Application.isPlaying)
+                            {
+                                ssrRenderer.CheckMaterialChanges(sMat);
+                                ssrRenderer.UpdateMaterialProperties(go, settings);
+                            }
+                            else if (Reflections.currentEditingReflections == go)
+                            {
+                                ssrRenderer.UpdateMaterialProperties(go, settings);
+                            }
+#endif
+                            if (ssrRenderer.exclude) continue;
+
+                            if (firstSSR)
+                            {
+                                firstSSR = false;
+
+                                // init command buffer
+                                cmd = CommandBufferPool.Get(SHINY_CBUFNAME);
+
+                                ComputeDepth(cmd, sourceDesc);
+
+                                // prepare ssr target
+                                cmd.GetTemporaryRT(ShaderParams.RayCast, sourceDesc, FilterMode.Point);
+                                cmd.SetRenderTarget(ShaderParams.RayCast, 0, CubemapFace.Unknown, -1);
+                                cmd.ClearRenderTarget(true, true, new Color(0, 0, 0, 0));
+                            }
+                            for (int s = 0; s < ssrRenderer.ssrMaterials.Length; s++)
+                            {
+                                if (go.subMeshMask <= 0 || ((1 << s) & go.subMeshMask) != 0)
+                                {
+                                    Material ssrMat = ssrRenderer.ssrMaterials[s];
+                                    cmd.DrawRenderer(goRenderer, ssrMat, s, (int)Pass.SSRSurf);
+                                }
+                            }
+                        }
+                    }
+
+                    Reflections.needUpdateMaterials = false;
+
+                    if (firstSSR) return;
                 }
 
 
@@ -305,6 +446,7 @@ namespace ShinySSRR
                 FullScreenBlit(cmd, source, ShaderParams.ReflectionsTex, Pass.Resolve);
                 RenderTargetIdentifier input = ShaderParams.ReflectionsTex;
 
+#if UNITY_2021_3_OR_NEWER
                 prevs.TryGetValue(cam, out RenderTexture prev);
 
                 if (settings.temporalFilter.value)
@@ -339,7 +481,7 @@ namespace ShinySSRR
                     prev.Release();
                     DestroyImmediate(prev);
                 }
-
+#endif
                 RenderTargetIdentifier reflectionsTex = input;
 
                 // Pyramid blur
@@ -399,7 +541,6 @@ namespace ShinySSRR
             {
                 desc.colorFormat = settings.computeBackFaces.value ? RenderTextureFormat.RGHalf : RenderTextureFormat.RHalf;
                 desc.sRGB = false;
-                desc.depthBufferBits = 0;
                 cmd.GetTemporaryRT(ShaderParams.DownscaledDepthRT, desc, FilterMode.Point);
                 FullScreenBlit(cmd, ShaderParams.DownscaledDepthRT, Pass.CopyDepth);
             }
@@ -492,7 +633,9 @@ namespace ShinySSRR
             {
                 RenderTargetIdentifier rti = new RenderTargetIdentifier(ShaderParams.DownscaledBackDepthRT, 0, CubemapFace.Unknown, -1);
                 m_Depth = RTHandles.Alloc(rti, name: ShaderParams.DownscaledBackDepthTextureName);
+                m_ShaderTagIdList.Add(new ShaderTagId("SRPDefaultUnlit"));
                 m_ShaderTagIdList.Add(new ShaderTagId("UniversalForward"));
+                m_ShaderTagIdList.Add(new ShaderTagId("LightweightForward"));
                 m_FilteringSettings = new FilteringSettings(RenderQueueRange.opaque, -1);
             }
 
@@ -562,6 +705,12 @@ namespace ShinySSRR
         [Tooltip("Requests screen space normals to be used with Reflections scripts that need them")]
         public bool enableScreenSpaceNormalsPass;
 
+        [Tooltip("Executes a SmoothnessMetallic pass on shaders that support it in forward rendering path")]
+        public bool customSmoothnessMetallicPass;
+
+        [Tooltip("Allows Shiny to be executed even if camera has Post Processing option disabled.")]
+        public bool ignorePostProcessingOption = true;
+
         [Tooltip("On which cameras should Shiny effects be applied")]
         public LayerMask cameraLayerMask = -1;
 
@@ -571,6 +720,7 @@ namespace ShinySSRR
 
         public static bool installed;
         public static bool isDeferredActive;
+        public static bool isSmoothnessMetallicPassActive;
         public static bool isUsingScreenSpaceNormals;
         public static bool isEnabled = true;
 
@@ -615,15 +765,20 @@ namespace ShinySSRR
             installed = true;
             if (!isEnabled) return;
             isDeferredActive = useDeferred;
+            isSmoothnessMetallicPassActive = customSmoothnessMetallicPass && !useDeferred;
             isUsingScreenSpaceNormals = enableScreenSpaceNormalsPass && !useDeferred;
 
-            if (!renderingData.postProcessingEnabled) return;
+            if (!renderingData.postProcessingEnabled && !ignorePostProcessingOption) return;
 
             Camera cam = renderingData.cameraData.camera;
             if ((cameraLayerMask.value & (1 << cam.gameObject.layer)) == 0) return;
 
             if (renderPass.Setup(renderer, this))
             {
+                if (isSmoothnessMetallicPassActive)
+                {
+                    renderer.EnqueuePass(smoothnessMetallicPass);
+                }
                 if (renderPass.settings.computeBackFaces.value)
                 {
                     backfacesPass.Setup(renderPass.settings);

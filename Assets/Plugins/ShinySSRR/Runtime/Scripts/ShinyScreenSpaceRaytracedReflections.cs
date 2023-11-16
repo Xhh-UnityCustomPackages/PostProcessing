@@ -8,11 +8,9 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
-namespace ShinySSRR
-{
+namespace ShinySSRR {
 
-    public enum OutputMode
-    {
+    public enum OutputMode {
         Final,
         OnlyReflections,
         SideBySideComparison,
@@ -20,8 +18,7 @@ namespace ShinySSRR
         DebugDeferredNormals = 11
     }
 
-    public enum RaytracingPreset
-    {
+    public enum RaytracingPreset {
         Fast = 10,
         Medium = 20,
         High = 30,
@@ -29,9 +26,14 @@ namespace ShinySSRR
         Ultra = 40
     }
 
-    [ExecuteInEditMode, VolumeComponentMenu("Kronnect/Shiny SSRR")]
-    public class ShinyScreenSpaceRaytracedReflections : VolumeComponent, IPostProcessComponent
+    public enum ReflectionsWorkflow
     {
+        SmoothnessOnly,
+        MetallicAndSmoothness = 10
+    }
+
+    [ExecuteInEditMode, VolumeComponentMenu("Kronnect/Shiny SSRR")]
+    public class ShinyScreenSpaceRaytracedReflections : VolumeComponent, IPostProcessComponent {
 
         [Header("General Settings")]
 
@@ -41,6 +43,10 @@ namespace ShinySSRR
         [Tooltip("Show reflections in SceneView window")]
         public BoolParameter showInSceneView = new BoolParameter(true);
 
+        [Serializable] public sealed class ReflectionsWorkflowParameter : VolumeParameter<ReflectionsWorkflow> { }
+
+        [Tooltip("The 'Smoothness Only' workflow only takes into account a single value for both reflections intensity and roughness. The 'Metallic And Smoothness' workflow uses full physically based material properties where the metallic property defines the intensity of the reflection and the smoothness property its roughness.")]
+        public ReflectionsWorkflowParameter reflectionsWorkflow = new ReflectionsWorkflowParameter { value = ReflectionsWorkflow.SmoothnessOnly };
 
         [Serializable] public sealed class OutputModeParameter : VolumeParameter<OutputMode> { }
 
@@ -48,7 +54,7 @@ namespace ShinySSRR
         public ClampedIntParameter sampleCount = new ClampedIntParameter(16, 4, 128);
 
         [Tooltip("Maximum reflection distance")]
-        public FloatParameter maxRayLength = new FloatParameter(24f);
+        public FloatParameter maxRayLength = new FloatParameter(24f); 
 
         [Tooltip("Assumed thickness of geometry in the depth buffer before binary search")]
         public FloatParameter thickness = new FloatParameter(0.3f);
@@ -89,6 +95,14 @@ namespace ShinySSRR
         [Tooltip("Temporal filter response speed determines how fast the history buffer is discarded")]
         public FloatParameter temporalFilterResponseSpeed = new FloatParameter(1f);
 
+        [Tooltip("Minimum smoothness to receive reflections")]
+        public ClampedFloatParameter smoothnessThreshold = new ClampedFloatParameter(0, 0, 1f);
+
+        [Tooltip("Reflection min intensity")]
+        public ClampedFloatParameter reflectionsMinIntensity = new ClampedFloatParameter(0, 0, 1f);
+
+        [Tooltip("Reflection max intensity")]
+        public ClampedFloatParameter reflectionsMaxIntensity = new ClampedFloatParameter(1f, 0, 1f);
 
         [Tooltip("Reflection intensity mapping curve.")]
         public AnimationCurveParameter reflectionsIntensityCurve = new AnimationCurveParameter(AnimationCurve.Linear(0, 0, 1, 1));
@@ -108,6 +122,8 @@ namespace ShinySSRR
         [Min(0), Tooltip("Power of the specular filter")]
         public FloatParameter specularSoftenPower = new FloatParameter(15f);
 
+        [Tooltip("Skybox reflection intensity. Use only if you wish the sky or camera background to be reflected on the surfaces.")]
+        public ClampedFloatParameter skyboxIntensity = new ClampedFloatParameter(0f, 0f, 1f);
 
         [Tooltip("Controls the attenuation range of effect on screen borders")]
         public ClampedFloatParameter vignetteSize = new ClampedFloatParameter(1.1f, 0.5f, 2f);
@@ -159,25 +175,24 @@ namespace ShinySSRR
 
         [Tooltip("Which reflections scripts can be used when in deferred.")]
         public LayerMaskParameter reflectionsScriptsLayerMask = new LayerMaskParameter(-1);
-
+		
         [Tooltip("In deferred, skips full screen deferred pass. This way you can just compute reflections on surfaces with Reflections scripts.")]
         public BoolParameter skipDeferredPass = new BoolParameter(false);
 
-        public bool IsActive() => reflectionsMultiplier.value > 0;
+        public bool IsActive() => reflectionsMultiplier.value > 0 && reflectionsMaxIntensity.value > 0;
 
         public bool IsTileCompatible() => true;
 
         public static float metallicGradientCachedId, smoothnessGradientCachedId;
 
-        private void OnValidate()
-        {
+        private void OnValidate() {
             decay.value = Mathf.Max(1f, decay.value);
             maxRayLength.value = Mathf.Max(0.1f, maxRayLength.value);
             fuzzyness.value = Mathf.Max(0, fuzzyness.value);
             thickness.value = Mathf.Max(0.01f, thickness.value);
             thicknessFine.value = Mathf.Max(0.01f, thicknessFine.value);
             contactHardening.value = Mathf.Max(0, contactHardening.value);
-
+            reflectionsMaxIntensity.value = Mathf.Max(reflectionsMinIntensity.value, reflectionsMaxIntensity.value);
             Vector2 blurStrength = this.blurStrength.value;
             blurStrength.x = Mathf.Max(blurStrength.x, 0f);
             blurStrength.y = Mathf.Max(blurStrength.y, 0f);
@@ -187,10 +202,8 @@ namespace ShinySSRR
         }
 
 
-        public void ApplyRaytracingPreset(RaytracingPreset preset)
-        {
-            switch (preset)
-            {
+        public void ApplyRaytracingPreset(RaytracingPreset preset) {
+            switch (preset) {
                 case RaytracingPreset.Fast:
                     sampleCount.Override(16);
                     maxRayLength.Override(6);
