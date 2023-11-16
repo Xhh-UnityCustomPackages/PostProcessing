@@ -122,6 +122,7 @@ float4 SSR_Pass(float2 uv, float3 normalVS, float3 rayStart, float roughness, fl
         float reflectionIntensity = metallic;
         reflectionIntensity *= pow(collision, DECAY);
 
+
         // intersection found
 
         float wdist = rayLength * zdist;
@@ -135,7 +136,7 @@ float4 SSR_Pass(float2 uv, float3 normalVS, float3 rayStart, float roughness, fl
         // return hit pixel
         return float4(p.xy, blurAmount + 0.001, reflectionAmount);
     }
-    
+
 
     return float4(0, 0, 0, 0);
 }
@@ -163,11 +164,10 @@ VaryingsSSR VertSSR(Attributes input)
     float4 projPos = output.positionCS * 0.5;
     projPos.xy = projPos.xy + projPos.w;
     output.texcoord.zw = projPos.xy;
-
     return output;
 }
 
-half4 FragSSR(VaryingsSSR input) : SV_Target
+float4 FragSSR(VaryingsSSR input) : SV_Target
 {
     float2 uv = input.texcoord.xy;
     
@@ -178,10 +178,8 @@ half4 FragSSR(VaryingsSSR input) : SV_Target
     if (depth >= 1.0)
         return float4(0, 0, 0, 0);
 
-    // half3 ScreenPos = GetScreenSpacePos(uv, depth);
-    // half3 positionVS = GetViewSpacePos(ScreenPos, _InverseProjectionMatrix);
+    depth = 2.0 * depth - 1.0;
     float3 positionVS = ComputeViewSpacePosition(input.texcoord.zw, depth, unity_CameraInvProjection);
-    // return half4(positionVS, 1);
     
     float4 gbuffer0 = SAMPLE_TEXTURE2D_X(_GBuffer0, sampler_PointClamp, uv);
     float4 gbuffer1 = SAMPLE_TEXTURE2D_X(_GBuffer1, sampler_PointClamp, uv);
@@ -277,9 +275,9 @@ half4 FragBlur(Varyings input) : SV_Target
 
 half4 Combine(Varyings input)
 {
-    float2 uv = input.texcoord.xy;
+    float2 uv = input.texcoord;
     // exclude skybox from blur bleed
-    float depth = SampleSceneDepth(uv).r;
+    float depth = SampleSceneDepth(uv);
     #if UNITY_REVERSED_Z
         depth = 1.0 - depth;
     #endif

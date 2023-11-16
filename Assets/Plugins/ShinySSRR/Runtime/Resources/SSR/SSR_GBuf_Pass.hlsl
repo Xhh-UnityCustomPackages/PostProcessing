@@ -1,10 +1,10 @@
 #ifndef SSR_GBUF_PASS
 #define SSR_GBUF_PASS
 
-// Copyright 2021 Kronnect - All Rights Reserved.
-
-
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/UnityGBuffer.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/Shaders/PostProcessing/Common.hlsl"
 
 
 TEXTURE2D(_NoiseTex);
@@ -46,41 +46,6 @@ TEXTURE2D_X(_GBuffer2);
 TEXTURE2D_X(_SmoothnessMetallicRT);
 TEXTURE2D(_MetallicGradientTex);
 TEXTURE2D(_SmoothnessGradientTex);
-
-struct AttributesFS
-{
-    float4 positionHCS : POSITION;
-    float4 uv : TEXCOORD0;
-    UNITY_VERTEX_INPUT_INSTANCE_ID
-};
-
-struct VaryingsSSR
-{
-    float4 positionCS : SV_POSITION;
-    float4 uv : TEXCOORD0;
-    UNITY_VERTEX_INPUT_INSTANCE_ID
-    UNITY_VERTEX_OUTPUT_STEREO
-};
-
-
-VaryingsSSR VertSSR(AttributesFS input)
-{
-    VaryingsSSR output;
-    UNITY_SETUP_INSTANCE_ID(input);
-    UNITY_TRANSFER_INSTANCE_ID(input, output);
-    UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
-    output.positionCS = float4(input.positionHCS.xyz, 1.0);
-
-    #if UNITY_UV_STARTS_AT_TOP
-        output.positionCS.y *= -1;
-    #endif
-
-    output.uv = input.uv;
-    float4 projPos = output.positionCS * 0.5;
-    projPos.xy = projPos.xy + projPos.w;
-    output.uv.zw = projPos.xy;
-    return output;
-}
 
 float4 SSR_Pass(float2 uv, float3 normalVS, float3 rayStart, float roughness, float reflectivity)
 {
@@ -196,13 +161,35 @@ float4 SSR_Pass(float2 uv, float3 normalVS, float3 rayStart, float roughness, fl
     return float4(0, 0, 0, 0);
 }
 
+struct VaryingsSSR
+{
+    float4 positionCS : SV_POSITION;
+    float4 uv : TEXCOORD0;
+    UNITY_VERTEX_OUTPUT_STEREO
+};
+
+
+VaryingsSSR VertSSR(Attributes input)
+{
+    VaryingsSSR output;
+    UNITY_SETUP_INSTANCE_ID(input);
+    UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
+
+    float4 pos = GetFullScreenTriangleVertexPosition(input.vertexID);
+    float2 uv = GetFullScreenTriangleTexCoord(input.vertexID);
+
+    output.positionCS = pos;
+    output.uv.xy = uv * _BlitScaleBias.xy + _BlitScaleBias.zw;
+
+    float4 projPos = output.positionCS * 0.5;
+    projPos.xy = projPos.xy + projPos.w;
+    output.uv.zw = projPos.xy;
+    return output;
+}
+
 
 float4 FragSSR(VaryingsSSR input) : SV_Target
 {
-
-    UNITY_SETUP_INSTANCE_ID(input);
-    UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
-
     float depth = SampleSceneDepth(input.uv.xy).r;
     #if UNITY_REVERSED_Z
         depth = 1.0 - depth;
@@ -210,10 +197,9 @@ float4 FragSSR(VaryingsSSR input) : SV_Target
     if (depth >= 1.0) return float4(0, 0, 0, 0);
 
     depth = 2.0 * depth - 1.0;
-    float2 zw = SSRStereoTransformScreenSpaceTex(input.uv.zw);
-    float3 positionVS = ComputeViewSpacePosition(zw, depth, unity_CameraInvProjection);
+    float3 positionVS = ComputeViewSpacePosition(input.uv.zw, depth, unity_CameraInvProjection);
     // return half4(positionVS, 1);
-    float2 uv = SSRStereoTransformScreenSpaceTex(input.uv.xy);
+    float2 uv = input.uv.xy;
 
     
     float4 gbuffer0 = SAMPLE_TEXTURE2D_X(_GBuffer0, sampler_PointClamp, uv);

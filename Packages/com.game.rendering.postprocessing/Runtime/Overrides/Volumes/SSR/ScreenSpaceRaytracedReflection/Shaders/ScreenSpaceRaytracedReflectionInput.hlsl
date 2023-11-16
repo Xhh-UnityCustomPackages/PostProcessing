@@ -7,9 +7,9 @@
 #include "Packages/com.unity.render-pipelines.universal/Shaders/PostProcessing/Common.hlsl"
 
 
-TEXTURE2D_HALF(_GBuffer0);
-TEXTURE2D_HALF(_GBuffer1);
-TEXTURE2D_HALF(_GBuffer2);
+TEXTURE2D(_GBuffer0);
+TEXTURE2D(_GBuffer1);
+TEXTURE2D(_GBuffer2);
 
 TEXTURE2D(_MetallicGradientTex);
 TEXTURE2D(_SmoothnessGradientTex);
@@ -28,7 +28,6 @@ TEXTURE2D_X(_BlurRTMip2);
 TEXTURE2D_X(_BlurRTMip3);
 TEXTURE2D_X(_BlurRTMip4);
 
-float4x4 _InverseProjectionMatrix;
 float4x4 _WorldToViewDir;
 
 float4 _SSRSettings;

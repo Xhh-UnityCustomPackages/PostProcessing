@@ -94,25 +94,25 @@ half4 FragCopyDepth(VaryingsSSR i) : SV_Target
     #endif
 }
 
-half4 Combine(VaryingsSSR i)
+half4 Combine(Varyings input)
 {
-
+    float2 uv = input.texcoord;
     // exclude skybox from blur bleed
-    float depth = SAMPLE_TEXTURE2D_X(_CameraDepthTexture, sampler_PointClamp, i.uv).r;
+    float depth = SampleSceneDepth(uv);
     #if UNITY_REVERSED_Z
         depth = 1.0 - depth;
     #endif
     if (depth >= 1.0) return float4(0, 0, 0, 0);
 
-    half4 mip0 = SAMPLE_TEXTURE2D_X(_MainTex, sampler_LinearClamp, i.uv);
-    half4 mip1 = SAMPLE_TEXTURE2D_X(_BlurRTMip0, sampler_LinearClamp, i.uv);
-    half4 mip2 = SAMPLE_TEXTURE2D_X(_BlurRTMip1, sampler_LinearClamp, i.uv);
-    half4 mip3 = SAMPLE_TEXTURE2D_X(_BlurRTMip2, sampler_LinearClamp, i.uv);
-    half4 mip4 = SAMPLE_TEXTURE2D_X(_BlurRTMip3, sampler_LinearClamp, i.uv);
-    half4 mip5 = SAMPLE_TEXTURE2D_X(_BlurRTMip4, sampler_LinearClamp, i.uv);
+    half4 mip0 = SAMPLE_TEXTURE2D_X(_MainTex, sampler_LinearClamp, uv);
+    half4 mip1 = SAMPLE_TEXTURE2D_X(_BlurRTMip0, sampler_LinearClamp, uv);
+    half4 mip2 = SAMPLE_TEXTURE2D_X(_BlurRTMip1, sampler_LinearClamp, uv);
+    half4 mip3 = SAMPLE_TEXTURE2D_X(_BlurRTMip2, sampler_LinearClamp, uv);
+    half4 mip4 = SAMPLE_TEXTURE2D_X(_BlurRTMip3, sampler_LinearClamp, uv);
+    half4 mip5 = SAMPLE_TEXTURE2D_X(_BlurRTMip4, sampler_LinearClamp, uv);
 
     half r = mip5.a;
-    half4 reflData = SAMPLE_TEXTURE2D_X(_RayCastRT, sampler_PointClamp, i.uv);
+    half4 reflData = SAMPLE_TEXTURE2D_X(_RayCastRT, sampler_PointClamp, uv);
     if (reflData.z > 0)
     {
         r = min(reflData.z, r);
@@ -131,25 +131,19 @@ half4 Combine(VaryingsSSR i)
     return refl;
 }
 
-half4 FragCombine(VaryingsSSR i) : SV_Target
+half4 FragCombine(Varyings i) : SV_Target
 {
-    UNITY_SETUP_INSTANCE_ID(i);
-    UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
-    i.uv = SSRStereoTransformScreenSpaceTex(i.uv);
     return Combine(i);
 }
 
 
-half4 FragCombineWithCompare(VaryingsSSR i) : SV_Target
+half4 FragCombineWithCompare(Varyings i) : SV_Target
 {
-    UNITY_SETUP_INSTANCE_ID(i);
-    UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
-    i.uv = SSRStereoTransformScreenSpaceTex(i.uv);
-    if (i.uv.x < SEPARATION_POS - _MainTex_TexelSize.x * 3)
+    if (i.texcoord.x < SEPARATION_POS - _MainTex_TexelSize.x * 3)
     {
         return 0;
     }
-    else if (i.uv.x < SEPARATION_POS + _MainTex_TexelSize.x * 3)
+    else if (i.texcoord.x < SEPARATION_POS + _MainTex_TexelSize.x * 3)
     {
         return 1.0;
     }

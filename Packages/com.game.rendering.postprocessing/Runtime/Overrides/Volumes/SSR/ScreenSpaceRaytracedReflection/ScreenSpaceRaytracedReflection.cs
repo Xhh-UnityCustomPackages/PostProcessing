@@ -210,7 +210,7 @@ namespace Game.Core.PostProcessing
 
         Material m_Material;
         RTHandle m_RayCastTargetHandle;
-        RTHandle m_DownscaleTargetHandle;
+        RTHandle m_DownscaleDepthTargetHandle;
         RTHandle m_ReflectionTargetHandle;
         RTHandle[] m_BlurMipDownTargetHandles;
         RTHandle[] m_BlurMipDownTargetHandles2;
@@ -230,9 +230,11 @@ namespace Game.Core.PostProcessing
             RenderingUtils.ReAllocateIfNeeded(ref m_ReflectionTargetHandle, sourceDesc, FilterMode.Point, name: "_SSR_ReflectionRT");
 
 
-            sourceDesc.colorFormat = settings.computeBackFaces.value ? RenderTextureFormat.RGHalf : RenderTextureFormat.RHalf;
-            sourceDesc.sRGB = false;
-            RenderingUtils.ReAllocateIfNeeded(ref m_DownscaleTargetHandle, sourceDesc, FilterMode.Point, name: "_SSR_DownscaleDepthRT");
+            var depthDesc = sourceDesc;
+            depthDesc.colorFormat = settings.computeBackFaces.value ? RenderTextureFormat.RGHalf : RenderTextureFormat.RHalf;
+            depthDesc.sRGB = false;
+            // sourceDesc.depthBufferBits = 32;
+            RenderingUtils.ReAllocateIfNeeded(ref m_DownscaleDepthTargetHandle, depthDesc, FilterMode.Point, name: "_SSR_DownscaleDepthRT");
 
 
 
@@ -277,8 +279,8 @@ namespace Game.Core.PostProcessing
 
             SetupMaterials(ref renderingData, m_Material);
 
-            Blit(cmd, source, m_DownscaleTargetHandle, m_Material, (int)Pass.CopyDepth);
-            cmd.SetGlobalTexture(ShaderConstants.DownscaledDepthRT, m_DownscaleTargetHandle);
+            Blit(cmd, source, m_DownscaleDepthTargetHandle, m_Material, (int)Pass.CopyDepth);
+            cmd.SetGlobalTexture(ShaderConstants.DownscaledDepthRT, m_DownscaleDepthTargetHandle);
             Blit(cmd, source, m_RayCastTargetHandle, m_Material, (int)Pass.GBufferPass);
             cmd.SetGlobalTexture(ShaderConstants.RayCast, m_RayCastTargetHandle);
             Blit(cmd, source, m_ReflectionTargetHandle, m_Material, (int)Pass.Resolve);
@@ -317,7 +319,7 @@ namespace Game.Core.PostProcessing
             CoreUtils.Destroy(smoothnessGradientTex);
 
             m_RayCastTargetHandle?.Release();
-            m_DownscaleTargetHandle?.Release();
+            m_DownscaleDepthTargetHandle?.Release();
 
             for (int k = 0; k < MIP_COUNT; k++)
             {

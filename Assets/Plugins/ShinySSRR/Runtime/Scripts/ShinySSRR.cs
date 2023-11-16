@@ -399,6 +399,7 @@ namespace ShinySSRR
             {
                 desc.colorFormat = settings.computeBackFaces.value ? RenderTextureFormat.RGHalf : RenderTextureFormat.RHalf;
                 desc.sRGB = false;
+                desc.depthBufferBits = 0;
                 cmd.GetTemporaryRT(ShaderParams.DownscaledDepthRT, desc, FilterMode.Point);
                 FullScreenBlit(cmd, ShaderParams.DownscaledDepthRT, Pass.CopyDepth);
             }

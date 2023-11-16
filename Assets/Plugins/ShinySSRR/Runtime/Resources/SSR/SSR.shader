@@ -39,7 +39,7 @@ Shader "Hidden/Kronnect/SSR_URP"
             // 0
             Name "Copy exact"
             HLSLPROGRAM
-            #pragma vertex VertSSR
+            #pragma vertex Vert
             #pragma fragment FragCopyExact
             #include "SSR_Blends.hlsl"
             ENDHLSL
@@ -68,7 +68,7 @@ Shader "Hidden/Kronnect/SSR_URP"
             // 2
             Name "Resolve"
             HLSLPROGRAM
-            #pragma vertex VertSSR
+            #pragma vertex Vert
             #pragma fragment FragResolve
             #include "SSR_Solve.hlsl"
             ENDHLSL
@@ -105,7 +105,7 @@ Shader "Hidden/Kronnect/SSR_URP"
             Name "Debug"
             Blend One Zero
             HLSLPROGRAM
-            #pragma vertex VertSSR
+            #pragma vertex Vert
             #pragma fragment FragCopyExact
             #include "SSR_Blends.hlsl"
             ENDHLSL
@@ -122,7 +122,7 @@ Shader "Hidden/Kronnect/SSR_URP"
             }
             Blend One One // precomputed alpha in Resolve pass
             HLSLPROGRAM
-            #pragma vertex VertSSR
+            #pragma vertex Vert
             #pragma fragment FragCombine
             #include "SSR_Blends.hlsl"
             ENDHLSL
@@ -139,7 +139,7 @@ Shader "Hidden/Kronnect/SSR_URP"
             }
             Blend One One // precomputed alpha in Resolve pass
             HLSLPROGRAM
-            #pragma vertex VertSSR
+            #pragma vertex Vert
             #pragma fragment FragCombineWithCompare
             #include "SSR_Blends.hlsl"
             ENDHLSL
