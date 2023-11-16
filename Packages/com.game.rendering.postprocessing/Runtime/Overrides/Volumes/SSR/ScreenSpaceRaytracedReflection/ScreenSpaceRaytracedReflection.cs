@@ -340,7 +340,7 @@ namespace Game.Core.PostProcessing
             }
 
             if (m_Material == null)
-                m_Material = new Material(Shader.Find("Hidden/PostProcessing/ScreenSpaceRaytracedReflection"));
+                m_Material = GetMaterial(postProcessFeatureData.shaders.screenSpaceRaytracedReflectionPS);
 
             SetupMaterials(ref renderingData, m_Material);
 
@@ -402,7 +402,7 @@ namespace Game.Core.PostProcessing
 
             var camera = renderingData.cameraData.camera;
 
-            material.SetTexture(ShaderConstants.NoiseTex, settings.noiseTex.value);
+            material.SetTexture(ShaderConstants.NoiseTex, settings.noiseTex.value == null ? postProcessFeatureData.textures.blueNoise16RGBTex[0] : settings.noiseTex.value);
 
             float goldenFactor = GOLDEN_RATIO;
             if (settings.animatedJitter.value)
