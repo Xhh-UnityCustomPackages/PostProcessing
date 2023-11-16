@@ -141,11 +141,71 @@ namespace Game.Core.PostProcessing
         public ClampedFloatParameter separationPos = new ClampedFloatParameter(0.5f, -0.01f, 1.01f);
 
         [Tooltip("HDR reflections")]
-        public BoolParameter lowPrecision = new BoolParameter(false);
+        public BoolParameter isHDR = new BoolParameter(true);
 
         public override bool IsActive() => intensity.value > 0;
 
         public static float metallicGradientCachedId, smoothnessGradientCachedId;
+
+
+
+        public void ApplyRaytracingPreset(RaytracingPreset preset)
+        {
+            switch (preset)
+            {
+                case RaytracingPreset.Fast:
+                    sampleCount.Override(16);
+                    maxRayLength.Override(6);
+                    binarySearchIterations.Override(4);
+                    downsampling.Override(3);
+                    thickness.Override(0.5f);
+                    refineThickness.Override(false);
+                    jitter.Override(0.3f);
+                    // temporalFilter.Override(false);
+                    computeBackFaces.Override(false);
+                    break;
+                case RaytracingPreset.Medium:
+                    sampleCount.Override(24);
+                    maxRayLength.Override(12);
+                    binarySearchIterations.Override(5);
+                    downsampling.Override(2);
+                    refineThickness.Override(false);
+                    // temporalFilter.Override(false);
+                    computeBackFaces.Override(false);
+                    break;
+                case RaytracingPreset.High:
+                    sampleCount.Override(48);
+                    maxRayLength.Override(24);
+                    binarySearchIterations.Override(6);
+                    downsampling.Override(1);
+                    refineThickness.Override(false);
+                    thicknessFine.Override(0.05f);
+                    // temporalFilter.Override(false);
+                    computeBackFaces.Override(false);
+                    break;
+                case RaytracingPreset.Superb:
+                    sampleCount.Override(88);
+                    maxRayLength.Override(48);
+                    binarySearchIterations.Override(7);
+                    downsampling.Override(1);
+                    refineThickness.Override(true);
+                    thicknessFine.Override(0.02f);
+                    // temporalFilter.Override(true);
+                    computeBackFaces.Override(false);
+                    break;
+                case RaytracingPreset.Ultra:
+                    sampleCount.Override(128);
+                    maxRayLength.Override(64);
+                    binarySearchIterations.Override(8);
+                    downsampling.Override(1);
+                    refineThickness.Override(true);
+                    thicknessFine.Override(0.02f);
+                    // temporalFilter.Override(true);
+                    computeBackFaces.Override(true);
+                    break;
+            }
+            // Reflections.needUpdateMaterials = true;
+        }
     }
 
 
@@ -191,6 +251,7 @@ namespace Game.Core.PostProcessing
             internal static readonly string SKW_JITTER = "SSR_JITTER";
             internal static readonly string SKW_BACK_FACES = "SSR_BACK_FACES";
             internal static readonly string SKW_DENOISE = "SSR_DENOISE";
+            internal static readonly string SKW_REFINE_THICKNESS = "SSR_THICKNESS_FINE";
         }
 
         enum Pass
@@ -221,7 +282,7 @@ namespace Game.Core.PostProcessing
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
         {
             RenderTextureDescriptor sourceDesc = renderingData.cameraData.cameraTargetDescriptor;
-            sourceDesc.colorFormat = settings.lowPrecision.value ? RenderTextureFormat.ARGB32 : RenderTextureFormat.ARGBHalf;
+            sourceDesc.colorFormat = settings.isHDR.value ? RenderTextureFormat.ARGB32 : RenderTextureFormat.ARGBHalf;
             DescriptorDownSample(ref sourceDesc, settings.downsampling.value);
             sourceDesc.msaaSamples = 1;
             sourceDesc.depthBufferBits = 0;
@@ -359,6 +420,7 @@ namespace Game.Core.PostProcessing
 
             CoreUtils.SetKeyword(material, ShaderConstants.SKW_JITTER, settings.jitter.value > 0);
             CoreUtils.SetKeyword(material, ShaderConstants.SKW_BACK_FACES, settings.computeBackFaces.value);
+            CoreUtils.SetKeyword(material, ShaderConstants.SKW_REFINE_THICKNESS, settings.refineThickness.value);
             material.SetFloat(ShaderConstants.MinimumThickness, settings.thicknessMinimum.value);
 
 
