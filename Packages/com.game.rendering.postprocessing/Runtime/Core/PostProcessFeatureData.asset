@@ -22,6 +22,8 @@ MonoBehaviour:
       type: 3}
     stochasticScreenSpaceReflectionPS: {fileID: 4800000, guid: c34d1d5538030d643a58525c4ad3f7ba,
       type: 3}
+    screenSpaceRaytracedReflectionPS: {fileID: 4800000, guid: 42c551964cf9f8e4bb572499e9b47a98,
+      type: 3}
     ScreenSpaceGlobalIlluminationPS: {fileID: 4800000, guid: 98dd495e4db862046b48c820ba056795,
       type: 3}
     atmosphericHeightFogPS: {fileID: 4800000, guid: 58c5953cda0d16a44a92cf0ea3f71f11,
@@ -37,6 +39,39 @@ MonoBehaviour:
     WorlyNoise128RGBA: {fileID: 11700000, guid: 1fe54a721d0e2504e89f121c723404a8,
       type: 3}
     blueNoiseTex: {fileID: 2800000, guid: 87ed581b7058cbc46b1a605830bf6eda, type: 3}
+    blueNoise16RGBTex:
+    - {fileID: 2800000, guid: b232903ea527aba4786ab9a725e610e9, type: 3}
+    - {fileID: 2800000, guid: fe6c6d7fed228ae4c9034639926613ff, type: 3}
+    - {fileID: 2800000, guid: 1dae10311eb6da5428b4247f883f9f0c, type: 3}
+    - {fileID: 2800000, guid: 668a0101474cc3149bdf7b69bdaad1eb, type: 3}
+    - {fileID: 2800000, guid: a3a352512b3774b44aeeb7414aafce58, type: 3}
+    - {fileID: 2800000, guid: f3767acdf061ed14380a360366ffe91c, type: 3}
+    - {fileID: 2800000, guid: a0d5f1353077a9d4d9bf0fdfbc07d718, type: 3}
+    - {fileID: 2800000, guid: 5a195bcf888979144a5db9a99c43a747, type: 3}
+    - {fileID: 2800000, guid: 8d79e4efe64973b4ab5c6e3982b15772, type: 3}
+    - {fileID: 2800000, guid: eaf67a58951a945428cb394e81ed3765, type: 3}
+    - {fileID: 2800000, guid: 287dda93fa25eea4fbb9f7f5ef014718, type: 3}
+    - {fileID: 2800000, guid: 4cb7c602f368c2d44b42c51c353e5b2c, type: 3}
+    - {fileID: 2800000, guid: 3fa94aebb9c04c54aa0cebde90c210ff, type: 3}
+    - {fileID: 2800000, guid: aa35bbfe9eac94d49bb95cd8804c51a7, type: 3}
+    - {fileID: 2800000, guid: ba3b2a48f5297c74eb3b4b2771629d60, type: 3}
+    - {fileID: 2800000, guid: 17165acde01c02f4bb45d0ffd25d5158, type: 3}
+    - {fileID: 2800000, guid: 280a79ac7e2b6e940a7199b8f7e10407, type: 3}
+    - {fileID: 2800000, guid: b75a320b602f27c4ab28904a10142a98, type: 3}
+    - {fileID: 2800000, guid: 226149deca448e745a7c377133e6ca7f, type: 3}
+    - {fileID: 2800000, guid: 059fba768df29964e9f07bd4fffb5776, type: 3}
+    - {fileID: 2800000, guid: 9dee14979276d81489a17afa605f3030, type: 3}
+    - {fileID: 2800000, guid: 3963568f414ac1545b64e5f1ff5daf5d, type: 3}
+    - {fileID: 2800000, guid: a96a5d146fa164d4ebd67318a957a75a, type: 3}
+    - {fileID: 2800000, guid: b5fa2a735b9278349a91f3dbb77691c0, type: 3}
+    - {fileID: 2800000, guid: d3c864eb1f6e4b34c91d1931ad0064a3, type: 3}
+    - {fileID: 2800000, guid: 97f308a7009457545a975a9a498499ce, type: 3}
+    - {fileID: 2800000, guid: daa405d7e1e253a40952bed9e9ca63cc, type: 3}
+    - {fileID: 2800000, guid: 4dbadef8044229d47b9a391147dad1c4, type: 3}
+    - {fileID: 2800000, guid: 7ce9507d3d1997743b39f335a7f868fd, type: 3}
+    - {fileID: 2800000, guid: 7641a2b116fafd64d9c3d6459fdfe801, type: 3}
+    - {fileID: 2800000, guid: c6a5e40e6746fef4fa486e8f620ee8d4, type: 3}
+    - {fileID: 2800000, guid: fd4189357c6dfb94fa2d36afbce72086, type: 3}
   materials:
     UberPost: {fileID: 2100000, guid: de6e017e6e8440443b89951f8c1d5e2d, type: 2}
     BilateralBlur: {fileID: 2100000, guid: b5d346c906c3a5749b8dd077c3933b40, type: 2}
