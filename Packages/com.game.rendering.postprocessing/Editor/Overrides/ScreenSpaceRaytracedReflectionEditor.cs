@@ -12,8 +12,8 @@ namespace Game.Core.PostProcessing.UnityEditor
     public class ScreenSpaceRaytracedReflectionEditor : VolumeComponentEditor
     {
 
-        SerializedDataParameter reflectionsMultiplier, showInSceneView;
-        SerializedDataParameter reflectionsIntensityCurve, reflectionsSmoothnessCurve;
+        SerializedDataParameter reflectionsMultiplier, showInSceneView, reflectionsWorkflow;
+        SerializedDataParameter reflectionsIntensityCurve, reflectionsSmoothnessCurve, smoothnessThreshold, reflectionsMinIntensity, reflectionsMaxIntensity;
         SerializedDataParameter downsampling, depthBias, computeBackFaces, thicknessMinimum, computeBackFacesLayerMask;
         SerializedDataParameter outputMode, separationPos, lowPrecision;
         SerializedDataParameter stencilCheck, stencilValue, stencilCompareFunction;
@@ -28,11 +28,14 @@ namespace Game.Core.PostProcessing.UnityEditor
         {
             var o = new PropertyFetcher<ScreenSpaceRaytracedReflection>(serializedObject);
 
-
             showInSceneView = Unpack(o.Find(x => x.showInSceneView));
             reflectionsMultiplier = Unpack(o.Find(x => x.intensity));
+            reflectionsWorkflow = Unpack(o.Find(x => x.reflectionsWorkflow));
             reflectionsIntensityCurve = Unpack(o.Find(x => x.reflectionsIntensityCurve));
             reflectionsSmoothnessCurve = Unpack(o.Find(x => x.reflectionsSmoothnessCurve));
+            smoothnessThreshold = Unpack(o.Find(x => x.smoothnessThreshold));
+            reflectionsMinIntensity = Unpack(o.Find(x => x.reflectionsMinIntensity));
+            reflectionsMaxIntensity = Unpack(o.Find(x => x.reflectionsMaxIntensity));
             computeBackFaces = Unpack(o.Find(x => x.computeBackFaces));
             // computeBackFacesLayerMask = Unpack(o.Find(x => x.computeBackFacesLayerMask));
             thicknessMinimum = Unpack(o.Find(x => x.thicknessMinimum));
@@ -73,6 +76,7 @@ namespace Game.Core.PostProcessing.UnityEditor
         {
 
             PropertyField(reflectionsMultiplier, new GUIContent("Intensity"));
+            PropertyField(reflectionsWorkflow, new GUIContent("Workflow"));
             PropertyField(showInSceneView);
 
             EditorGUILayout.Separator();
@@ -147,9 +151,18 @@ namespace Game.Core.PostProcessing.UnityEditor
             EditorGUILayout.Separator();
             // EditorGUILayout.LabelField("Reflection Intensity", EditorStyles.miniLabel);
 
+            if (reflectionsWorkflow.value.intValue == (int)ScreenSpaceRaytracedReflection.ReflectionsWorkflow.MetallicAndSmoothness)
+            {
+                PropertyField(reflectionsIntensityCurve, new GUIContent("Metallic Curve"));
+                PropertyField(reflectionsSmoothnessCurve, new GUIContent("Smoothness Curve"));
+            }
+            else
+            {
+                PropertyField(smoothnessThreshold, new GUIContent("Smoothness Threshold", "Minimum smoothness to receive reflections"));
+                PropertyField(reflectionsMinIntensity, new GUIContent("Min Intensity"));
+                PropertyField(reflectionsMaxIntensity, new GUIContent("Max Intensity"));
+            }
 
-            PropertyField(reflectionsIntensityCurve, new GUIContent("Metallic Curve"));
-            PropertyField(reflectionsSmoothnessCurve, new GUIContent("Smoothness Curve"));
 
             PropertyField(fresnel);
             PropertyField(decay);

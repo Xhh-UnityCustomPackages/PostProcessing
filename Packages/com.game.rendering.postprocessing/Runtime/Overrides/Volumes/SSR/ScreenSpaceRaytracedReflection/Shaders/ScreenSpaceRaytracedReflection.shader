@@ -38,7 +38,8 @@ Shader "Hidden/PostProcessing/ScreenSpaceRaytracedReflection"
             #pragma multi_compile_local _ SSR_THICKNESS_FINE
             #pragma multi_compile _ _GBUFFER_NORMALS_OCT
             #pragma multi_compile _ SSR_BACK_FACES
-
+            #pragma multi_compile_local _ SSR_METALLIC_WORKFLOW
+            
             #pragma vertex VertSSR
             #pragma fragment FragSSR
             ENDHLSL

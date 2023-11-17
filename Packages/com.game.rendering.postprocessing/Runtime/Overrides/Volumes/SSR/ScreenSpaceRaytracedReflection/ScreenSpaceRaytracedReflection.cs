@@ -34,11 +34,20 @@ namespace Game.Core.PostProcessing
             Ultra = 40
         }
 
+        public enum ReflectionsWorkflow
+        {
+            SmoothnessOnly,
+            MetallicAndSmoothness = 10
+        }
+
         [Serializable]
         public sealed class OutputModeParameter : VolumeParameter<OutputMode>
         {
             public OutputModeParameter(OutputMode value, bool overrideState = false) : base(value, overrideState) { }
         }
+
+        [Serializable] public sealed class ReflectionsWorkflowParameter : VolumeParameter<ReflectionsWorkflow> { }
+
 
 
         [Header("General Settings")]
@@ -48,6 +57,9 @@ namespace Game.Core.PostProcessing
 
         [Tooltip("Show reflections in SceneView window")]
         public BoolParameter showInSceneView = new BoolParameter(true);
+
+        [Tooltip("The 'Smoothness Only' workflow only takes into account a single value for both reflections intensity and roughness. The 'Metallic And Smoothness' workflow uses full physically based material properties where the metallic property defines the intensity of the reflection and the smoothness property its roughness.")]
+        public ReflectionsWorkflowParameter reflectionsWorkflow = new ReflectionsWorkflowParameter { value = ReflectionsWorkflow.SmoothnessOnly };
 
         [Header("Quality Settings")]
         [Tooltip("Max number of samples used during the raymarch loop")]
@@ -95,6 +107,9 @@ namespace Game.Core.PostProcessing
 
         [Tooltip("Reflection smooothness mapping curve.")]
         public AnimationCurveParameter reflectionsSmoothnessCurve = new AnimationCurveParameter(new AnimationCurve(new Keyframe(0, 0f, 0, 0.166666f), new Keyframe(0.5f, 0.25f, 0.833333f, 1.166666f), new Keyframe(1, 1f, 1.833333f, 0)));
+
+        [Tooltip("Minimum smoothness to receive reflections")]
+        public ClampedFloatParameter smoothnessThreshold = new ClampedFloatParameter(0, 0, 1f);
         [Tooltip("Reflection min intensity")]
         public ClampedFloatParameter reflectionsMinIntensity = new ClampedFloatParameter(0, 0, 1f);
 
@@ -256,6 +271,7 @@ namespace Game.Core.PostProcessing
             internal static readonly string SKW_BACK_FACES = "SSR_BACK_FACES";
             internal static readonly string SKW_DENOISE = "SSR_DENOISE";
             internal static readonly string SKW_REFINE_THICKNESS = "SSR_THICKNESS_FINE";
+            internal static readonly string SKW_METALLIC_WORKFLOW = "SSR_METALLIC_WORKFLOW";
         }
 
         enum Pass
@@ -416,7 +432,7 @@ namespace Game.Core.PostProcessing
             material.SetVector(ShaderConstants.SSRSettings2, new Vector4(settings.jitter.value, settings.contactHardening.value + 0.0001f, settings.intensity.value, 0));
             material.SetVector(ShaderConstants.SSRSettings3, new Vector4(m_RayCastTargetHandle.referenceSize.x, m_RayCastTargetHandle.referenceSize.y, goldenFactor, settings.depthBias.value));
             material.SetVector(ShaderConstants.SSRSettings4, new Vector4(settings.separationPos.value, settings.reflectionsMinIntensity.value, settings.reflectionsMaxIntensity.value, settings.specularSoftenPower.value));
-            material.SetVector(ShaderConstants.SSRSettings5, new Vector4(settings.thicknessFine.value * settings.thickness.value, 0, 0, 0));
+            material.SetVector(ShaderConstants.SSRSettings5, new Vector4(settings.thicknessFine.value * settings.thickness.value, settings.smoothnessThreshold.value, 0, 0));
             material.SetVector(ShaderConstants.SSRBlurStrength, new Vector4(settings.blurStrength.value.x, settings.blurStrength.value.y, settings.vignetteSize.value, settings.vignettePower.value));
 
             CoreUtils.SetKeyword(material, ShaderConstants.SKW_DENOISE, settings.specularControl.value);
@@ -434,11 +450,20 @@ namespace Game.Core.PostProcessing
             var SSR_ProjectionMatrix = GL.GetGPUProjectionMatrix(camera.projectionMatrix, false);
             material.SetMatrix(ShaderConstants.InverseProjectionMatrix, SSR_ProjectionMatrix.inverse);
 
-            UpdateGradientTexture();
+
+            if (settings.reflectionsWorkflow.value == ScreenSpaceRaytracedReflection.ReflectionsWorkflow.MetallicAndSmoothness)
+            {
+                material.EnableKeyword(ShaderConstants.SKW_METALLIC_WORKFLOW);
+                UpdateGradientTextures();
+            }
+            else
+            {
+                material.DisableKeyword(ShaderConstants.SKW_METALLIC_WORKFLOW);
+            }
         }
 
 
-        void UpdateGradientTexture()
+        void UpdateGradientTextures()
         {
             UpdateGradientTexture(ref metallicGradientTex, settings.reflectionsIntensityCurve.value, ref ScreenSpaceRaytracedReflection.metallicGradientCachedId);
             UpdateGradientTexture(ref smoothnessGradientTex, settings.reflectionsSmoothnessCurve.value, ref ScreenSpaceRaytracedReflection.smoothnessGradientCachedId);

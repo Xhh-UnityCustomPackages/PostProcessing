@@ -51,6 +51,7 @@ float4 _SSRSettings5;
 #define REFLECTIONS_MIN_INTENSITY   _SSRSettings4.y
 #define REFLECTIONS_MAX_INTENSITY   _SSRSettings4.z
 #define DENOISE_POWER               _SSRSettings4.w
+#define REFLECTIONS_THRESHOLD       _SSRSettings5.y
 
 float4 _MaterialData;
 #define SMOOTHNESS                  _MaterialData.x

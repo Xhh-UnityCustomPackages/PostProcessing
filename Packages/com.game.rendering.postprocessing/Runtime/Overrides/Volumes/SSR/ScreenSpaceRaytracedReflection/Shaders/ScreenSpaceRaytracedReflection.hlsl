@@ -27,7 +27,11 @@ half4 FragCopyDepth(Varyings input) : SV_Target
 }
 
 //----------------------------------------------------------------
-float4 SSR_Pass(float2 uv, float3 normalVS, float3 rayStart, float roughness, float metallic)
+#if SSR_METALLIC_WORKFLOW
+    float4 SSR_Pass(float2 uv, float3 normalVS, float3 rayStart, float roughness, float metallic)
+#else
+    float4 SSR_Pass(float2 uv, float3 normalVS, float3 rayStart, float roughness)
+#endif
 {
     float3 viewDirVS = normalize(rayStart);
     float3 rayDir = reflect(viewDirVS, normalVS);
@@ -120,7 +124,11 @@ float4 SSR_Pass(float2 uv, float3 normalVS, float3 rayStart, float roughness, fl
 
     if (collision > 0)
     {
-        float reflectionIntensity = metallic;
+        #if SSR_METALLIC_WORKFLOW
+            float reflectionIntensity = metallic;
+        #else
+            float reflectionIntensity = (1.0 - roughness);
+        #endif
         reflectionIntensity *= pow(collision, DECAY);
 
 
@@ -182,8 +190,6 @@ float4 FragSSR(VaryingsSSR input) : SV_Target
     depth = 2.0 * depth - 1.0;
     float3 positionVS = ComputeViewSpacePosition(input.texcoord.zw, depth, unity_CameraInvProjection);
     
-    float4 gbuffer0 = SAMPLE_TEXTURE2D_X(_GBuffer0, sampler_PointClamp, uv);
-    float4 gbuffer1 = SAMPLE_TEXTURE2D_X(_GBuffer1, sampler_PointClamp, uv);
     float4 gbuffer2 = SAMPLE_TEXTURE2D_X(_GBuffer2, sampler_PointClamp, uv);
 
     #if defined(_GBUFFER_NORMALS_OCT)
@@ -197,14 +203,23 @@ float4 FragSSR(VaryingsSSR input) : SV_Target
     float3 normalVS = mul((float3x3)_WorldToViewDir, normalWS);
     normalVS.z *= -1.0;
 
-    float metallic = gbuffer1.r;//金属度
     float smoothness = gbuffer2.a;
 
-    metallic = SAMPLE_TEXTURE2D_LOD(_MetallicGradientTex, sampler_LinearClamp, float2(metallic, 0), 0).r;
-    if (metallic <= 0) return 0;
+    #if SSR_METALLIC_WORKFLOW //金属度粗糙度计算
+        float4 gbuffer1 = SAMPLE_TEXTURE2D_X(_GBuffer1, sampler_PointClamp, uv);
 
-    float roughness = SAMPLE_TEXTURE2D_LOD(_SmoothnessGradientTex, sampler_LinearClamp, float2(1.0 - smoothness, 0), 0).r;
-    float4 reflection = SSR_Pass(uv, normalVS, positionVS, roughness, metallic);
+        float metallic = gbuffer1.r;//金属度
+        
+        metallic = SAMPLE_TEXTURE2D_LOD(_MetallicGradientTex, sampler_LinearClamp, float2(metallic, 0), 0).r;
+        if (metallic <= 0) return 0;
+
+        float roughness = SAMPLE_TEXTURE2D_LOD(_SmoothnessGradientTex, sampler_LinearClamp, float2(1.0 - smoothness, 0), 0).r;
+        float4 reflection = SSR_Pass(uv, normalVS, positionVS, roughness, metallic);
+    #else
+        float roughness = 1.0 - max(0, smoothness - REFLECTIONS_THRESHOLD);
+        if (roughness >= 1.0) return 0;
+        float4 reflection = SSR_Pass(uv, normalVS, positionVS, roughness);
+    #endif
 
     return reflection;
 }
