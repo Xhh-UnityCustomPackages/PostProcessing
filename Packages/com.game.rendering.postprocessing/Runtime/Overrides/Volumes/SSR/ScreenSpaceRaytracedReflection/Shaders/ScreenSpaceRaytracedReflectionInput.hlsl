@@ -20,6 +20,8 @@ TEXTURE2D(_RayCastRT);
 TEXTURE2D(_NoiseTex);   float4 _NoiseTex_TexelSize;
 float4 _BlitTexture_TexelSize;
 
+TEXTURE2D_FLOAT(_MotionVectorTexture);
+TEXTURE2D(_PrevResolve);
 
 //TODO OPTIMIZE
 TEXTURE2D_X(_BlurRTMip0);

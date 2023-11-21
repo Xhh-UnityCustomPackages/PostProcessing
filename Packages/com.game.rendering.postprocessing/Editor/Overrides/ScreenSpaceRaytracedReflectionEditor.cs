@@ -18,7 +18,7 @@ namespace Game.Core.PostProcessing.UnityEditor
         SerializedDataParameter outputMode, separationPos, lowPrecision;
         SerializedDataParameter stencilCheck, stencilValue, stencilCompareFunction;
         SerializedDataParameter noiseTex;
-        // SerializedDataParameter temporalFilter, temporalFilterResponseSpeed;
+        SerializedDataParameter temporalFilter, temporalFilterResponseSpeed;
         SerializedDataParameter sampleCount, maxRayLength, thickness, binarySearchIterations, refineThickness, thicknessFine, decay, jitter, animatedJitter;
         SerializedDataParameter fresnel, fuzzyness, contactHardening, minimumBlur;
         SerializedDataParameter blurDownsampling, blurStrength, specularControl, specularSoftenPower, vignetteSize, vignettePower;
@@ -49,8 +49,8 @@ namespace Game.Core.PostProcessing.UnityEditor
             // stencilCheck = Unpack(o.Find(x => x.stencilCheck));
             // stencilValue = Unpack(o.Find(x => x.stencilValue));
             // stencilCompareFunction = Unpack(o.Find(x => x.stencilCompareFunction));
-            // temporalFilter = Unpack(o.Find(x => x.temporalFilter));
-            // temporalFilterResponseSpeed = Unpack(o.Find(x => x.temporalFilterResponseSpeed));
+            temporalFilter = Unpack(o.Find(x => x.temporalFilter));
+            temporalFilterResponseSpeed = Unpack(o.Find(x => x.temporalFilterResponseSpeed));
             sampleCount = Unpack(o.Find(x => x.sampleCount));
             maxRayLength = Unpack(o.Find(x => x.maxRayLength));
             binarySearchIterations = Unpack(o.Find(x => x.binarySearchIterations));
@@ -136,13 +136,13 @@ namespace Game.Core.PostProcessing.UnityEditor
             PropertyField(jitter);
             PropertyField(animatedJitter);
 
-            // PropertyField(temporalFilter);
-            // if (temporalFilter.value.boolValue)
-            // {
-            //     EditorGUI.indentLevel++;
-            //     PropertyField(temporalFilterResponseSpeed, new GUIContent("Response Speed"));
-            //     EditorGUI.indentLevel--;
-            // }
+            PropertyField(temporalFilter);
+            if (temporalFilter.value.boolValue)
+            {
+                EditorGUI.indentLevel++;
+                PropertyField(temporalFilterResponseSpeed, new GUIContent("Response Speed"));
+                EditorGUI.indentLevel--;
+            }
 
             PropertyField(downsampling);
             PropertyField(depthBias);

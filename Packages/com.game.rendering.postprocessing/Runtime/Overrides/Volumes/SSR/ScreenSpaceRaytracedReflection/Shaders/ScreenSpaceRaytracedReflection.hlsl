@@ -356,4 +356,60 @@ half4 FragCopyExact(Varyings input) : SV_Target
     return pixel;
 }
 
+//------------------------------------
+half4 FragCopy(Varyings input) : SV_Target
+{
+    float2 uv = input.texcoord.xy;
+    half4 pixel = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv);
+    return pixel;
+}
+
+//------------------------------------
+
+#define TEMPORAL_CHROMA_THRESHOLD 0.25
+half _TemporalResponseSpeed;
+#define TEMPORAL_RESPONSE_SPEED _TemporalResponseSpeed
+
+half2 GetVelocity(float2 uv)
+{
+    half2 mv = SAMPLE_TEXTURE2D_X_LOD(_MotionVectorTexture, sampler_PointClamp, uv, 0).xy;
+    return mv;
+}
+
+half4 FragAcum(Varyings input) : SV_Target
+{
+    float2 uv = input.texcoord.xy;
+
+    half4 newData = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_PointClamp, uv);
+
+    half2 velocity = GetVelocity(uv);
+    float2 prevUV = uv - velocity;
+
+    if (any(floor(prevUV)) != 0)
+    {
+        return newData;
+    }
+
+    half4 prevData = SAMPLE_TEXTURE2D_X(_PrevResolve, sampler_PointClamp, prevUV);
+
+    half4 newDataN = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_PointClamp, uv + float2(0, 1) * _BlitTexture_TexelSize.xy);
+    half4 newDataS = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_PointClamp, uv + float2(0, -1) * _BlitTexture_TexelSize.xy);
+    half4 newDataW = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_PointClamp, uv + float2(-1, 0) * _BlitTexture_TexelSize.xy);
+    half4 newDataE = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_PointClamp, uv + float2(1, 0) * _BlitTexture_TexelSize.xy);
+
+    half4 newDataMin = min(newData, min(min(newDataN, newDataS), min(newDataW, newDataE)));
+    half4 newDataMax = max(newData, max(max(newDataN, newDataS), max(newDataW, newDataE)));
+
+    half4 newDataMinExt = newDataMin * (1 - TEMPORAL_CHROMA_THRESHOLD);
+    half4 newDataMaxExt = newDataMax * (1 + TEMPORAL_CHROMA_THRESHOLD);
+    
+    // reduce noise by clamping history to present by certain threshold
+    prevData = clamp(prevData, min(newDataMinExt, newDataMaxExt), max(newDataMinExt, newDataMaxExt));
+
+    half delta = unity_DeltaTime.z * TEMPORAL_RESPONSE_SPEED;
+
+    half4 res = lerp(prevData, newData, saturate(delta));
+    return res;
+}
+
 #endif // SCREEN_SPACE_RAYTRACED_REFLECTION_INCLUDED

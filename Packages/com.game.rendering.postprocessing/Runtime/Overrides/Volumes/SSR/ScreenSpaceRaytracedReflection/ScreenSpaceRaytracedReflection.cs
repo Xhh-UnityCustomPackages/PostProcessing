@@ -98,6 +98,12 @@ namespace Game.Core.PostProcessing
         [Tooltip("Bias applied to depth checking. Increase if reflections desappear at the distance")]
         public FloatParameter depthBias = new FloatParameter(0.03f);
 
+        [Tooltip("Enables temporal filter which reduces flickering")]
+        public BoolParameter temporalFilter = new BoolParameter(false);
+
+        [Tooltip("Temporal filter response speed determines how fast the history buffer is discarded")]
+        public FloatParameter temporalFilterResponseSpeed = new FloatParameter(1f);
+
         public Texture2DParameter noiseTex = new Texture2DParameter(null);
 
 
@@ -265,6 +271,7 @@ namespace Game.Core.PostProcessing
             //targets
             public static int DownscaledDepthRT = Shader.PropertyToID("_DownscaledShinyDepthRT");
             public static int RayCast = Shader.PropertyToID("_RayCastRT");
+            public static int PrevResolveNameId = Shader.PropertyToID("_PrevResolve");
 
             // shader keywords
             internal static readonly string SKW_JITTER = "SSR_JITTER";
@@ -283,7 +290,9 @@ namespace Game.Core.PostProcessing
             BlurV = 4,
             Combine = 5,
             CombineWithCompare = 6,
-            Debug = 7
+            Debug = 7,
+            Copy = 8,
+            TemporalAccum = 9,
 
         }
 
@@ -295,12 +304,19 @@ namespace Game.Core.PostProcessing
         RTHandle m_ReflectionTargetHandle;
         RTHandle[] m_BlurMipDownTargetHandles;
         RTHandle[] m_BlurMipDownTargetHandles2;
-        const int MIP_COUNT = 5;//这边可以优化
+        const int MIP_COUNT = 4;//这边可以优化
 
         Texture2D metallicGradientTex, smoothnessGradientTex;
 
+        //temporalFilter
+        readonly Dictionary<Camera, RTHandle> prevs = new Dictionary<Camera, RTHandle>();
+        RTHandle m_TempAcumTargetHandle;
+        bool m_FirstTemporal = false;
+
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
         {
+            var camera = renderingData.cameraData.camera;
+
             RenderTextureDescriptor sourceDesc = renderingData.cameraData.cameraTargetDescriptor;
             sourceDesc.colorFormat = !settings.isHDR.value ? RenderTextureFormat.ARGB32 : RenderTextureFormat.ARGBHalf;
             DescriptorDownSample(ref sourceDesc, settings.downsampling.value);
@@ -317,6 +333,15 @@ namespace Game.Core.PostProcessing
             // sourceDesc.depthBufferBits = 32;
             RenderingUtils.ReAllocateIfNeeded(ref m_DownscaleDepthTargetHandle, depthDesc, FilterMode.Point, name: "_SSR_DownscaleDepthRT");
 
+
+            // temporalFilter
+            if (settings.temporalFilter.value)
+            {
+                prevs.TryGetValue(camera, out RTHandle prev);
+                RenderingUtils.ReAllocateIfNeeded(ref prev, sourceDesc, FilterMode.Bilinear, name: "_SSR_TemporalFilterRT");
+                prevs[camera] = prev;
+                RenderingUtils.ReAllocateIfNeeded(ref m_TempAcumTargetHandle, sourceDesc, FilterMode.Bilinear, name: "_SSR_TempAcumRT");
+            }
 
 
             if (m_BlurMipDownTargetHandles == null || m_BlurMipDownTargetHandles.Length != MIP_COUNT)
@@ -366,8 +391,26 @@ namespace Game.Core.PostProcessing
             cmd.SetGlobalTexture(ShaderConstants.RayCast, m_RayCastTargetHandle);
             Blit(cmd, source, m_ReflectionTargetHandle, m_Material, (int)Pass.Resolve);
 
-
             var input = m_ReflectionTargetHandle;
+            // temporalFilter
+            if (settings.temporalFilter.value)
+            {
+                prevs.TryGetValue(camera, out RTHandle prev);
+
+                int pass = (int)Pass.TemporalAccum;
+                if (m_FirstTemporal == false)
+                {
+                    m_FirstTemporal = true;
+                    pass = (int)Pass.Copy;
+                }
+                m_Material.SetFloat(ShaderConstants.TemporalResponseSpeed, settings.temporalFilterResponseSpeed.value);
+                m_Material.SetTexture(ShaderConstants.PrevResolveNameId, prev);
+
+                Blit(cmd, m_ReflectionTargetHandle, m_TempAcumTargetHandle, m_Material, pass);
+                Blit(cmd, m_TempAcumTargetHandle, prev, m_Material, (int)Pass.Copy); // do not use CopyExact as its fragment clamps color values - also, cmd.CopyTexture does not work correctly here
+                input = m_TempAcumTargetHandle;
+            }
+
             // Pyramid Blur
             for (int k = 0; k < MIP_COUNT; k++)
             {

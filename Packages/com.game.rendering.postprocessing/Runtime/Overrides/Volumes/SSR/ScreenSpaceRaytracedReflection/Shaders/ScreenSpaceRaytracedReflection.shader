@@ -126,5 +126,25 @@ Shader "Hidden/PostProcessing/ScreenSpaceRaytracedReflection"
             #pragma fragment FragCopyExact
             ENDHLSL
         }
+
+        Pass
+        {
+            // 8
+            Name "ScreenSpaceRaytracedReflection Copy with bilinear filter"
+            HLSLPROGRAM
+            #pragma vertex Vert
+            #pragma fragment FragCopy
+            ENDHLSL
+        }
+
+        Pass
+        {
+            // 9
+            Name "ScreenSpaceRaytracedReflection Temporal Accumulation"
+            HLSLPROGRAM
+            #pragma vertex Vert
+            #pragma fragment FragAcum
+            ENDHLSL
+        }
     }
 }
