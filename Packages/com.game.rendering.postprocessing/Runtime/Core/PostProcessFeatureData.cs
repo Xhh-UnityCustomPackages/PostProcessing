@@ -44,6 +44,7 @@ namespace Game.Core.PostProcessing
             public Shader screenSpaceRaytracedReflectionPS;
             public Shader ScreenSpaceGlobalIlluminationPS;
             public Shader atmosphericHeightFogPS;
+            public Shader ScreenSpaceCavityPS;
         }
 
         [Serializable]
