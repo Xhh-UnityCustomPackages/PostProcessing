@@ -15,15 +15,8 @@ half4 FragCopyDepth(Varyings input) : SV_Target
     float2 uv = input.texcoord;
     float depth = SampleSceneDepth(uv).r;
     depth = LinearEyeDepth(depth, _ZBufferParams);
-    // #if SSR_BACK_FACES
-    //     float backDepth = SAMPLE_TEXTURE2D_X(_DownscaledShinyBackDepthRT, sampler_PointClamp, i.uv.xy).r;
-    //     backDepth = LinearEyeDepth(backDepth, _ZBufferParams);
-    //     backDepth = clamp(backDepth, depth + MINIMUM_THICKNESS, depth + THICKNESS);
-    //     return half4(depth, backDepth, 0, 1.0);
-    // #else
-        return half4(depth.xxx, 1.0);
-    // #endif
 
+    return half4(depth.xxx, 1.0);
 }
 
 //----------------------------------------------------------------
@@ -37,23 +30,28 @@ half4 FragCopyDepth(Varyings input) : SV_Target
     float3 rayDir = reflect(viewDirVS, normalVS);
 
     // if ray is toward the camera, early exit (optional)
-    //if (rayDir.z < 0) return 0.0.xxxx;
+    if (rayDir.z < 0) return 0.0.xxxx;
 
     float rayLength = MAX_RAY_LENGTH;
 
     float3 rayEnd = rayStart + rayDir * rayLength;
+    //如果结束点比近平面还小 就把结束点调整到近平面
     if (rayEnd.z < _ProjectionParams.y)
     {
         rayLength = (_ProjectionParams.y - rayStart.z) / rayDir.z;
         rayEnd = rayStart + rayDir * rayLength;
     }
 
+    //https://zhuanlan.zhihu.com/p/650035462 中的 Efficient GPU Screen-Space Ray Tracing
+    //转为屏幕空间 光栅化光线追踪
     float4 sposStart = mul(unity_CameraProjection, float4(rayStart, 1.0));
     float4 sposEnd = mul(unity_CameraProjection, float4(rayEnd, 1.0));
-    float k0 = rcp(sposStart.w);
-    float q0 = rayStart.z * k0;
-    float k1 = rcp(sposEnd.w);
-    float q1 = rayEnd.z * k1;
+    float k0 = rcp(sposStart.w);//屏幕空间 步进长度
+    float q0 = rayStart.z * k0;//世界空间 开始点Z
+    float k1 = rcp(sposEnd.w);//屏幕空间 结束点
+    float q1 = rayEnd.z * k1;//世界空间 结束点Z
+
+    //xy:uv z:屏幕空间Z w:起始点Z倒数(也就是步进长度) 都是在屏幕空间的
     float4 p = float4(uv, q0, k0);
 
     // length in pixels
@@ -82,15 +80,10 @@ half4 FragCopyDepth(Varyings input) : SV_Target
         if (any(floor(p.xy) != 0)) return 0.0.xxxx; // exit if out of screen space
         float pz = p.z / p.w;
 
-        // #if SSR_BACK_FACES
-        //     GetLinearDepths(p.xy, sceneDepth, sceneBackDepth);
-        //     if (pz >= sceneDepth && pz <= sceneBackDepth)
-        // #else
-            sceneDepth = GetLinearDepth(p.xy);
+
+        sceneDepth = GetLinearDepth(p.xy);
         depthDiff = pz - sceneDepth;
         if (depthDiff > 0 && depthDiff < THICKNESS)
-        // #endif
-
         {
             float4 origPincr = pincr;
             p -= pincr;
