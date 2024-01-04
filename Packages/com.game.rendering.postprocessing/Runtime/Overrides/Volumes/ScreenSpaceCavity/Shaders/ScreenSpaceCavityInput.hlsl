@@ -24,6 +24,7 @@ float _CavityWorldRadius;
 float _CavityBrights;
 float _CavityDarks;
 int _CavitySamplesCount;
+float2 _TargetScale;
 
 TEXTURE2D(_CavityTex);
 
@@ -59,6 +60,12 @@ float3x3 GetCoordinateConversionParameters(out float2 p11_22, out float2 p13_31)
     p13_31 = float2(camProj._13, camProj._23);
     return camProj;
 }
+
+inline float FetchRawDepth(float2 uv)
+{
+    return SampleSceneDepth(uv * _TargetScale.xy);
+}
+
 
 inline float3 FetchViewPos(float2 uv)
 {
