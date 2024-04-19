@@ -55,7 +55,7 @@ float4 LightShaftsBlurFragment(Varyings input) : SV_TARGET
     float2 blurVector = _LightSource.xy - uv;
     blurVector *= min(_RadialBlurParameters.z * passScale, 1);
     //divide by number of samples and scale by control factor.
-    float2 delta = blurVector / NUM_SAMPLES * _ShaftsDensity;
+    float2 delta = blurVector / NUM_SAMPLES ;
     //set up illumination decay factor.
     float illuminationDecay = 1.0f;
     for (int i = 0; i < (_LightSource.z < 0 ? 0 : NUM_SAMPLES); i++)
@@ -69,7 +69,7 @@ float4 LightShaftsBlurFragment(Varyings input) : SV_TARGET
         //update exponential decay factor.
         illuminationDecay *= _ShaftsDecay;
     }
-    return float4(blurredValues * _ShaftsExposure, 1);
+    return float4(blurredValues * _ShaftsExposure * _ShaftsDensity, 1);
 }
 
 
@@ -87,7 +87,7 @@ float4 LightShaftsBloomBlendFragment(Varyings input) : SV_TARGET
     float2 uv = input.texcoord;
     float4 godsRayBlur = SAMPLE_TEXTURE2D_LOD(_LightShafts1, sampler_LightShafts1, uv, 0);
     float4 sceneColor = SAMPLE_TEXTURE2D_LOD(_BlitTexture, sampler_LinearClamp, uv, 0);
-    return float4(sceneColor.rgb + godsRayBlur.rgb, 1);
+    return float4(sceneColor.rgb + godsRayBlur.rgb * _ShaftsAtten, 1);
 }
 
 #endif

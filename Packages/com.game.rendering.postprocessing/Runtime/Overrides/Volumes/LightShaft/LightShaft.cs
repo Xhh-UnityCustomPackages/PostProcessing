@@ -70,6 +70,7 @@ namespace Game.Core.PostProcessing
             internal static readonly int lightShaftsExposure = Shader.PropertyToID("_ShaftsExposure");
             internal static readonly int bloomTintAndThreshold = Shader.PropertyToID("_BloomTintAndThreshold");
             internal static readonly int LightShafts1 = Shader.PropertyToID("_LightShafts1");
+            internal static readonly int Atten = Shader.PropertyToID("_ShaftsAtten");
         }
 
         enum Pass
@@ -111,6 +112,13 @@ namespace Game.Core.PostProcessing
         public override void Render(CommandBuffer cmd, RTHandle source, RTHandle target, ref RenderingData renderingData)
         {
             SetupMaterials(ref renderingData);
+
+            if (Mathf.Approximately(m_LightShaftInclude._ShaftsAtten, 0))
+            {
+                //TODO 是否直接可以移除掉
+                Blit(cmd, source, target);
+                return;
+            }
 
             if (settings.mode.value == LightShaft.Mode.Occlusion)
                 Blit(cmd, source, m_LightShaftRT0, m_Material, (int)Pass.LightShaftsOcclusionPrefilter);
@@ -157,6 +165,8 @@ namespace Game.Core.PostProcessing
             m_Material.SetFloat(ShaderConstants.lightShaftsDecay, m_LightShaftInclude._ShaftsDecay);
             m_Material.SetFloat(ShaderConstants.lightShaftsExposure, m_LightShaftInclude._ShaftsExposure);
             m_Material.SetColor(ShaderConstants.bloomTintAndThreshold, m_LightShaftInclude._BloomTintAndThreshold);
+
+
         }
 
         private void SetupDirectionLight(ref RenderingData renderingData)
@@ -177,6 +187,11 @@ namespace Game.Core.PostProcessing
             m_LightShaftInclude._LightSource = new Vector4(lightScreenPos.x, lightScreenPos.y, lightScreenPos.z, 0);
 
             m_Material.SetVector(ShaderConstants.lightSource, m_LightShaftInclude._LightSource);
+
+            Vector3 cameraDirWS = renderingData.cameraData.camera.transform.forward;
+            float lightAtten = Mathf.Clamp(Vector3.Dot(lightDir, cameraDirWS), 0, 1);
+            m_LightShaftInclude._ShaftsAtten = lightAtten;
+            m_Material.SetFloat(ShaderConstants.Atten, m_LightShaftInclude._ShaftsAtten);
         }
 
         public override void Dispose(bool disposing)

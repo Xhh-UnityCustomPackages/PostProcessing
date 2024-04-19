@@ -15,6 +15,7 @@ CBUFFER_START(LightShaftInclude)
     float _ShaftsDecay;
     float _ShaftsExposure;
     float4 _BloomTintAndThreshold; // x: r y: g z: b w: a 
+    float _ShaftsAtten;
 CBUFFER_END
 
 

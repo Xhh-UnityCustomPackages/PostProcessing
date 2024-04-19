@@ -16,5 +16,6 @@ namespace Game.Core.PostProcessing
         public float _ShaftsDecay;
         public float _ShaftsExposure;
         public Color _BloomTintAndThreshold;
+        public float _ShaftsAtten;
     }
 }
