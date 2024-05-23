@@ -11,7 +11,7 @@ namespace Game.Core.PostProcessing
 {
     public class UberPostProcess : ScriptableRenderPass
     {
-        private static readonly ProfilingSampler m_ProfilingRenderPostProcessing = new ProfilingSampler("Uber Post Process");
+        private static readonly ProfilingSampler m_ProfilingRenderPostProcessing = new ProfilingSampler("PostProcessRenderPass Uber Post Process");
 
         RenderTextureDescriptor m_Descriptor;
         Material m_Material;
