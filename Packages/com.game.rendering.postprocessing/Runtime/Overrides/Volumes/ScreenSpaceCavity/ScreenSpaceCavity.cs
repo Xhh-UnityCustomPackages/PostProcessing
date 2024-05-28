@@ -107,11 +107,6 @@ namespace Game.Core.PostProcessing
     {
         static class ShaderConstants
         {
-            public static int mainTex = Shader.PropertyToID("_MainTex");
-            public static int cavityTex = Shader.PropertyToID("_CavityTex");
-            public static int cavityTex1 = Shader.PropertyToID("_CavityTex1");
-            public static int tempTex = Shader.PropertyToID("_TempTex");
-            public static int uvTransform = Shader.PropertyToID("_UVTransform");
             public static int inputTexelSize = Shader.PropertyToID("_Input_TexelSize");
             public static int cavityTexTexelSize = Shader.PropertyToID("_CavityTex_TexelSize");
             public static int worldToCameraMatrix = Shader.PropertyToID("_WorldToCameraMatrix");
@@ -140,8 +135,6 @@ namespace Game.Core.PostProcessing
             // public const int VerticalBlur = 3;
             public const int Final = 1;
         }
-
-        private const string k_OrthographicCameraKeyword = "_ORTHOGRAPHIC";
 
         private Material m_Material;
         private RTHandle m_CavityFinalRT;

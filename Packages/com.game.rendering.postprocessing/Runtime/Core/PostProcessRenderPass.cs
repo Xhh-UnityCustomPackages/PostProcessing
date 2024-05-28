@@ -16,8 +16,8 @@ namespace Game.Core.PostProcessing
 
         PostProcessFeatureData m_PostProcessFeatureData;
 
-        RTHandle m_TempRT0;
-        RTHandle m_TempRT1;
+        static RTHandle m_TempRT0;
+        static RTHandle m_TempRT1;
 
         public PostProcessRenderPass(PostProcessInjectionPoint injectionPoint, List<PostProcessRenderer> renderers, PostProcessFeatureData data)
         {
@@ -193,10 +193,6 @@ namespace Game.Core.PostProcessing
             {
                 m_ActivePostProcessRenderers[index].OnCameraCleanup(cmd);
             }
-
-            //
-            // cmd.ReleaseTemporaryRT(m_TempRT0.id);
-            // cmd.ReleaseTemporaryRT(m_TempRT1.id);
         }
 
         public void Dispose(bool disposing)

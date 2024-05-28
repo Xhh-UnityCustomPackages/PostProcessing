@@ -31,6 +31,7 @@ MonoBehaviour:
     ScreenSpaceCavityPS: {fileID: 4800000, guid: c5a2e8e13b4b14a4fbe9fc98ae64411a,
       type: 3}
     CRTScreenPS: {fileID: 4800000, guid: 3b5a22bb761b1b844be987521439f734, type: 3}
+    MoebiusPS: {fileID: 4800000, guid: 61d80f884168a384db6dd5e09a0ff54a, type: 3}
   computeShaders:
     autoExposureCS: {fileID: 7200000, guid: ca7f94c1d44f4d245a58c851530cc5f1, type: 3}
     LogHistogramCS: {fileID: 7200000, guid: f9f6bbb4769522f4ebd90601e2c570c1, type: 3}

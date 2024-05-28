@@ -82,6 +82,8 @@ namespace Game.Core.PostProcessing
                 renderPassEvent = RenderPassEvent.AfterRenderingPostProcessing,
             };
 
+            PyramidBlur.Initialize(m_Settings.m_PostProcessFeatureData.materials.DualBlur);
+
 
 #if UNITY_EDITOR
             m_DebugHandler = new DebugHandler();
@@ -148,6 +150,7 @@ namespace Game.Core.PostProcessing
             m_BeforeRenderingPostProcessing.Dispose(disposing);
             m_AfterRenderingPostProcessing.Dispose(disposing);
             m_UberPostProcessing.Dispose();
+            PyramidBlur.Release();
         }
 
 

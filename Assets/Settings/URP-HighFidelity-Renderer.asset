@@ -170,6 +170,8 @@ MonoBehaviour:
       Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
     - Game.Core.PostProcessing.AtmosphericHeightFogRenderer, Game.Rendering.PostProcessing.Runtime,
       Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
+    - Game.Core.PostProcessing.ScreenSpaceCavityRenderer, Game.Rendering.PostProcessing.Runtime,
+      Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
     m_RenderersBeforeRenderingPostProcessing:
     - Game.Core.PostProcessing.ExposureRenderer, Game.Rendering.PostProcessing.Runtime,
       Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
@@ -177,4 +179,6 @@ MonoBehaviour:
       Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
     m_RenderersAfterRenderingPostProcessing:
     - Game.Core.PostProcessing.CRTScreenRenderer, Game.Rendering.PostProcessing.Runtime,
+      Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
+    - Game.Core.PostProcessing.MoebiusRenderer, Game.Rendering.PostProcessing.Runtime,
       Version=0.0.0.0, Culture=neutral, PublicKeyToken=null

@@ -46,6 +46,7 @@ namespace Game.Core.PostProcessing
             public Shader atmosphericHeightFogPS;
             public Shader ScreenSpaceCavityPS;
             public Shader CRTScreenPS;
+            public Shader MoebiusPS;
         }
 
         [Serializable]
