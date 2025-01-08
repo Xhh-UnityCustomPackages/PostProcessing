@@ -12,6 +12,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 76e6576e6a6e99a4292d52fde4707e68, type: 3}
   m_Name: PostProcessFeatureData
   m_EditorClassIdentifier: 
+  computeShaders:
+    autoExposureCS: {fileID: 7200000, guid: ca7f94c1d44f4d245a58c851530cc5f1, type: 3}
+    LogHistogramCS: {fileID: 7200000, guid: f9f6bbb4769522f4ebd90601e2c570c1, type: 3}
+    pyramidDepthGeneratorCS: {fileID: 7200000, guid: 0470cac8a121da44f86629ec95f754bc,
+      type: 3}
+    contractShadowCS: {fileID: 7200000, guid: a1cf9f88135afee44964499279152289, type: 3}
+  materials:
+    UberPost: {fileID: 2100000, guid: de6e017e6e8440443b89951f8c1d5e2d, type: 2}
+    BilateralBlur: {fileID: 2100000, guid: b5d346c906c3a5749b8dd077c3933b40, type: 2}
+    DualBlur: {fileID: 2100000, guid: d89e9f569a4130d4583e4d494010b38f, type: 2}
   shaders:
     screenSpaceOcclusionPS: {fileID: 4800000, guid: 2cdb9efe6bac7834591f715cbd122730,
       type: 3}
@@ -32,12 +42,7 @@ MonoBehaviour:
       type: 3}
     CRTScreenPS: {fileID: 4800000, guid: 3b5a22bb761b1b844be987521439f734, type: 3}
     MoebiusPS: {fileID: 4800000, guid: 61d80f884168a384db6dd5e09a0ff54a, type: 3}
-  computeShaders:
-    autoExposureCS: {fileID: 7200000, guid: ca7f94c1d44f4d245a58c851530cc5f1, type: 3}
-    LogHistogramCS: {fileID: 7200000, guid: f9f6bbb4769522f4ebd90601e2c570c1, type: 3}
-    pyramidDepthGeneratorCS: {fileID: 7200000, guid: 0470cac8a121da44f86629ec95f754bc,
-      type: 3}
-    contractShadowCS: {fileID: 7200000, guid: a1cf9f88135afee44964499279152289, type: 3}
+    EightColorPS: {fileID: 4800000, guid: 0096ffa10cc12e049befbc1edcd245b2, type: 3}
   textures:
     DitherTexture: {fileID: 2800000, guid: e3d24661c1e055f45a7560c033dbb837, type: 3}
     WorlyNoise128RGBA: {fileID: 11700000, guid: 1fe54a721d0e2504e89f121c723404a8,
@@ -76,7 +81,3 @@ MonoBehaviour:
     - {fileID: 2800000, guid: 7641a2b116fafd64d9c3d6459fdfe801, type: 3}
     - {fileID: 2800000, guid: c6a5e40e6746fef4fa486e8f620ee8d4, type: 3}
     - {fileID: 2800000, guid: fd4189357c6dfb94fa2d36afbce72086, type: 3}
-  materials:
-    UberPost: {fileID: 2100000, guid: de6e017e6e8440443b89951f8c1d5e2d, type: 2}
-    BilateralBlur: {fileID: 2100000, guid: b5d346c906c3a5749b8dd077c3933b40, type: 2}
-    DualBlur: {fileID: 2100000, guid: d89e9f569a4130d4583e4d494010b38f, type: 2}
