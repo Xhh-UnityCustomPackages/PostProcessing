@@ -32,11 +32,13 @@ Shader "Hidden/PostProcessing/EightColor"
             {
                 float2 uv = input.texcoord;
 
-                float4 sceneColor = SAMPLE_TEXTURE2D_LOD(_BlitTexture, sampler_LinearClamp, uv, 0);
+                float2 pixelSS, outUV;
+                EdgeColorUV(uv, _ScreenParams.x, _ScreenParams.y, _Downsampling, pixelSS, outUV);
+                float4 sceneColor = SAMPLE_TEXTURE2D_LOD(_BlitTexture, sampler_LinearClamp, outUV, 0);
 
                 float4 eightColor;
-                EightColorCore_float(sceneColor, uv, _Palette1, _Palette2, _Dithering, _Downsampling, eightColor);
-                return eightColor;
+                EightColorCore_float(sceneColor, pixelSS, _Palette1, _Palette2, _Dithering, _Downsampling, eightColor);
+                return lerp(sceneColor, eightColor, _Opacity);
             }
             ENDHLSL
         }

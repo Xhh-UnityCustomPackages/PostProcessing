@@ -50,3 +50,11 @@ void EightColorCore_float(float4 Source,
     // sRGB -> Linear
     Output = float4(SRGBToLinear(rgb_d.rgb), Source.a);
 }
+
+
+void EdgeColorUV(float2 UV, float Width, float Height, float Downsample, out float2 PixelSS, out float2 OutUV)
+{
+    float2 pss = UV * float2(Width, Height);
+    PixelSS = floor(pss / Downsample) * Downsample;
+    OutUV = PixelSS / float2(Width, Height);
+}
