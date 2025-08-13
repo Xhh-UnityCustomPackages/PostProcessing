@@ -19,6 +19,9 @@
 #define SSR_VIGNETTE_SMOOTHNESS 5.
 #define SSR_KILL_FIREFLIES 0
 
+// 外面的thickness被当作了步长在用, 实际的thickness写死了
+#define layerThickness              0.05
+
 //
 // Helper functions
 //
@@ -45,6 +48,49 @@ float GetSquaredDistance(float2 first, float2 second)
     return dot(first, first);
 }
 
+
+bool ScreenSpaceRayMarching(half stepDirection, half end, inout float2 P, inout float3 Q, inout float k, float2 dP, float3 dQ,
+    float dk, half rayZ, bool permute, inout int depthDistance, inout int stepCount, inout float2 hitUV, inout bool intersecting)
+{
+    bool stop = false;
+    // 缓存当前深度和位置
+    half prevZMaxEstimate = rayZ;
+    half rayZMax = prevZMaxEstimate, rayZMin = prevZMaxEstimate;
+
+    [loop]
+    while ((P.x * stepDirection) <= end && stepCount < _MaximumIterationCount && !stop)
+    {
+        // 步近  
+        P += dP;  
+        Q.z += dQ.z;  
+        k += dk;
+        stepCount += 1;
+
+        rayZMin = prevZMaxEstimate;
+        rayZMax = (dQ.z * 0.5 + Q.z) / (dk * 0.5 + k);//当前射线深度
+        prevZMaxEstimate = rayZMax;
+
+        //确保rayZMin < rayZMax
+        UNITY_FLATTEN
+        if (rayZMin > rayZMax)
+        {
+            swap(rayZMin, rayZMax);
+        }
+
+        hitUV = permute ? P.yx : P;//恢复正确的坐标轴
+        
+        float sceneZ = -LinearEyeDepth(SampleSceneDepth(hitUV * _TestTex_TexelSize.xy), _ZBufferParams);
+        bool isBehind = (rayZMin <= sceneZ);//如果光线深度小于深度图深度
+
+        intersecting = isBehind && (rayZMax >= sceneZ - layerThickness);//光线与场景相交
+        depthDistance = abs(sceneZ - rayZMax);
+        stop = isBehind;
+    }
+
+    return intersecting;
+}
+
+
 // 根据原算法改正后
 //Efficient GPU Screen-Space Ray Tracing https://zhuanlan.zhihu.com/p/686833098
 //DDA (Digital Differential Analyzer)光线步进算法
@@ -62,9 +108,7 @@ Result March(Ray ray, float2 uv, float3 normalVS)
     {
         return result;
     }
-
-    // 外面的thickness被当作了步长在用, 实际的thickness写死了
-    float layerThickness = 0.05;
+    
     half RayBump = max(-0.0002 * _Bandwidth * ray.origin.z, 0.001);
     half3 originVS = ray.origin + normalVS * RayBump;//射线起始坐标 沿着法线方向稍微偏移一下 避免自相交
 
@@ -108,12 +152,18 @@ Result March(Ray ray, float2 uv, float3 normalVS)
     
     // jitter
     {
-        //目前是取BlueNoise 也可以是
+        #if JITTER_BLURNOISE
         uv *= _NoiseTiling;
         uv.y *= _AspectRatio;
 
         float jitter = SAMPLE_TEXTURE2D(_NoiseTex, sampler_LinearClamp, uv + _WorldSpaceCameraPos.xz).a;
-    
+        #elif JITTER_DITHER
+        float2 ditherUV = fmod(P0, 4);  
+        float jitter = dither[ditherUV.x * 4 + ditherUV.y];
+        #else
+        float jitter = 0;
+        #endif
+        
         P0 += dP * jitter;
         Q0 += dQ * jitter;
         k0 += dk * jitter;
@@ -122,47 +172,48 @@ Result March(Ray ray, float2 uv, float3 normalVS)
     half2 P = P0;
     half3 Q = Q0;
     half k = k0;
-    
-    half prevZMaxEstimate = originVS.z;
-    half rayZMax = prevZMaxEstimate, rayZMin = prevZMaxEstimate;
-    int stepCount = 0;
-    half sceneZ = 100000;
+
+    // 缓存当前深度和位置
+    float rayZ = originVS.z;
     half end = P1.x * stepDirection;
 
-    bool intersecting = (rayZMax >= sceneZ - layerThickness) && (rayZMin <= sceneZ);
+    int stepCount = 0;
+    bool intersecting = false;
     half2 hitPixel = half2(0, 0);
-    
-    bool stop = intersecting;
-    
-    UNITY_LOOP
-    while ((P.x * stepDirection) <= end && stepCount < _MaximumIterationCount && !stop)
+    float depthDistance = 0.0;
+
     {
-        // 步近  
-        P += dP;
-        Q.z += dQ.z;
-        k += dk;
-        stepCount += 1;
-        
-        rayZMin = prevZMaxEstimate;
-        rayZMax = (dQ.z * 0.5 + Q.z) / (dk * 0.5 + k);//当前射线深度
-        prevZMaxEstimate = rayZMax;
-
-        //确保rayZMin < rayZMax
-        UNITY_FLATTEN
-        if (rayZMin > rayZMax)
+        //使用二分搜索来加速
+        const int BINARY_COUNT = 3;
+        bool stopBinary = false;
+    
+        UNITY_LOOP
+        for (int i = 0; i < BINARY_COUNT && !stopBinary; i++)
         {
-            swap(rayZMin, rayZMax);
+            if (ScreenSpaceRayMarching(stepDirection, end, P, Q, k, dP, dQ, dk, rayZ, permute, depthDistance, stepCount, hitPixel, intersecting))
+            {
+                if (depthDistance < layerThickness)
+                {
+                    intersecting = true;
+                    stopBinary = true;
+                }
+                P -= dP;
+                Q -= dQ;
+                k -= dk;
+                rayZ = Q / k;
+    
+                //步长减少
+                dP *= 0.5;
+                dQ *= 0.5;
+                dk *= 0.5;
+            }
         }
-
-        hitPixel = permute ? P.yx : P;//恢复正确的坐标轴
-
-        sceneZ = -LinearEyeDepth(SampleSceneDepth(hitPixel * _TestTex_TexelSize.xy), _ZBufferParams);
-        bool isBehind = (rayZMin <= sceneZ);
-
-        intersecting = isBehind && (rayZMax >= sceneZ - layerThickness);//光线与场景相交
-
-        stop = isBehind;
     }
+
+    {
+        // intersecting = ScreenSpaceRayMarching(stepDirection, end, P, Q, k, dP, dQ, dk, rayZ, permute, depthDistance, stepCount, hitPixel, intersecting);
+    }
+    
 
     UNITY_FLATTEN
     if (intersecting)
@@ -179,6 +230,41 @@ Result March(Ray ray, float2 uv, float3 normalVS)
 // Fragment shaders
 //
 float4 FragTest(Varyings input) : SV_Target
+{
+    half4 gbuffer2 = SAMPLE_TEXTURE2D_LOD(_GBuffer2, sampler_PointClamp, input.texcoord, 0);
+
+    UNITY_BRANCH
+    if (dot(gbuffer2.xyz, 1.0) == 0.0)
+        return 0.0;
+
+    // 多一次采样 可以过滤掉角色部分的射线计算
+    // uint materialFlags = UnpackMaterialFlags(SAMPLE_TEXTURE2D_LOD(_GBuffer0, sampler_PointClamp, input.texcoord, 0).a);
+    // UNITY_BRANCH
+    // if (IsMaterialFlagCharacter(materialFlags)) return 0;
+    
+    Ray ray;
+    ray.origin = GetViewSpacePosition(input.texcoord);
+
+    UNITY_BRANCH
+    if (ray.origin.z < - _MaximumMarchDistance)
+        return 0.0;
+
+    float3 normalWS = normalize(UnpackNormal(gbuffer2.xyz));
+    float3 normalVS = mul((float3x3)_ViewMatrixSSR, normalWS);
+    ray.direction = normalize(reflect(normalize(ray.origin), normalVS));
+
+    UNITY_BRANCH
+    if (ray.direction.z > 0.0)
+        return 0.0;
+
+    Result result = March(ray, input.texcoord, normalVS);
+
+    float confidence = (float)result.iterationCount / (float)_MaximumIterationCount;
+
+    return float4(result.uv, confidence, (float)result.isHit);
+}
+
+float4 FragHizTest(Varyings input) : SV_Target
 {
     half4 gbuffer2 = SAMPLE_TEXTURE2D_LOD(_GBuffer2, sampler_PointClamp, input.texcoord, 0);
 
@@ -341,8 +427,6 @@ float4 FragComposite(Varyings input) : SV_Target
     // }
 
     BRDFData brdfData = BRDFDataFromGbuffer(gbuffer0, gbuffer1, gbuffer2);
-    // Lit.shader定制
-    half ssrIndirectSpecAdjust = gbuffer1.g;
 
     half3 normalWS = normalize(UnpackNormal(gbuffer2.xyz));
     float3 positionVS = GetViewSpacePosition(uv);
@@ -374,13 +458,16 @@ float4 FragComposite(Varyings input) : SV_Target
         indirectSpecular = 0;
     #endif
 
+    half smoothness = gbuffer2.a;
     // https://www.desmos.com/calculator/k3hodgy8ry TODO 这个结果是个比较奇怪的曲线
     float fade = resolve.a * resolve.a * 3;
     // UNITY_BRANCH
     // if (_MobileMode == 2) fade = 1; // 简化计算
-    distanceFade = saturate(distanceFade + ssrIndirectSpecAdjust);
+    distanceFade = saturate(distanceFade + smoothness);
     // fade是低频部分 理论上相当于一个锐化操作
-    fade = (1.0 - saturate(fade * smoothstep(0.5, 1.0, fade) * distanceFade)) * confidence;
+    // fade = (1.0 - saturate(fade * smoothstep(0.5, 1.0, fade) * distanceFade)) * confidence;
+    fade = distanceFade * confidence;
+
     // UNITY_BRANCH
     // if (_MobileMode == 2) resolve.rgb = clampedSourceColor.rgb * clampedSourceColor.rgb;
     // return float4(mask * lerp(indirectSpecular, resolve.rgb, fade), 1);

@@ -1,6 +1,4 @@
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
@@ -17,6 +15,12 @@ namespace Game.Core.PostProcessing
 
         public static int MAX_BLUR_ITERATIONS = 4;
 
+        public enum RaytraceModes
+        {
+            LinearTracing = 0,
+            HiZTracing = 1
+        }
+        
         public enum Resolution
         {
             Half,
@@ -30,43 +34,55 @@ namespace Game.Core.PostProcessing
             SSROnly,
             IndirectSpecular,
         }
+
+        public enum JitterMode
+        {
+            Disabled,
+            BlueNoise,
+            Dither,
+        }
+
+        public override bool IsActive() => intensity.value > 0;
         
-        
-        [Tooltip("分辨率")]
+        [Tooltip("模式")] 
+        public EnumParameter<RaytraceModes> mode = new(RaytraceModes.LinearTracing);
+
+        [Tooltip("分辨率")] 
         public EnumParameter<Resolution> resolution = new(Resolution.Full);
-
-        [Tooltip("最大追踪次数, 移动端会被固定到10次")]
-        public ClampedIntParameter maximumIterationCount = new ClampedIntParameter(256, 1, 256);
-
-        [Tooltip("模糊迭代次数")]
-        public ClampedIntParameter blurIterations = new ClampedIntParameter(3, 1, MAX_BLUR_ITERATIONS);
 
         [Space(6)]
         [Tooltip("强度")]
-        public ClampedFloatParameter intensity = new ClampedFloatParameter(1f, 0f, 5f);
-
+        public ClampedFloatParameter intensity = new(1f, 0f, 5f);
+        
         [Tooltip("实际上是追踪步长, 越大精度越低, 追踪范围越大, 越节省追踪次数")]
-        public ClampedFloatParameter thickness = new ClampedFloatParameter(8f, 1f, 64f);
+        public ClampedFloatParameter thickness = new(8f, 1f, 64f);
+        
+        [Tooltip("最大追踪次数, 移动端会被固定到10次")]
+        public ClampedIntParameter maximumIterationCount = new(256, 1, 256);
 
         [Tooltip("最大追踪距离")]
-        public MinFloatParameter maximumMarchDistance = new MinFloatParameter(100f, 0f);
+        public MinFloatParameter maximumMarchDistance = new(100f, 0f);
 
         [Tooltip("值越大, 未追踪部分天空颜色会越多, 过度边界会越硬")]
-        public ClampedFloatParameter distanceFade = new ClampedFloatParameter(0.02f, 0f, 1f);
+        public ClampedFloatParameter distanceFade = new(0.02f, 0f, 1f);
 
-        [Tooltip("渐变")]
-        public ClampedFloatParameter vignette = new ClampedFloatParameter(0f, 0f, 1f);
+        [Tooltip("Jitter模式")]
+        public EnumParameter<JitterMode> jitterMode = new(JitterMode.BlueNoise);
+        
+        [Tooltip("模糊迭代次数")]
+        public ClampedIntParameter blurIterations = new(3, 0, MAX_BLUR_ITERATIONS);
+        
+        [Tooltip("边缘渐变")]
+        public ClampedFloatParameter vignette = new(0f, 0f, 1f);
 
         [Tooltip("减少闪烁问题, 需要MotionVector, SceneView未处理")]
-        public BoolParameter antiFlicker = new BoolParameter(true);
+        public BoolParameter antiFlicker = new(true);
 
-
+        [Space(20)]
         public EnumParameter<DebugMode> debugMode = new(DebugMode.Disabled);
-        public override bool IsActive() => intensity.value > 0;
-
-
     }
-
+    
+    
     [PostProcess("ScreenSpaceReflection", PostProcessInjectionPoint.BeforeRenderingDeferredLights)]
     public class ScreenSpaceReflectionRenderer : PostProcessVolumeRenderer<ScreenSpaceReflection>
     {
@@ -102,9 +118,35 @@ namespace Game.Core.PostProcessing
                         return "_";
                 }
             }
+            
+            public static string GetJitterKeyword(ScreenSpaceReflection.JitterMode jitterMode)
+            {
+                switch (jitterMode)
+                {
+                    case ScreenSpaceReflection.JitterMode.BlueNoise:
+                        return "JITTER_BLURNOISE";
+                    case ScreenSpaceReflection.JitterMode.Dither:
+                        return "JITTER_DITHER";
+                    case ScreenSpaceReflection.JitterMode.Disabled:
+                    default:
+                        return "_";
+                }
+            }
+        }
+
+        internal enum ShaderPasses
+        {
+            Test = 0,
+            Resolve = 1,
+            Reproject = 2,
+            Composite = 3,
+            MobilePlanarReflection = 4,
+            MobileAntiFlicker = 5,
+            HizTest = 6,
         }
 
         RenderTextureDescriptor m_ScreenSpaceReflectionDescriptor;
+        string[] m_ShaderKeywords = new string[2];
         Material m_ScreenSpaceReflectionMaterial;
         Material m_BlurMaterial;
 
@@ -131,13 +173,6 @@ namespace Game.Core.PostProcessing
             rt2 = m_HistoryPingPongRT[m_PingPong];
         }
 
-        // public override bool IsActive(ref RenderingData renderingData)
-        // {
-        //     Debug.LogError(renderingData.cameraData.camera.actualRenderingPath);
-        //     bool isDeferred = renderingData.cameraData.camera.actualRenderingPath == RenderingPath.DeferredShading;
-        //     return isDeferred && base.IsActive(ref renderingData);
-        // }
-
         public override void Setup()
         {
             ShaderConstants._BlurMipUp = new int[k_MaxPyramidSize];
@@ -150,8 +185,7 @@ namespace Game.Core.PostProcessing
 
             m_SupportARGBHalf = SystemInfo.SupportsRenderTextureFormat(RenderTextureFormat.ARGBHalf);
         }
-
-
+        
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
         {
             m_ScreenSpaceReflectionDescriptor = renderingData.cameraData.cameraTargetDescriptor;
@@ -191,10 +225,13 @@ namespace Game.Core.PostProcessing
         {
             SetupMaterials(ref renderingData);
 
-            Blit(cmd, source, m_TestRT, m_ScreenSpaceReflectionMaterial, 0);
-
+            if (settings.mode.value == ScreenSpaceReflection.RaytraceModes.LinearTracing)
+                Blit(cmd, source, m_TestRT, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Test);
+            else
+                Blit(cmd, source, m_TestRT, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.HizTest);
+            
             m_ScreenSpaceReflectionMaterial.SetTexture(ShaderConstants.TestTex, m_TestRT);
-            Blit(cmd, source, m_ResloveRT, m_ScreenSpaceReflectionMaterial, 1);
+            Blit(cmd, source, m_ResloveRT, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Resolve);
 
 
             RTHandle lastDownId = m_ResloveRT;
@@ -210,7 +247,7 @@ namespace Game.Core.PostProcessing
                 GetHistoryPingPongRT(ref rt1, ref rt2);
 
                 m_ScreenSpaceReflectionMaterial.SetTexture(ShaderConstants.HistoryTex, rt1);
-                Blit(cmd, m_ResloveRT, rt2, m_ScreenSpaceReflectionMaterial, 5);
+                Blit(cmd, m_ResloveRT, rt2, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.MobileAntiFlicker);
                 lastDownId = rt2;
             }
             // ----------------------------------------------------------------------------------
@@ -227,8 +264,6 @@ namespace Game.Core.PostProcessing
                 {
                     RenderingUtils.ReAllocateIfNeeded(ref m_BlurMipUpsRT[i], blurDesc, FilterMode.Bilinear, name: "_BlurMipUp" + i);
                     RenderingUtils.ReAllocateIfNeeded(ref m_BlurMipDownsRT[i], blurDesc, FilterMode.Bilinear, name: "_BlurMipDown" + i);
-                    //         cmd.GetTemporaryRT(ShaderConstants._BlurMipUp[i], blurDesc, FilterMode.Bilinear);
-                    //         cmd.GetTemporaryRT(ShaderConstants._BlurMipDown[i], blurDesc, FilterMode.Bilinear);
 
                     Blit(cmd, lastDownId, m_BlurMipDownsRT[i], m_BlurMaterial, 0);
 
@@ -250,15 +285,16 @@ namespace Game.Core.PostProcessing
 
 
             m_ScreenSpaceReflectionMaterial.SetTexture(ShaderConstants.ResolveTex, m_ResloveRT);
-            Blit(cmd, source, target, m_ScreenSpaceReflectionMaterial, 3);
+            Blit(cmd, source, target, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Composite);
         }
 
-
-
+        
         public override void Dispose(bool disposing)
         {
             CoreUtils.Destroy(m_ScreenSpaceReflectionMaterial);
+            m_ScreenSpaceReflectionMaterial = null;
             CoreUtils.Destroy(m_BlurMaterial);
+            m_BlurMaterial = null;
 
             m_ResloveRT?.Release();
             m_TestRT?.Release();
@@ -280,8 +316,7 @@ namespace Game.Core.PostProcessing
                 m_ScreenSpaceReflectionMaterial = GetMaterial(postProcessFeatureData.shaders.screenSpaceReflectionPS);
             if (m_BlurMaterial == null)
                 m_BlurMaterial = Material.Instantiate(postProcessFeatureData.materials.DualBlur);
-
-
+            
             var cameraData = renderingData.cameraData;
             var camera = cameraData.camera;
 
@@ -306,18 +341,19 @@ namespace Game.Core.PostProcessing
             m_ScreenSpaceReflectionMaterial.SetMatrix(ShaderConstants.InverseViewMatrix, camera.worldToCameraMatrix.inverse);
             m_ScreenSpaceReflectionMaterial.SetMatrix(ShaderConstants.InverseProjectionMatrix, projectionMatrix.inverse);
             m_ScreenSpaceReflectionMaterial.SetMatrix(ShaderConstants.ScreenSpaceProjectionMatrix, screenSpaceProjectionMatrix);
-            m_ScreenSpaceReflectionMaterial.SetVector(ShaderConstants.Params1, new Vector4((float)settings.vignette.value, settings.distanceFade.value, settings.maximumMarchDistance.value, settings.intensity.value));
-            m_ScreenSpaceReflectionMaterial.SetVector(ShaderConstants.Params2, new Vector4(width / height, (float)size / (float)noiseTex.width, settings.thickness.value, settings.maximumIterationCount.value));
+            m_ScreenSpaceReflectionMaterial.SetVector(ShaderConstants.Params1,
+                new Vector4(settings.vignette.value, settings.distanceFade.value, settings.maximumMarchDistance.value, settings.intensity.value));
+            m_ScreenSpaceReflectionMaterial.SetVector(ShaderConstants.Params2,
+                new Vector4(width / height, size / (float)noiseTex.width, settings.thickness.value, settings.maximumIterationCount.value));
 
             // 没有调节的需求
             m_BlurMaterial.SetFloat(ShaderConstants.Offset, 0.1f);
 
             // -------------------------------------------------------------------------------------------------
             // local shader keywords
-            // m_ShaderKeywords[0] = settings.oldMethod.value ? "_OLD_METHOD" : "_";
-            // m_ShaderKeywords[1] = ShaderConstants.GetDebugKeyword(settings.debugMode.value);
-
-            // m_ScreenSpaceReflectionMaterial.shaderKeywords = m_ShaderKeywords;
+            m_ShaderKeywords[0] = ShaderConstants.GetDebugKeyword(settings.debugMode.value);
+            m_ShaderKeywords[1] = ShaderConstants.GetJitterKeyword(settings.jitterMode.value);
+            m_ScreenSpaceReflectionMaterial.shaderKeywords = m_ShaderKeywords;
         }
     }
 }

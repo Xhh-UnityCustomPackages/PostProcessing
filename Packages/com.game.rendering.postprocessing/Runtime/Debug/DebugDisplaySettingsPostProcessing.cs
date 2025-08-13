@@ -10,7 +10,15 @@ namespace Game.Core.PostProcessing
     {
 
         #region IDebugDisplaySettingsQuery
+
+        public bool TryGetScreenClearColor(ref Color color)
+        {
+            return false;
+        }
+
         public bool AreAnySettingsActive => (fullScreenDebugMode != DebugFullScreenMode.None);
+        public bool IsPostProcessingAllowed => true;
+        public bool IsLightingActive => true;
 
         public IDebugDisplaySettingsPanelDisposable CreatePanel()
         {

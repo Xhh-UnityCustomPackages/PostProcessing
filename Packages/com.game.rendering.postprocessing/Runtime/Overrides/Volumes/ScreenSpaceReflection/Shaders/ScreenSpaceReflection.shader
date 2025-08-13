@@ -20,6 +20,9 @@ Shader "Hidden/PostProcessing/ScreenSpaceReflection"
             Name "ScreenSpaceReflection Test"
 
             HLSLPROGRAM
+
+            #pragma multi_compile_local _ JITTER_BLURNOISE JITTER_DITHER
+            
             #pragma vertex Vert
             #pragma fragment FragTest
             ENDHLSL
@@ -78,13 +81,26 @@ Shader "Hidden/PostProcessing/ScreenSpaceReflection"
             #pragma fragment FragMobilePlanarReflection
             ENDHLSL
         }
+
         Pass
         {
+            // 5
             Name "ScreenSpaceReflection MobileAntiFlicker"
 
             HLSLPROGRAM
             #pragma vertex Vert
             #pragma fragment FragMobileAntiFlicker
+            ENDHLSL
+        }
+
+        Pass
+        {
+            // 6
+            Name "ScreenSpaceReflection HiZ Test"
+
+            HLSLPROGRAM
+            #pragma vertex Vert
+            #pragma fragment FragHizTest
             ENDHLSL
         }
     }

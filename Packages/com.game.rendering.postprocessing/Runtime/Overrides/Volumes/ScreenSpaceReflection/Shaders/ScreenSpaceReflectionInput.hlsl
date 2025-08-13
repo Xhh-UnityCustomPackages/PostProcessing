@@ -97,6 +97,14 @@ void swap(inout float v0, inout float v1)
     float temp = v0;  
     v0 = v1;    
     v1 = temp;
-}  
+}
+
+// jitter dither map
+static half dither[16] = {
+    0.0, 0.5, 0.125, 0.625,
+    0.75, 0.25, 0.875, 0.375,
+    0.187, 0.687, 0.0625, 0.562,
+    0.937, 0.437, 0.812, 0.312
+};
 
 #endif // SCREEN_SPACE_REFLECTION_INCLUDED
