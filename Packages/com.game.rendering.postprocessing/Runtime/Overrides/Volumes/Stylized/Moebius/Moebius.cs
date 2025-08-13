@@ -31,17 +31,13 @@ namespace Game.Core.PostProcessing
             Normal,
         }
 
-        [Serializable] public sealed class SobelSourceParameter : VolumeParameter<SobelSource> { public SobelSourceParameter(SobelSource value, bool overrideState = false) : base(value, overrideState) { } }
-        [Serializable] public sealed class DebugModeParameter : VolumeParameter<DebugMode> { public DebugModeParameter(DebugMode value, bool overrideState = false) : base(value, overrideState) { } }
-
-
-        public SobelSourceParameter sobelSource = new SobelSourceParameter(SobelSource.Depth);
+        public EnumParameter<SobelSource> sobelSource = new(SobelSource.Depth);
         [Tooltip("用于手绘效果的Noise")]
         public TextureParameter noise = new TextureParameter(null);
         public ClampedFloatParameter noiseIntensity = new ClampedFloatParameter(1f, 0f, 5f);
 
         [Header("Debug")]
-        public DebugModeParameter debugMode = new DebugModeParameter(DebugMode.Disabled);
+        public EnumParameter<DebugMode> debugMode = new(DebugMode.Disabled);
     }
 
 

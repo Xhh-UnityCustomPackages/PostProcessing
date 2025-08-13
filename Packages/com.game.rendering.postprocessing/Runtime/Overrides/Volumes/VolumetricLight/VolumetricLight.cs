@@ -22,12 +22,11 @@ namespace Game.Core.PostProcessing
             Half,
         }
 
-        [Serializable]
-        public sealed class DownSampleParameter : VolumeParameter<DownSample> { }
+    
 
         [Header("质量 (Quality)")]
         public MinFloatParameter intensity = new MinFloatParameter(0f, 0f);
-        public DownSampleParameter downSample = new DownSampleParameter() { value = DownSample.Full };
+        public EnumParameter<DownSample> downSample = new(DownSample.Full);
         public ClampedIntParameter SampleCount = new ClampedIntParameter(64, 1, 128);
         public MinFloatParameter maxRayLength = new MinFloatParameter(100f, 0f);
 

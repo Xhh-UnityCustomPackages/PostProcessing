@@ -20,9 +20,7 @@ namespace Game.Core.PostProcessing
             MainLight,
             Custom
         }
-
-        [Serializable]
-        public class DirectionalFromParameter : VolumeParameter<DirectionalFrom> { }
+        
 
 
         [Header("Fog")]
@@ -51,7 +49,7 @@ namespace Game.Core.PostProcessing
 
 
         [Header("Directional")]
-        public DirectionalFromParameter directionalFrom = new DirectionalFromParameter() { value = DirectionalFrom.MainLight };
+        public EnumParameter<DirectionalFrom> directionalFrom = new(DirectionalFrom.MainLight);
         public Vector3Parameter customDirectionalDirection = new Vector3Parameter(Vector3.zero);
         public ClampedFloatParameter directionalIntensity = new ClampedFloatParameter(1f, 0f, 1f);
         public ClampedFloatParameter directionalFalloff = new ClampedFloatParameter(1f, 1f, 8f);

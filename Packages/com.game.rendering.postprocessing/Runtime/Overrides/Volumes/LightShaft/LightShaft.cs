@@ -29,16 +29,12 @@ namespace Game.Core.PostProcessing
             X4 = 4,
             X5 = 5,
         }
-
-        [Serializable]
-        public sealed class ModeParameter : VolumeParameter<Mode> { }
-        [Serializable]
-        public sealed class DownSampleParameter : VolumeParameter<DownSample> { }
+        
 
 
         public BoolParameter enable = new BoolParameter(false);
-        public ModeParameter mode = new ModeParameter() { value = Mode.Occlusion };
-        public DownSampleParameter downSample = new DownSampleParameter() { value = DownSample.X2 };
+        public EnumParameter<Mode> mode = new(Mode.Occlusion);
+        public EnumParameter<DownSample> downSample = new(DownSample.X2);
         public ClampedFloatParameter density = new ClampedFloatParameter(0f, 0f, 2f);
         public ClampedFloatParameter weight = new ClampedFloatParameter(0f, 0f, 2f);
         public ClampedFloatParameter decay = new ClampedFloatParameter(0f, 0f, 2f);

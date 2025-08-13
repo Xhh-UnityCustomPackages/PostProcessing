@@ -32,14 +32,8 @@ namespace Game.Core.PostProcessing
             UnrealApprox,
         }
 
-        [Serializable]
-        public sealed class TonemappingModeParameter : VolumeParameter<TonemappingMode> { public TonemappingModeParameter(TonemappingMode value, bool overrideState = false) : base(value, overrideState) { } }
-
-        [Serializable]
-        public sealed class TonemappingCurveParameter : VolumeParameter<TonemappingCurve> { public TonemappingCurveParameter(TonemappingCurve value, bool overrideState = false) : base(value, overrideState) { } }
-
-        public TonemappingModeParameter mode = new TonemappingModeParameter(TonemappingMode.None);
-
+      
+        public EnumParameter<TonemappingMode> mode = new(TonemappingMode.None);
 
 
         [Header("Unreal")]
@@ -53,7 +47,7 @@ namespace Game.Core.PostProcessing
         public ClampedFloatParameter expandGamut = new ClampedFloatParameter(1f, 0f, 1f);
 
         [Tooltip("曲线 可调版/拟合版")]
-        public TonemappingCurveParameter curve = new TonemappingCurveParameter(TonemappingCurve.UnrealFilmic);
+        public EnumParameter<TonemappingCurve> curve = new(TonemappingCurve.UnrealFilmic);
 
         [Tooltip("斜面")]
         public ClampedFloatParameter filmSlope = new ClampedFloatParameter(0.88f, 0f, 1f);

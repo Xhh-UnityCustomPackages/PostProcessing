@@ -19,11 +19,7 @@ namespace Game.Core.PostProcessing
         public enum PerPixelNormals
         {
             ReconstructedFromDepth,
-            // #if URP_10_0_0_OR_NEWER
             Camera
-            // #else
-            //             Camera_URP_VER_TOO_LOW
-            // #endif
         }
 
         public enum CavityResolution
@@ -44,17 +40,11 @@ namespace Game.Core.PostProcessing
         public enum OutputEffectTo
         {
             Screen,
-            [InspectorName("_ScreenSpaceCavityRT in shaders")] _ScreenSpaceCavityRT
+            [InspectorName("_ScreenSpaceCavityRT in shaders")] 
+            _ScreenSpaceCavityRT
         }
 
         public enum DebugMode { Disabled, EffectOnly, ViewNormals }
-
-        [Serializable] public sealed class DebugModeParameter : VolumeParameter<DebugMode> { public DebugModeParameter(DebugMode value, bool overrideState = false) : base(value, overrideState) { } }
-        [Serializable] public sealed class GetNormalsFromParameter : VolumeParameter<PerPixelNormals> { public GetNormalsFromParameter(PerPixelNormals value, bool overrideState = false) : base(value, overrideState) { } }
-        [Serializable] public sealed class OutputParameter : VolumeParameter<OutputEffectTo> { public OutputParameter(OutputEffectTo value, bool overrideState = false) : base(value, overrideState) { } }
-        [Serializable] public sealed class CavitySamplesParameter : VolumeParameter<CavitySamples> { public CavitySamplesParameter(CavitySamples value, bool overrideState = false) : base(value, overrideState) { } }
-        [Serializable] public sealed class CavityResolutionParameter : VolumeParameter<CavityResolution> { public CavityResolutionParameter(CavityResolution value, bool overrideState = false) : base(value, overrideState) { } }
-
 
 
         [Header("(Make sure Post Processing and Depth Texture are enabled.)")]
@@ -73,7 +63,7 @@ namespace Game.Core.PostProcessing
         [Space(6)]
 
         [Tooltip("The amount of samples used for cavity calculation.")]
-        public CavitySamplesParameter cavitySamples = new CavitySamplesParameter(CavitySamples.High12);
+        public EnumParameter<CavitySamples> cavitySamples = new(CavitySamples.High12);
         [Tooltip("True: Use pow() blending to make colors more saturated in bright/dark areas of cavity.\nFalse: Use additive blending.\n\nWarning: This option being enabled may mess with bloom post processing.")]
         public BoolParameter saturateCavity = new BoolParameter(true);
         [Tooltip("The radius of cavity calculations in world units.")]
@@ -83,19 +73,19 @@ namespace Game.Core.PostProcessing
         [Tooltip("How dark does cavity get.")]
         public ClampedFloatParameter cavityDarks = new ClampedFloatParameter(2f, 0f, 5f);
         [Tooltip("With this option enabled, cavity can be downsampled to massively improve performance at a cost to visual quality. Recommended for mobile platforms.\n\nNon-upscaled half may introduce aliasing.")]
-        public CavityResolutionParameter cavityResolution = new CavityResolutionParameter(CavityResolution.Full);
-        public GetNormalsFromParameter normalsSource = new GetNormalsFromParameter(PerPixelNormals.Camera);
+        public EnumParameter<CavityResolution> cavityResolution = new(CavityResolution.Full);
+        public EnumParameter<PerPixelNormals> normalsSource = new(PerPixelNormals.Camera);
 
 
         [Space(6)]
 
         [Header("Debug")]
-        public DebugModeParameter debugMode = new DebugModeParameter(DebugMode.Disabled);
+        public EnumParameter<DebugMode> debugMode = new(DebugMode.Disabled);
 
 
         [Space(5)]
         [Tooltip("Screen: Applies the effect over the entire screen.\n\n_ScreenSpaceCavityRT: Instead of writing the effect to the screen, will write the effect into a global shader texture named _SSCCTexture, so you can sample it selectively in your shaders and exclude certain objects from receiving outlines etc. See \"Output To Texture Examples\" folder for example shaders.")]
-        public OutputParameter output = new OutputParameter(OutputEffectTo.Screen);
+        public EnumParameter<OutputEffectTo> output = new(OutputEffectTo.Screen);
 
 
         public override bool IsActive() => intensity.value > 0;

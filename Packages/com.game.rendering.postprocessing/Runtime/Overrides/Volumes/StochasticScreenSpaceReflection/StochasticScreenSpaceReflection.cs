@@ -40,33 +40,22 @@ namespace Game.Core.PostProcessing
             SSROnly,
             IndirectSpecular,
         }
-
-
-        [Serializable]
-        public class ResolutionParameter : VolumeParameter<RenderResolution>
+        
+        public enum EnableMode
         {
-            public ResolutionParameter(RenderResolution value, bool overrideState = false) : base(value, overrideState) { }
+            Enable,
+            Disable
         }
 
-        [Serializable]
-        public class TraceApproxParameter : VolumeParameter<TraceApprox>
-        {
-            public TraceApproxParameter(TraceApprox value, bool overrideState = false) : base(value, overrideState) { }
-        }
+        
 
-        [Serializable]
-        public class DebugModeParameter : VolumeParameter<DebugMode>
-        {
-            public DebugModeParameter(DebugMode value, bool overrideState = false) : base(value, overrideState) { }
-        }
-
-        public EnableModeParameter enableMode = new(EnableMode.Disable);
-        public ResolutionParameter resolution = new(RenderResolution.Full);
+        public EnumParameter<EnableMode> enableMode = new(EnableMode.Disable);
+        public EnumParameter<RenderResolution> resolution = new(RenderResolution.Full);
         public ClampedIntParameter RayNums = new ClampedIntParameter(1, 1, 4);
         public ClampedFloatParameter BRDFBias = new ClampedFloatParameter(0.7f, 0f, 1f);
         public ClampedFloatParameter Thickness = new ClampedFloatParameter(0.1f, 0.05f, 5f);
         public ClampedFloatParameter ScreenFade = new ClampedFloatParameter(0.1f, 0f, 0.5f);
-        public TraceApproxParameter TraceMethod = new(TraceApprox.LinearTrace);
+        public EnumParameter<TraceApprox> TraceMethod = new(TraceApprox.LinearTrace);
 
 
         // Show If TraceMethod==TraceApprox.HiZTrace
@@ -95,7 +84,7 @@ namespace Game.Core.PostProcessing
         public ClampedFloatParameter TemporalScale = new(1.25f, 1f, 5f);
 
         [Space(10)]
-        public DebugModeParameter debugMode = new DebugModeParameter(DebugMode.Disabled);
+        public EnumParameter<DebugMode> debugMode = new(DebugMode.Disabled);
 
 
         public override bool IsActive() => enableMode.value == EnableMode.Enable;

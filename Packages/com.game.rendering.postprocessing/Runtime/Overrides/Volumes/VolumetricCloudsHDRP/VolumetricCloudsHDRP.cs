@@ -33,10 +33,7 @@ namespace Game.Core.PostProcessing
             Manual
         }
 
-        [Serializable]
-        public sealed class CloudControlParameter : VolumeParameter<CloudControl> { public CloudControlParameter(CloudControl value, bool overrideState = false) : base(value, overrideState) { } }
-
-
+   
         /// <summary>
         /// Controls the quality level for the simple mode.
         /// </summary>
@@ -48,9 +45,7 @@ namespace Game.Core.PostProcessing
             Quality
         }
 
-        [Serializable]
-        public sealed class CloudSimpleModeParameter : VolumeParameter<CloudSimpleMode> { public CloudSimpleModeParameter(CloudSimpleMode value, bool overrideState = false) : base(value, overrideState) { } }
-
+   
 
         public enum CloudPresets
         {
@@ -66,9 +61,7 @@ namespace Game.Core.PostProcessing
             Custom
         }
 
-        [Serializable]
-        public sealed class CloudPresetsParameter : VolumeParameter<CloudPresets> { public CloudPresetsParameter(CloudPresets value, bool overrideState = false) : base(value, overrideState) { } }
-
+    
         /// <summary>
         /// The set mode in which the clouds fade in when close to the camera
         /// </summary>
@@ -80,9 +73,7 @@ namespace Game.Core.PostProcessing
             Manual
         }
 
-        [Serializable]
-        public sealed class CloudFadeInModeParameter : VolumeParameter<CloudFadeInMode> { public CloudFadeInModeParameter(CloudFadeInMode value, bool overrideState = false) : base(value, overrideState) { } }
-
+     
 
         /// <summary>
         /// Resolution of the volumetric clouds shadow.
@@ -102,10 +93,7 @@ namespace Game.Core.PostProcessing
         }
 
         public const int CloudShadowResolutionCount = 5;
-
-        [Serializable]
-        public sealed class CloudShadowResolutionParameter : VolumeParameter<CloudShadowResolution> { public CloudShadowResolutionParameter(CloudShadowResolution value, bool overrideState = false) : base(value, overrideState) { } }
-
+        
 
         /// <summary>
         /// Resolution of the volumetric clouds map.
@@ -122,10 +110,6 @@ namespace Game.Core.PostProcessing
             Ultra256x256 = 256
         }
 
-        [Serializable]
-        public sealed class CloudMapResolutionParameter : VolumeParameter<CloudMapResolution> { public CloudMapResolutionParameter(CloudMapResolution value, bool overrideState = false) : base(value, overrideState) { } }
-
-
         public enum CloudErosionNoise
         {
             /// <summary>The erosion noise will be a 32x32x32 worley texture.</summary>
@@ -133,10 +117,7 @@ namespace Game.Core.PostProcessing
             /// <summary>The erosion noise will be a 32x32x32 perlin texture.</summary>
             Perlin32,
         }
-
-        [Serializable]
-        public sealed class CloudErosionNoiseParameter : VolumeParameter<CloudErosionNoise> { public CloudErosionNoiseParameter(CloudErosionNoise value, bool overrideState = false) : base(value, overrideState) { } }
-
+    
         #endregion
 
         public VolumetricCloudsHDRP()
@@ -173,7 +154,7 @@ namespace Game.Core.PostProcessing
 
 
         [Tooltip("Controls the mode in which the clouds fade in when close to the camera's near plane.")]
-        public CloudFadeInModeParameter fadeInMode = new CloudFadeInModeParameter(CloudFadeInMode.Automatic);
+        public EnumParameter<CloudFadeInMode> fadeInMode = new(CloudFadeInMode.Automatic);
 
         [Tooltip("Controls the minimal distance at which clouds start appearing.")]
         public MinFloatParameter fadeInStart = new MinFloatParameter(0.0f, 0.0f);
@@ -190,9 +171,9 @@ namespace Game.Core.PostProcessing
         public TextureParameter cloudLut = new TextureParameter(null, TextureDimension.Tex2D);
 
         [Tooltip("Specifies the cloud control Mode: Simple, Advanced or Manual.")]
-        public CloudControlParameter cloudControl = new CloudControlParameter(CloudControl.Simple);
+        public EnumParameter<CloudControl> cloudControl = new(CloudControl.Simple);
 
-        public CloudSimpleModeParameter cloudSimpleMode = new CloudSimpleModeParameter(CloudSimpleMode.Performance);
+        public EnumParameter<CloudSimpleMode> cloudSimpleMode = new(CloudSimpleMode.Performance);
 
         public CloudPresets cloudPreset
         {
@@ -200,7 +181,7 @@ namespace Game.Core.PostProcessing
             set => m_CloudPreset.value = value;
         }
         [SerializeField, FormerlySerializedAs("cloudPreset")]
-        private CloudPresetsParameter m_CloudPreset = new CloudPresetsParameter(CloudPresets.Cloudy);
+        private EnumParameter<CloudPresets> m_CloudPreset = new(CloudPresets.Cloudy);
 
         [Tooltip("Specifies the lower cloud layer distribution in the advanced mode.")]
         public TextureParameter cumulusMap = new TextureParameter(null, TextureDimension.Tex2D);
@@ -224,7 +205,7 @@ namespace Game.Core.PostProcessing
         public TextureParameter rainMap = new TextureParameter(null, TextureDimension.Tex2D);
 
         [Tooltip("Specifies the internal texture resolution used for the cloud map in the advanced mode. A lower value will lead to higher performance, but less precise cloud type transitions.")]
-        public CloudMapResolutionParameter cloudMapResolution = new CloudMapResolutionParameter(CloudMapResolution.Medium64x64);
+        public EnumParameter<CloudMapResolution> cloudMapResolution = new(CloudMapResolution.Medium64x64);
 
         [Tooltip("Controls the density (Y axis) of the volumetric clouds as a function of the height (X Axis) inside the cloud volume.")]
         public AnimationCurveParameter densityCurve = new AnimationCurveParameter(new AnimationCurve(new Keyframe(0f, 0f), new Keyframe(0.15f, 1.0f), new Keyframe(1.0f, 0.1f)), false);
@@ -257,7 +238,7 @@ namespace Game.Core.PostProcessing
 
         [Tooltip("Controls the type of noise used to generate the smaller noise passing through the cloud coverage.")]
         [AdditionalProperty]
-        public CloudErosionNoiseParameter erosionNoiseType = new CloudErosionNoiseParameter(CloudErosionNoise.Perlin32);
+        public EnumParameter<CloudErosionNoise> erosionNoiseType = new(CloudErosionNoise.Perlin32);
 
 
 
@@ -354,7 +335,7 @@ namespace Game.Core.PostProcessing
         public BoolParameter shadows = new BoolParameter(false);
 
         [Tooltip("Specifies the resolution of the volumetric clouds shadow map.")]
-        public CloudShadowResolutionParameter shadowResolution = new CloudShadowResolutionParameter(CloudShadowResolution.Medium256);
+        public EnumParameter<CloudShadowResolution> shadowResolution = new(CloudShadowResolution.Medium256);
 
         [Tooltip("Controls the vertical offset applied to compute the volumetric clouds shadow in meters. To have accurate results, enter the average height at which the volumetric clouds shadow is received.")]
         public FloatParameter shadowPlaneHeightOffset = new FloatParameter(0.0f);

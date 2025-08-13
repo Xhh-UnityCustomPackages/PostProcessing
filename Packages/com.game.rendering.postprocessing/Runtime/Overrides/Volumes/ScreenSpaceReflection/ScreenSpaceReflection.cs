@@ -30,15 +30,10 @@ namespace Game.Core.PostProcessing
             SSROnly,
             IndirectSpecular,
         }
-
-        [Serializable]
-        public class ResolutionParameter : VolumeParameter<Resolution> { }
-
-        [Serializable]
-        public class DebugModeParameter : VolumeParameter<DebugMode> { }
-
+        
+        
         [Tooltip("分辨率")]
-        public ResolutionParameter resolution = new ResolutionParameter { value = Resolution.Double };
+        public EnumParameter<Resolution> resolution = new(Resolution.Full);
 
         [Tooltip("最大追踪次数, 移动端会被固定到10次")]
         public ClampedIntParameter maximumIterationCount = new ClampedIntParameter(256, 1, 256);
@@ -65,11 +60,8 @@ namespace Game.Core.PostProcessing
         [Tooltip("减少闪烁问题, 需要MotionVector, SceneView未处理")]
         public BoolParameter antiFlicker = new BoolParameter(true);
 
-        [Tooltip("Unity老版本算法")]
-        public BoolParameter oldMethod = new BoolParameter(false);
 
-
-        public DebugModeParameter debugMode = new DebugModeParameter { value = DebugMode.Disabled };
+        public EnumParameter<DebugMode> debugMode = new(DebugMode.Disabled);
         public override bool IsActive() => intensity.value > 0;
 
 

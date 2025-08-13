@@ -62,31 +62,18 @@ namespace Game.Core.PostProcessing
             ViewNormal,
         }
 
-        [Serializable]
-        public sealed class AOTypeParameter : VolumeParameter<AOType> { }
-        [Serializable]
-        public sealed class QualityParameter : VolumeParameter<Quality> { }
-        [Serializable]
-        public sealed class ResolutionParameter : VolumeParameter<Resolution> { }
-        [Serializable]
-        public sealed class BlurTypeParameter : VolumeParameter<BlurType> { }
-        [Serializable]
-        public sealed class ReconstructNormalParameter : VolumeParameter<ReconstructNormal> { }
-        [Serializable]
-        public sealed class DebugModeParameter : VolumeParameter<DebugMode> { }
-
 
         [Tooltip("类型 HBAO/GTAO")]
-        public AOTypeParameter type = new AOTypeParameter { value = AOType.HorizonBasedAmbientOcclusion };
+        public EnumParameter<AOType> type = new(AOType.HorizonBasedAmbientOcclusion);
 
         [Tooltip("可见性估算采样数")]
-        public QualityParameter quality = new QualityParameter { value = Quality.Medium };
+        public EnumParameter<Quality> quality = new(Quality.Medium);
 
         [Tooltip("分辨率")]
-        public ResolutionParameter resolution = new ResolutionParameter { value = Resolution.Full };
+        public EnumParameter<Resolution> resolution = new(Resolution.Full);
 
         [Tooltip("利用深度重建法线, 可以消除原始法线带来的一些不必要的高频信息, 有额外消耗")]
-        public ReconstructNormalParameter reconstructNormal = new ReconstructNormalParameter { value = ReconstructNormal.High };
+        public EnumParameter<ReconstructNormal> reconstructNormal = new(ReconstructNormal.High);
 
 
         [Space(6)]
@@ -115,13 +102,13 @@ namespace Game.Core.PostProcessing
         public FloatParameter distanceFalloff = new FloatParameter(50f);
 
         [Tooltip("模糊采样次数")]
-        public BlurTypeParameter blurType = new BlurTypeParameter { value = BlurType.x3 };
+        public EnumParameter<BlurType> blurType = new(BlurType.x3);
 
         [Tooltip("锐化")]
         [Range(0f, 16f)]
         public ClampedFloatParameter sharpness = new ClampedFloatParameter(8f, 0f, 16f);
 
-        public DebugModeParameter debugMode = new DebugModeParameter { value = DebugMode.Disabled };
+        public EnumParameter<DebugMode> debugMode = new(DebugMode.Disabled);
 
         public override bool IsActive() => intensity.value > 0;
     }

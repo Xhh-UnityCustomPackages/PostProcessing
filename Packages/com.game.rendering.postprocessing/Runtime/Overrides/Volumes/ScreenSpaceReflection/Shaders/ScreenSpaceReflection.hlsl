@@ -1,75 +1,8 @@
 #ifndef SCREEN_SPACE_REFLECTION_INCLUDED
 #define SCREEN_SPACE_REFLECTION_INCLUDED
 
-#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
-#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
-#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/UnityGBuffer.hlsl"
-#include "Packages/com.unity.render-pipelines.universal/Shaders/PostProcessing/Common.hlsl"
+#include  "ScreenSpaceReflectionInput.hlsl"
 
-// Helper structs
-//
-struct Ray
-{
-    float3 origin;
-    float3 direction;
-};
-
-struct Segment
-{
-    float3 start;
-    float3 end;
-
-    float3 direction;
-};
-
-struct Result
-{
-    bool isHit;
-
-    float2 uv;
-    float3 position;
-
-    float iterationCount;
-};
-
-//
-// Uniforms
-//
-// TEXTURE2D(_SourceTex);
-TEXTURE2D(_NoiseTex);
-TEXTURE2D(_TestTex);
-TEXTURE2D(_ResolveTex);
-
-TEXTURE2D(_HistoryTex);
-TEXTURE2D_FLOAT(_MotionVectorTexture);
-
-TEXTURE2D_HALF(_GBuffer0);
-TEXTURE2D_HALF(_GBuffer1);
-TEXTURE2D_HALF(_GBuffer2);
-
-// copy depth of gbuffer
-TEXTURE2D_FLOAT(_MaskDepthRT);
-SAMPLER(sampler_MaskDepthRT);
-
-// minimapReflection
-TEXTURE2D(_MinimapPlanarReflectTex);
-SAMPLER(sampler_MinimapPlanarReflectTex);
-
-float4 _BlitTexture_TexelSize;
-float4 _TestTex_TexelSize;
-
-float4x4 _ViewMatrixSSR;
-float4x4 _InverseViewMatrixSSR;
-float4x4 _InverseProjectionMatrixSSR;
-float4x4 _ScreenSpaceProjectionMatrixSSR;
-
-int _MobileMode;
-
-float4 _Params1;     // x: vignette intensity, y: distance fade, z: maximum march distance, w: intensity
-float4 _Params2;    // x: aspect ratio, y: noise tiling, z: thickness, w: maximum iteration count
-
-// 因为SSR无法稳定获取到正确的reflectionProbe和PerObjectData, 我们需要手动在SSR里面指定天空球并解析Environment Reflection Intensity Multiplier
-half4 _Inutan_GlossyEnvironmentCubeMap_HDR;
 
 #define _Attenuation            .25
 #define _VignetteIntensity      _Params1.x
@@ -106,37 +39,15 @@ float Vignette(float2 uv)
     return pow(saturate(1.0 - dot(k, k)), SSR_VIGNETTE_SMOOTHNESS);
 }
 
-float3 GetViewSpacePosition(float2 uv)
-{
-    float depth = SampleSceneDepth(uv);
-
-    // 跨平台深度修正
-    #if defined(UNITY_REVERSED_Z)
-    #else
-        depth = lerp(UNITY_NEAR_CLIP_VALUE, 1, depth);
-    #endif
-    float4 result = mul(_InverseProjectionMatrixSSR, float4(2.0 * uv - 1.0, depth, 1.0));
-    return result.xyz / result.w;
-}
-
 float GetSquaredDistance(float2 first, float2 second)
 {
     first -= second;
     return dot(first, first);
 }
 
-float4 ProjectToScreenSpace(float3 position)
-{
-    return float4(
-        _ScreenSpaceProjectionMatrixSSR[0][0] * position.x + _ScreenSpaceProjectionMatrixSSR[0][2] * position.z,
-        _ScreenSpaceProjectionMatrixSSR[1][1] * position.y + _ScreenSpaceProjectionMatrixSSR[1][2] * position.z,
-        _ScreenSpaceProjectionMatrixSSR[2][2] * position.z + _ScreenSpaceProjectionMatrixSSR[2][3],
-        _ScreenSpaceProjectionMatrixSSR[3][2] * position.z
-    );
-}
-
-
 // 根据原算法改正后
+//Efficient GPU Screen-Space Ray Tracing https://zhuanlan.zhihu.com/p/686833098
+//DDA (Digital Differential Analyzer)光线步进算法
 Result March(Ray ray, float2 uv, float3 normalVS)
 {
     Result result;
@@ -145,30 +56,31 @@ Result March(Ray ray, float2 uv, float3 normalVS)
     result.iterationCount = 0;
     result.uv = 0.0;
 
+    //如果射线起点在相机后方 直接未命中
     UNITY_BRANCH
     if (ray.origin.z > 0)
     {
         return result;
     }
 
-
-    half2 hitPixel = half2(0, 0);
-
     // 外面的thickness被当作了步长在用, 实际的thickness写死了
     float layerThickness = 0.05;
     half RayBump = max(-0.0002 * _Bandwidth * ray.origin.z, 0.001);
-    half3 csOrigin = ray.origin + normalVS * RayBump;
+    half3 originVS = ray.origin + normalVS * RayBump;//射线起始坐标 沿着法线方向稍微偏移一下 避免自相交
 
-    half rayLength = ((csOrigin.z + ray.direction.z * _MaximumMarchDistance) > - _ProjectionParams.y) ? ((-_ProjectionParams.y - csOrigin.z) / ray.direction.z) : _MaximumMarchDistance;
-    half3 csEndPoint = ray.direction * rayLength + csOrigin;
-    half4 H0 = ProjectToScreenSpace(csOrigin);
-    half4 H1 = ProjectToScreenSpace(csEndPoint);
+    //确保射线不会超出近平面
+    half rayLength = ((originVS.z + ray.direction.z * _MaximumMarchDistance) > - _ProjectionParams.y) ? ((-_ProjectionParams.y - originVS.z) / ray.direction.z) : _MaximumMarchDistance;
+    half3 endPointVS = ray.direction * rayLength + originVS;
+
+    //3D射线投影到2D屏幕空间
+    float4 H0 = ProjectToScreenSpace(originVS);
+    float4 H1 = ProjectToScreenSpace(endPointVS);
     half k0 = 1 / H0.w;
     half k1 = 1 / H1.w;
-    half2 P0 = H0.xy * k0;
-    half2 P1 = H1.xy * k1;
-    half3 Q0 = csOrigin * k0;
-    half3 Q1 = csEndPoint * k1;
+    float2 P0 = H0.xy * k0;      //屏幕空间起点
+    float2 P1 = H1.xy * k1;      //屏幕空间终点
+    float3 Q0 = originVS * k0;   //View空间起点 (齐次化)
+    float3 Q1 = endPointVS * k1; //View空间终点 (齐次化)
 
     P1 = (GetSquaredDistance(P0, P1) < 0.0001) ? P0 + half2(_TestTex_TexelSize.x, _TestTex_TexelSize.y) : P1;
     half2 delta = P1 - P0;
@@ -183,70 +95,74 @@ Result March(Ray ray, float2 uv, float3 normalVS)
         P0 = P0.yx;
     }
 
+    // 计算屏幕坐标、齐次视坐标、inverse-w的线性增量  
     half stepDirection = sign(delta.x);
     half invdx = stepDirection / delta.x;
-    half2 dP = half2(stepDirection, invdx * delta.y);
-    half3 dQ = (Q1 - Q0) * invdx;
-    half dk = (k1 - k0) * invdx;
-
-    // jitter
-    uv *= _NoiseTiling;
-    uv.y *= _AspectRatio;
-
-    float jitter = SAMPLE_TEXTURE2D(_NoiseTex, sampler_LinearClamp, uv + _WorldSpaceCameraPos.xz).a;
+    half2 dP = half2(stepDirection, invdx * delta.y);//屏幕空间步进
+    half3 dQ = (Q1 - Q0) * invdx;//View空间步进
+    half dk = (k1 - k0) * invdx;//齐次坐标步进
 
     dP *= _Bandwidth;
     dQ *= _Bandwidth;
     dk *= _Bandwidth;
-    P0 += dP * jitter;
-    Q0 += dQ * jitter;
-    k0 += dk * jitter;
+    
+    // jitter
+    {
+        //目前是取BlueNoise 也可以是
+        uv *= _NoiseTiling;
+        uv.y *= _AspectRatio;
 
+        float jitter = SAMPLE_TEXTURE2D(_NoiseTex, sampler_LinearClamp, uv + _WorldSpaceCameraPos.xz).a;
+    
+        P0 += dP * jitter;
+        Q0 += dQ * jitter;
+        k0 += dk * jitter;
+    }
+
+    half2 P = P0;
     half3 Q = Q0;
     half k = k0;
-    half prevZMaxEstimate = csOrigin.z;
-    int stepCount = 0;
+    
+    half prevZMaxEstimate = originVS.z;
     half rayZMax = prevZMaxEstimate, rayZMin = prevZMaxEstimate;
+    int stepCount = 0;
     half sceneZ = 100000;
     half end = P1.x * stepDirection;
 
     bool intersecting = (rayZMax >= sceneZ - layerThickness) && (rayZMin <= sceneZ);
-    half2 P = P0;
-    int originalStepCount = 0;
-
+    half2 hitPixel = half2(0, 0);
+    
     bool stop = intersecting;
-
-    // TODO
-    #if defined(SHADER_API_OPENGL) || defined(SHADER_API_D3D11) || defined(SHADER_API_D3D12)
-        UNITY_LOOP
-    #else
-        [unroll(10)]
-    #endif
-    for (; (P.x * stepDirection) <= end && stepCount < _MaximumIterationCount && !stop; P += dP, Q.z += dQ.z, k += dk, stepCount += 1)
+    
+    UNITY_LOOP
+    while ((P.x * stepDirection) <= end && stepCount < _MaximumIterationCount && !stop)
     {
+        // 步近  
+        P += dP;
+        Q.z += dQ.z;
+        k += dk;
+        stepCount += 1;
+        
         rayZMin = prevZMaxEstimate;
-        rayZMax = (dQ.z * 0.5 + Q.z) / (dk * 0.5 + k);
+        rayZMax = (dQ.z * 0.5 + Q.z) / (dk * 0.5 + k);//当前射线深度
         prevZMaxEstimate = rayZMax;
 
+        //确保rayZMin < rayZMax
         UNITY_FLATTEN
         if (rayZMin > rayZMax)
         {
-            half temp = rayZMin;
-            rayZMin = rayZMax;
-            rayZMax = temp;
+            swap(rayZMin, rayZMax);
         }
 
-        hitPixel = permute ? P.yx : P;
+        hitPixel = permute ? P.yx : P;//恢复正确的坐标轴
 
-        sceneZ = SampleSceneDepth(hitPixel * _TestTex_TexelSize.xy);
-        sceneZ = -LinearEyeDepth(sceneZ, _ZBufferParams);
+        sceneZ = -LinearEyeDepth(SampleSceneDepth(hitPixel * _TestTex_TexelSize.xy), _ZBufferParams);
         bool isBehind = (rayZMin <= sceneZ);
 
-        intersecting = isBehind && (rayZMax >= sceneZ - layerThickness);
+        intersecting = isBehind && (rayZMax >= sceneZ - layerThickness);//光线与场景相交
 
         stop = isBehind;
     }
-    P -= dP, Q.z -= dQ.z, k -= dk;
 
     UNITY_FLATTEN
     if (intersecting)
@@ -407,7 +323,7 @@ float4 FragComposite(Varyings input) : SV_Target
     half4 gbuffer1 = SAMPLE_TEXTURE2D_LOD(_GBuffer1, sampler_PointClamp, uv, 0);
     half4 gbuffer2 = SAMPLE_TEXTURE2D_LOD(_GBuffer2, sampler_PointClamp, uv, 0);
 
-    uint materialFlags = UnpackMaterialFlags(gbuffer0.a);
+    // uint materialFlags = UnpackMaterialFlags(gbuffer0.a);
 
     // 植物 固定occ为1，ssrIndirectSpecAdjust为0
     // UNITY_BRANCH
