@@ -24,10 +24,9 @@ bool ScreenSpaceRayMarchingHiz(half stepDirection, half end, inout float2 P, ino
         stepCount += 1;
 
         // 得到步近前后两点的深度
-        prevZMaxEstimate = rayZ;
-        rayZMin = prevZMaxEstimate;
-        rayZMax = (dQ.z * 0.5 + Q.z) / (dk * 0.5 + k);//当前射线深度
-        prevZMaxEstimate = rayZMax;
+        rayZMin = rayZ;
+        rayZMax = (dQ.z * exp2(mipLevel) * 0.5 + Q.z) / (dk * exp2(mipLevel) * 0.5 + k);
+        // prevZMaxEstimate = rayZMax;
 
         //确保rayZMin < rayZMax
         UNITY_FLATTEN
