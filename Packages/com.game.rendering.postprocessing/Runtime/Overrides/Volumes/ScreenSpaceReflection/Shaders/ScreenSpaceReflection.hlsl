@@ -1,26 +1,8 @@
 #ifndef SCREEN_SPACE_REFLECTION_INCLUDED
 #define SCREEN_SPACE_REFLECTION_INCLUDED
 
-#include  "ScreenSpaceReflectionInput.hlsl"
-
-
-#define _Attenuation            .25
-#define _VignetteIntensity      _Params1.x
-#define _DistanceFade           _Params1.y
-#define _MaximumMarchDistance   _Params1.z
-#define _Intensity              _Params1.w
-#define _AspectRatio            _Params2.x
-#define _NoiseTiling            _Params2.y
-#define _Bandwidth              _Params2.z
-#define _MaximumIterationCount  _Params2.w
-
-#define SSR_MINIMUM_ATTENUATION 0.275
-#define SSR_ATTENUATION_SCALE (1.0 - SSR_MINIMUM_ATTENUATION)
-#define SSR_VIGNETTE_SMOOTHNESS 5.
-#define SSR_KILL_FIREFLIES 0
-
-// 外面的thickness被当作了步长在用, 实际的thickness写死了
-#define layerThickness              0.05
+#include "ScreenSpaceReflectionInput.hlsl"
+#include "ScreenSpaceReflection_Hiz.hlsl"
 
 //
 // Helper functions
@@ -42,12 +24,6 @@ float Vignette(float2 uv)
     return pow(saturate(1.0 - dot(k, k)), SSR_VIGNETTE_SMOOTHNESS);
 }
 
-float GetSquaredDistance(float2 first, float2 second)
-{
-    first -= second;
-    return dot(first, first);
-}
-
 
 bool ScreenSpaceRayMarching(half stepDirection, half end, inout float2 P, inout float3 Q, inout float k, float2 dP, float3 dQ,
     float dk, half rayZ, bool permute, inout int depthDistance, inout int stepCount, inout float2 hitUV, inout bool intersecting)
@@ -66,6 +42,8 @@ bool ScreenSpaceRayMarching(half stepDirection, half end, inout float2 P, inout 
         k += dk;
         stepCount += 1;
 
+        // 得到步近前后两点的深度
+        prevZMaxEstimate = rayZ;
         rayZMin = prevZMaxEstimate;
         rayZMax = (dQ.z * 0.5 + Q.z) / (dk * 0.5 + k);//当前射线深度
         prevZMaxEstimate = rayZMax;
@@ -182,6 +160,7 @@ Result March(Ray ray, float2 uv, float3 normalVS)
     half2 hitPixel = half2(0, 0);
     float depthDistance = 0.0;
 
+    #if BINARY_SEARCH
     {
         //使用二分搜索来加速
         const int BINARY_COUNT = 3;
@@ -209,10 +188,19 @@ Result March(Ray ray, float2 uv, float3 normalVS)
             }
         }
     }
-
+    #endif
+    
     {
         // intersecting = ScreenSpaceRayMarching(stepDirection, end, P, Q, k, dP, dQ, dk, rayZ, permute, depthDistance, stepCount, hitPixel, intersecting);
     }
+
+    #if HIZ
+    {
+        // Hiz
+        intersecting = ScreenSpaceRayMarchingHiz(stepDirection, end, P, Q, k, dP, dQ, dk, rayZ, permute, depthDistance, stepCount, hitPixel, intersecting);
+    }
+    #endif
+    
     
 
     UNITY_FLATTEN
@@ -264,42 +252,6 @@ float4 FragTest(Varyings input) : SV_Target
     return float4(result.uv, confidence, (float)result.isHit);
 }
 
-float4 FragHizTest(Varyings input) : SV_Target
-{
-    half4 gbuffer2 = SAMPLE_TEXTURE2D_LOD(_GBuffer2, sampler_PointClamp, input.texcoord, 0);
-
-    UNITY_BRANCH
-    if (dot(gbuffer2.xyz, 1.0) == 0.0)
-        return 0.0;
-
-    // 多一次采样 可以过滤掉角色部分的射线计算
-    // uint materialFlags = UnpackMaterialFlags(SAMPLE_TEXTURE2D_LOD(_GBuffer0, sampler_PointClamp, input.texcoord, 0).a);
-    // UNITY_BRANCH
-    // if (IsMaterialFlagCharacter(materialFlags)) return 0;
-
-    float3 normalWS = normalize(UnpackNormal(gbuffer2.xyz));
-    float3 normalVS = mul((float3x3)_ViewMatrixSSR, normalWS);
-
-    Ray ray;
-
-    ray.origin = GetViewSpacePosition(input.texcoord);
-
-    UNITY_BRANCH
-    if (ray.origin.z < - _MaximumMarchDistance)
-        return 0.0;
-
-    ray.direction = normalize(reflect(normalize(ray.origin), normalVS));
-
-    UNITY_BRANCH
-    if (ray.direction.z > 0.0)
-        return 0.0;
-
-    Result result = March(ray, input.texcoord, normalVS);
-
-    float confidence = (float)result.iterationCount / (float)_MaximumIterationCount;
-
-    return float4(result.uv, confidence, (float)result.isHit);
-}
 
 float4 FragReproject(Varyings input) : SV_Target
 {
@@ -493,7 +445,7 @@ float4 FragMobilePlanarReflection(Varyings input) : SV_Target
 {
     // 由于没有Gbuffer之前的predepth阶段 只能依靠存储两个阶段的深度 过滤出Gbuffer中没有的物体 才能混合SSR
     // TODO 模糊阶段会把Gbuffer后的像素混进去 导致边缘会有溢出 可能要考虑提前mask
-    float uv = input.texcoord;
+    float2 uv = input.texcoord;
     float preDepth = SAMPLE_TEXTURE2D(_MaskDepthRT, sampler_MaskDepthRT, uv).r;
     float depth = SampleSceneDepth(uv);
 

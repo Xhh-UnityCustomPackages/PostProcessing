@@ -35,7 +35,7 @@ namespace Game.Core.PostProcessing
         public PyramidDepthGenerator(ComputeShader shader)
         {
             base.profilingSampler = new ProfilingSampler(nameof(PyramidDepthGenerator));
-            renderPassEvent = RenderPassEvent.BeforeRenderingDeferredLights;
+            renderPassEvent = RenderPassEvent.BeforeRenderingDeferredLights - 1;
             m_ComputeShader = shader;
 
         }
@@ -46,6 +46,8 @@ namespace Game.Core.PostProcessing
             int width = renderingData.cameraData.cameraTargetDescriptor.width;
             int height = renderingData.cameraData.cameraTargetDescriptor.height;
 
+            m_HiZMipLevels = (int)Mathf.Floor(Mathf.Log(width, 2f));
+            
             if (m_HiZDepthDesc.width != width || m_HiZDepthDesc.height != height)
             {
                 m_HiZDepthDesc = new RenderTextureDescriptor(width, height);
@@ -59,15 +61,15 @@ namespace Game.Core.PostProcessing
                 m_HiZDepthDesc.msaaSamples = 1;
                 m_HiZDepthDesc.bindMS = false;
                 m_HiZDepthDesc.dimension = TextureDimension.Tex2D;
-
+            
                 m_HiZMipDesc = m_HiZDepthDesc;
                 m_HiZMipDesc.useMipMap = false;
             }
-
-
+            
+            
             RenderingUtils.ReAllocateIfNeeded(ref m_HiZDepthRT, m_HiZDepthDesc, FilterMode.Point, wrapMode: TextureWrapMode.Clamp, name: "HiZDepthRT");
-
-            m_HiZMipLevels = (int)Mathf.Floor(Mathf.Log(width, 2f));
+            
+          
             if (m_HiZMipsLevelRT == null || m_HiZMipsLevelRT.Length != m_HiZMipLevels)
             {
                 if (m_HiZMipsLevelRT != null)
@@ -77,34 +79,33 @@ namespace Game.Core.PostProcessing
                         m_HiZMipsLevelRT[i].Release();
                     }
                 }
-
+            
                 m_HiZMipsLevelRT = new RTHandle[m_HiZMipLevels];
             }
-
+            
             for (int i = 0; i < m_HiZMipLevels; ++i)
             {
                 width = width >> 1;
                 height = height >> 1;
-
+            
                 if (width == 0) width = 1;
                 if (height == 0) height = 1;
-
+            
                 m_HiZMipDesc.width = width;
                 m_HiZMipDesc.height = height;
-
+            
                 RenderingUtils.ReAllocateIfNeeded(ref m_HiZMipsLevelRT[i], m_HiZMipDesc, FilterMode.Point, wrapMode: TextureWrapMode.Clamp, name: "HiZDepthRT_Mip_" + i);
             }
-
+            
             ConfigureTarget(m_HiZDepthRT);
 
             Shader.SetGlobalTexture("_HizDepthTexture", m_HiZDepthRT);
-
+            Shader.SetGlobalInt("_HizDepthTextureMipLevel", m_HiZMipLevels);
         }
 
         public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
         {
-            if (renderingData.cameraData.isPreviewCamera ||
-                renderingData.cameraData.isSceneViewCamera)
+            if (renderingData.cameraData.isPreviewCamera)
                 return;
 
             var cmd = CommandBufferPool.Get();
@@ -127,7 +128,7 @@ namespace Game.Core.PostProcessing
 
             CopyTextureWithComputeShader(cmd, m_ComputeShader, unityDepthTexture, m_HiZDepthRT);
 
-            for (int i = 0; i < m_HiZMipLevels - 1; ++i)
+            for (var i = 0; i < m_HiZMipLevels - 1; ++i)
             {
                 var tempRT = m_HiZMipsLevelRT[i];
 
@@ -136,7 +137,8 @@ namespace Game.Core.PostProcessing
                 else
                     ReduceTextureWithComputeShader(cmd, m_ComputeShader, m_HiZMipsLevelRT[i - 1], tempRT);
 
-                CopyTextureWithComputeShader(cmd, m_ComputeShader, tempRT, m_HiZDepthRT, 0, i + 1, false);
+                // CopyTextureWithComputeShader(cmd, m_ComputeShader, tempRT, m_HiZDepthRT, 0, i + 1, false);
+                cmd.CopyTexture(tempRT, 0, 0, m_HiZDepthRT, 0, i + 1);
             }
         }
 
