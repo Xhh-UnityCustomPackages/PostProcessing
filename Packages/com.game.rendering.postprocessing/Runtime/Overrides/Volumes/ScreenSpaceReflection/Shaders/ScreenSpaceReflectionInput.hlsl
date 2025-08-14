@@ -61,7 +61,6 @@ float4 _TestTex_TexelSize;
 float4x4 _ViewMatrixSSR;
 float4x4 _InverseViewMatrixSSR;
 float4x4 _InverseProjectionMatrixSSR;
-float4x4 _ScreenSpaceProjectionMatrixSSR;
 
 int _MobileMode;
 
@@ -88,39 +87,31 @@ half4 _Inutan_GlossyEnvironmentCubeMap_HDR;
 #define SSR_KILL_FIREFLIES 0
 
 // 外面的thickness被当作了步长在用, 实际的thickness写死了
-#define layerThickness              0.05
+#define Thickness              0.05
 
 
 
-float3 GetViewSpacePosition(float2 uv)
+float3 GetViewSpacePosition(float rawDepth, float2 uv)
 {
-    float depth = SampleSceneDepth(uv);
+    // float rawDepth = SampleSceneDepth(uv);
 
     // 跨平台深度修正
     #if defined(UNITY_REVERSED_Z)
     #else
-    depth = lerp(UNITY_NEAR_CLIP_VALUE, 1, depth);
+    rawDepth = lerp(UNITY_NEAR_CLIP_VALUE, 1, rawDepth);
     #endif
-    float4 result = mul(_InverseProjectionMatrixSSR, float4(2.0 * uv - 1.0, depth, 1.0));
+    float4 result = mul(_InverseProjectionMatrixSSR, float4(2.0 * uv - 1.0, rawDepth, 1.0));
     return result.xyz / result.w;
 }
 
-float4 ProjectToScreenSpace(float3 position)
+float4 TransformViewToHScreen(float3 vpos, float2 screenSize)
 {
-    return float4(
-        _ScreenSpaceProjectionMatrixSSR[0][0] * position.x + _ScreenSpaceProjectionMatrixSSR[0][2] * position.z,
-        _ScreenSpaceProjectionMatrixSSR[1][1] * position.y + _ScreenSpaceProjectionMatrixSSR[1][2] * position.z,
-        _ScreenSpaceProjectionMatrixSSR[2][2] * position.z + _ScreenSpaceProjectionMatrixSSR[2][3],
-        _ScreenSpaceProjectionMatrixSSR[3][2] * position.z
-    );
+    float4 cpos = mul(UNITY_MATRIX_P, vpos);
+    cpos.xy = float2(cpos.x, cpos.y * _ProjectionParams.x) * 0.5 + 0.5 * cpos.w;
+    cpos.xy *= screenSize;
+    return cpos;
 }
 
-void swap(inout float v0, inout float v1)
-{  
-    float temp = v0;  
-    v0 = v1;    
-    v1 = temp;
-}
 
 float GetSquaredDistance(float2 first, float2 second)
 {
@@ -136,5 +127,24 @@ static half dither[16] = {
     0.937, 0.437, 0.812, 0.312
 };
 
+
+bool IsInfinityFar(float rawDepth)
+{
+    #if UNITY_REVERSED_Z
+    // Case for platforms with REVERSED_Z, such as D3D.
+    if (rawDepth < 0.00001)
+        return true;
+    #else
+    // Case for platforms without REVERSED_Z, such as OpenGL.
+    if(rawDepth > 0.9999)
+        return true;
+    #endif
+    return false;
+}
+
+bool IntersectsDepthBuffer(half rayZMin, half rayZMax, half sceneZ, half layerThickness)
+{
+    return (rayZMax >= sceneZ - layerThickness) && (rayZMin <= sceneZ);
+}
 
 #endif // SCREEN_SPACE_REFLECTION_INCLUDED

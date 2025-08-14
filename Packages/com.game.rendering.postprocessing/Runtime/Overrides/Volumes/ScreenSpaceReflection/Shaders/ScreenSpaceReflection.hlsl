@@ -2,6 +2,7 @@
 #define SCREEN_SPACE_REFLECTION_INCLUDED
 
 #include "ScreenSpaceReflectionInput.hlsl"
+
 #include "ScreenSpaceReflection_Hiz.hlsl"
 
 //
@@ -24,235 +25,9 @@ float Vignette(float2 uv)
     return pow(saturate(1.0 - dot(k, k)), SSR_VIGNETTE_SMOOTHNESS);
 }
 
-
-bool ScreenSpaceRayMarching(half stepDirection, half end, inout float2 P, inout float3 Q, inout float k, float2 dP, float3 dQ,
-    float dk, half rayZ, bool permute, inout int depthDistance, inout int stepCount, inout float2 hitUV, inout bool intersecting)
-{
-    bool stop = false;
-    // 缓存当前深度和位置
-    half prevZMaxEstimate = rayZ;
-    half rayZMax = prevZMaxEstimate, rayZMin = prevZMaxEstimate;
-
-    [loop]
-    while ((P.x * stepDirection) <= end && stepCount < _MaximumIterationCount && !stop)
-    {
-        // 步近  
-        P += dP;  
-        Q.z += dQ.z;  
-        k += dk;
-        stepCount += 1;
-
-        // 得到步近前后两点的深度
-        prevZMaxEstimate = rayZ;
-        rayZMin = prevZMaxEstimate;
-        rayZMax = (dQ.z * 0.5 + Q.z) / (dk * 0.5 + k);//当前射线深度
-        prevZMaxEstimate = rayZMax;
-
-        //确保rayZMin < rayZMax
-        UNITY_FLATTEN
-        if (rayZMin > rayZMax)
-        {
-            swap(rayZMin, rayZMax);
-        }
-
-        hitUV = permute ? P.yx : P;//恢复正确的坐标轴
-        
-        float sceneZ = -LinearEyeDepth(SampleSceneDepth(hitUV * _TestTex_TexelSize.xy), _ZBufferParams);
-        bool isBehind = (rayZMin <= sceneZ);//如果光线深度小于深度图深度
-
-        intersecting = isBehind && (rayZMax >= sceneZ - layerThickness);//光线与场景相交
-        depthDistance = abs(sceneZ - rayZMax);
-        stop = isBehind;
-    }
-
-    return intersecting;
-}
-
-
-// 根据原算法改正后
-//Efficient GPU Screen-Space Ray Tracing https://zhuanlan.zhihu.com/p/686833098
-//DDA (Digital Differential Analyzer)光线步进算法
-Result March(Ray ray, float2 uv, float3 normalVS)
-{
-    Result result;
-    result.isHit = false;
-    result.position = 0.0;
-    result.iterationCount = 0;
-    result.uv = 0.0;
-
-    //如果射线起点在相机后方 直接未命中
-    UNITY_BRANCH
-    if (ray.origin.z > 0)
-    {
-        return result;
-    }
-    
-    half RayBump = max(-0.0002 * _Bandwidth * ray.origin.z, 0.001);
-    half3 originVS = ray.origin + normalVS * RayBump;//射线起始坐标 沿着法线方向稍微偏移一下 避免自相交
-
-    //确保射线不会超出近平面
-    half rayLength = ((originVS.z + ray.direction.z * _MaximumMarchDistance) > - _ProjectionParams.y) ? ((-_ProjectionParams.y - originVS.z) / ray.direction.z) : _MaximumMarchDistance;
-    half3 endPointVS = ray.direction * rayLength + originVS;
-
-    //3D射线投影到2D屏幕空间
-    float4 H0 = ProjectToScreenSpace(originVS);
-    float4 H1 = ProjectToScreenSpace(endPointVS);
-    half k0 = 1 / H0.w;
-    half k1 = 1 / H1.w;
-    float2 P0 = H0.xy * k0;      //屏幕空间起点
-    float2 P1 = H1.xy * k1;      //屏幕空间终点
-    float3 Q0 = originVS * k0;   //View空间起点 (齐次化)
-    float3 Q1 = endPointVS * k1; //View空间终点 (齐次化)
-
-    P1 = (GetSquaredDistance(P0, P1) < 0.0001) ? P0 + half2(_TestTex_TexelSize.x, _TestTex_TexelSize.y) : P1;
-    half2 delta = P1 - P0;
-    bool permute = false;
-
-    UNITY_FLATTEN
-    if (abs(delta.x) < abs(delta.y))
-    {
-        permute = true;
-        delta = delta.yx;
-        P1 = P1.yx;
-        P0 = P0.yx;
-    }
-
-    // 计算屏幕坐标、齐次视坐标、inverse-w的线性增量  
-    half stepDirection = sign(delta.x);
-    half invdx = stepDirection / delta.x;
-    half2 dP = half2(stepDirection, invdx * delta.y);//屏幕空间步进
-    half3 dQ = (Q1 - Q0) * invdx;//View空间步进
-    half dk = (k1 - k0) * invdx;//齐次坐标步进
-
-    dP *= _Bandwidth;
-    dQ *= _Bandwidth;
-    dk *= _Bandwidth;
-    
-    // jitter
-    {
-        #if JITTER_BLURNOISE
-        uv *= _NoiseTiling;
-        uv.y *= _AspectRatio;
-
-        float jitter = SAMPLE_TEXTURE2D(_NoiseTex, sampler_LinearClamp, uv + _WorldSpaceCameraPos.xz).a;
-        #elif JITTER_DITHER
-        float2 ditherUV = fmod(P0, 4);  
-        float jitter = dither[ditherUV.x * 4 + ditherUV.y];
-        #else
-        float jitter = 0;
-        #endif
-        
-        P0 += dP * jitter;
-        Q0 += dQ * jitter;
-        k0 += dk * jitter;
-    }
-
-    half2 P = P0;
-    half3 Q = Q0;
-    half k = k0;
-
-    // 缓存当前深度和位置
-    float rayZ = originVS.z;
-    half end = P1.x * stepDirection;
-
-    int stepCount = 0;
-    bool intersecting = false;
-    half2 hitPixel = half2(0, 0);
-    float depthDistance = 0.0;
-
-    #if BINARY_SEARCH
-    {
-        //使用二分搜索来加速
-        const int BINARY_COUNT = 3;
-        bool stopBinary = false;
-    
-        UNITY_LOOP
-        for (int i = 0; i < BINARY_COUNT && !stopBinary; i++)
-        {
-            if (ScreenSpaceRayMarching(stepDirection, end, P, Q, k, dP, dQ, dk, rayZ, permute, depthDistance, stepCount, hitPixel, intersecting))
-            {
-                if (depthDistance < layerThickness)
-                {
-                    intersecting = true;
-                    stopBinary = true;
-                }
-                P -= dP;
-                Q -= dQ;
-                k -= dk;
-                rayZ = Q / k;
-    
-                //步长减少
-                dP *= 0.5;
-                dQ *= 0.5;
-                dk *= 0.5;
-            }
-        }
-    }
-    #endif
-    
-    {
-        // intersecting = ScreenSpaceRayMarching(stepDirection, end, P, Q, k, dP, dQ, dk, rayZ, permute, depthDistance, stepCount, hitPixel, intersecting);
-    }
-
-    #if HIZ
-    {
-        // Hiz
-        intersecting = ScreenSpaceRayMarchingHiz(stepDirection, end, P, Q, k, dP, dQ, dk, rayZ, permute, depthDistance, stepCount, hitPixel, intersecting);
-    }
-    #endif
-    
-    
-
-    UNITY_FLATTEN
-    if (intersecting)
-    {
-        result.iterationCount = stepCount;
-        result.uv = hitPixel * _TestTex_TexelSize.xy;
-        result.isHit = true;
-    }
-
-    return result;
-}
-
 //
 // Fragment shaders
 //
-float4 FragTest(Varyings input) : SV_Target
-{
-    half4 gbuffer2 = SAMPLE_TEXTURE2D_LOD(_GBuffer2, sampler_PointClamp, input.texcoord, 0);
-
-    UNITY_BRANCH
-    if (dot(gbuffer2.xyz, 1.0) == 0.0)
-        return 0.0;
-
-    // 多一次采样 可以过滤掉角色部分的射线计算
-    // uint materialFlags = UnpackMaterialFlags(SAMPLE_TEXTURE2D_LOD(_GBuffer0, sampler_PointClamp, input.texcoord, 0).a);
-    // UNITY_BRANCH
-    // if (IsMaterialFlagCharacter(materialFlags)) return 0;
-    
-    Ray ray;
-    ray.origin = GetViewSpacePosition(input.texcoord);
-
-    UNITY_BRANCH
-    if (ray.origin.z < - _MaximumMarchDistance)
-        return 0.0;
-
-    float3 normalWS = normalize(UnpackNormal(gbuffer2.xyz));
-    float3 normalVS = mul((float3x3)_ViewMatrixSSR, normalWS);
-    ray.direction = normalize(reflect(normalize(ray.origin), normalVS));
-
-    UNITY_BRANCH
-    if (ray.direction.z > 0.0)
-        return 0.0;
-
-    Result result = March(ray, input.texcoord, normalVS);
-
-    float confidence = (float)result.iterationCount / (float)_MaximumIterationCount;
-
-    return float4(result.uv, confidence, (float)result.isHit);
-}
-
-
 float4 FragReproject(Varyings input) : SV_Target
 {
     float2 uv = input.texcoord;
@@ -381,7 +156,7 @@ float4 FragComposite(Varyings input) : SV_Target
     BRDFData brdfData = BRDFDataFromGbuffer(gbuffer0, gbuffer1, gbuffer2);
 
     half3 normalWS = normalize(UnpackNormal(gbuffer2.xyz));
-    float3 positionVS = GetViewSpacePosition(uv);
+    float3 positionVS = GetViewSpacePosition(depth, uv);
     float3 viewDirectionWS = -mul((float3x3)_InverseViewMatrixSSR, normalize(positionVS));
     float3 positionWS = mul(_InverseViewMatrixSSR, float4(positionVS, 1.0)).xyz;
 
@@ -493,7 +268,7 @@ float4 FragMobilePlanarReflection(Varyings input) : SV_Target
     half ssrIndirectSpecAdjust = gbuffer1.g;
 
     half3 normalWS = normalize(UnpackNormal(gbuffer2.xyz));
-    float3 positionVS = GetViewSpacePosition(uv);
+    float3 positionVS = GetViewSpacePosition(depth, uv);
     float3 viewDirectionWS = -mul((float3x3)_InverseViewMatrixSSR, normalize(positionVS));
     float3 positionWS = mul(_InverseViewMatrixSSR, float4(positionVS, 1.0)).xyz;
 

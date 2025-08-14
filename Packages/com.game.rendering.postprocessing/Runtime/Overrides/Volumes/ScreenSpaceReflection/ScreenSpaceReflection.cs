@@ -96,7 +96,6 @@ namespace Game.Core.PostProcessing
             internal static readonly int ViewMatrix = Shader.PropertyToID("_ViewMatrixSSR");
             internal static readonly int InverseViewMatrix = Shader.PropertyToID("_InverseViewMatrixSSR");
             internal static readonly int InverseProjectionMatrix = Shader.PropertyToID("_InverseProjectionMatrixSSR");
-            internal static readonly int ScreenSpaceProjectionMatrix = Shader.PropertyToID("_ScreenSpaceProjectionMatrixSSR");
 
             internal static readonly int Params1 = Shader.PropertyToID("_Params1");
             internal static readonly int Params2 = Shader.PropertyToID("_Params2");
@@ -279,21 +278,14 @@ namespace Game.Core.PostProcessing
             var width = cameraData.cameraTargetDescriptor.width;
             var height = cameraData.cameraTargetDescriptor.height;
             var size = m_ScreenSpaceReflectionDescriptor.width;
-
-
-            var screenSpaceProjectionMatrix = new Matrix4x4();
-            screenSpaceProjectionMatrix.SetRow(0, new Vector4(size * 0.5f, 0f, 0f, size * 0.5f));
-            screenSpaceProjectionMatrix.SetRow(1, new Vector4(0f, size * 0.5f, 0f, size * 0.5f));
-            screenSpaceProjectionMatrix.SetRow(2, new Vector4(0f, 0f, 1f, 0f));
-            screenSpaceProjectionMatrix.SetRow(3, new Vector4(0f, 0f, 0f, 1f));
+            
 
             var projectionMatrix = GL.GetGPUProjectionMatrix(camera.projectionMatrix, false);
-            screenSpaceProjectionMatrix *= projectionMatrix;
+           
 
             m_ScreenSpaceReflectionMaterial.SetMatrix(ShaderConstants.ViewMatrix, camera.worldToCameraMatrix);
             m_ScreenSpaceReflectionMaterial.SetMatrix(ShaderConstants.InverseViewMatrix, camera.worldToCameraMatrix.inverse);
             m_ScreenSpaceReflectionMaterial.SetMatrix(ShaderConstants.InverseProjectionMatrix, projectionMatrix.inverse);
-            m_ScreenSpaceReflectionMaterial.SetMatrix(ShaderConstants.ScreenSpaceProjectionMatrix, screenSpaceProjectionMatrix);
             m_ScreenSpaceReflectionMaterial.SetVector(ShaderConstants.Params1,
                 new Vector4(settings.vignette.value, settings.distanceFade.value, settings.maximumMarchDistance.value, settings.intensity.value));
           

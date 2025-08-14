@@ -14,11 +14,11 @@ Shader "Hidden/PostProcessing/ScreenSpaceReflection"
             #define BINARY_SEARCH 1
             
             #include "ScreenSpaceReflection.hlsl"
-            
+            #include "ScreenSpaceReflection_Linear.hlsl"
             #pragma multi_compile_local _ JITTER_BLURNOISE JITTER_DITHER
             
             #pragma vertex Vert
-            #pragma fragment FragTest
+            #pragma fragment FragTestLinear
             ENDHLSL
         }
 
@@ -102,11 +102,12 @@ Shader "Hidden/PostProcessing/ScreenSpaceReflection"
             HLSLPROGRAM
             #define HIZ 1
             #include "ScreenSpaceReflection.hlsl"
+            #include "ScreenSpaceReflection_Hiz.hlsl"
             
             #pragma multi_compile_local _ JITTER_BLURNOISE JITTER_DITHER
 
             #pragma vertex Vert
-            #pragma fragment FragTest
+            #pragma fragment FragTestHiZ
             ENDHLSL
         }
     }
