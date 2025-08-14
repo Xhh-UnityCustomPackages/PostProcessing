@@ -53,9 +53,7 @@ TEXTURE2D_FLOAT(_MaskDepthRT);              SAMPLER(sampler_MaskDepthRT);
 // minimapReflection
 TEXTURE2D(_MinimapPlanarReflectTex);        SAMPLER(sampler_MinimapPlanarReflectTex);
 
-//Hiz
-TEXTURE2D(_HizDepthTexture);                SAMPLER(sampler_HizDepthTexture);
-int _HizDepthTextureMipLevel;
+
 
 float4 _BlitTexture_TexelSize;
 float4 _TestTex_TexelSize;

@@ -46,13 +46,13 @@ namespace Game.Core.PostProcessing
             int width = renderingData.cameraData.cameraTargetDescriptor.width;
             int height = renderingData.cameraData.cameraTargetDescriptor.height;
 
+            // width = Mathf.NextPowerOfTwo(width);
+            // height = Mathf.NextPowerOfTwo(height);
             m_HiZMipLevels = (int)Mathf.Floor(Mathf.Log(width, 2f));
             
             if (m_HiZDepthDesc.width != width || m_HiZDepthDesc.height != height)
             {
                 m_HiZDepthDesc = new RenderTextureDescriptor(width, height);
-                m_HiZDepthDesc.width = width;
-                m_HiZDepthDesc.height = height;
                 m_HiZDepthDesc.useMipMap = true;
                 m_HiZDepthDesc.autoGenerateMips = false;
                 m_HiZDepthDesc.enableRandomWrite = true;
@@ -100,7 +100,7 @@ namespace Game.Core.PostProcessing
             ConfigureTarget(m_HiZDepthRT);
 
             Shader.SetGlobalTexture("_HizDepthTexture", m_HiZDepthRT);
-            Shader.SetGlobalInt("_HizDepthTextureMipLevel", m_HiZMipLevels);
+            Shader.SetGlobalInt("_HizDepthTextureMipLevel", m_HiZMipLevels - 1);
         }
 
         public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
@@ -167,17 +167,13 @@ namespace Game.Core.PostProcessing
             int sourceH = source.height;
             int destinationW = destination.width;
             int destinationH = destination.height;
-            for (int i = 0; i < sourceMip; i++)
-            {
-                sourceW >>= 1;
-                sourceH >>= 1;
-            }
-            for (int i = 0; i < destinationMip; i++)
-            {
-                destinationW >>= 1;
-                destinationH >>= 1;
-            }
-
+           
+            sourceW >>= sourceMip;
+            sourceH >>= sourceMip;
+            
+            destinationW >>= destinationMip;
+            destinationH >>= destinationMip;
+            
             cmd.SetComputeTextureParam(computeShader, kernelID, CopyTextureKernelProperties.SOURCE_TEXTURE, source, sourceMip);
             cmd.SetComputeTextureParam(computeShader, kernelID, CopyTextureKernelProperties.DESTINATION_TEXTURE, destination, destinationMip);
 

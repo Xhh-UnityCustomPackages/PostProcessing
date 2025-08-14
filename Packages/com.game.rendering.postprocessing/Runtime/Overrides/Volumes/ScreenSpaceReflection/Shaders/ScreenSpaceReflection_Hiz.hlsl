@@ -3,6 +3,12 @@
 
 #include  "ScreenSpaceReflectionInput.hlsl"
 
+//Hiz
+TEXTURE2D(_HizDepthTexture);                SAMPLER(sampler_HizDepthTexture);
+int _HizDepthTextureMipLevel;
+
+float4 _HizDepthTexture_TexelSize;
+
 
 bool ScreenSpaceRayMarchingHiz(half stepDirection, half end, inout float2 P, inout float3 Q, inout float k, float2 dP, float3 dQ,
     float dk, half rayZ, bool permute, inout int depthDistance, inout int stepCount, inout float2 hitUV, inout bool intersecting)
