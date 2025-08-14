@@ -21,7 +21,7 @@ namespace Game.Core.PostProcessing
 
         static class BlurShaderIDs
         {
-            public static readonly int _SourceTex = Shader.PropertyToID("_SourceTex");
+            public static readonly int _SourceTex = Shader.PropertyToID("_BlitTexture");
             public static readonly int _Offset = Shader.PropertyToID("_Offset");
         }
 
@@ -60,30 +60,22 @@ namespace Game.Core.PostProcessing
         public static void ComputeBlurPyramid(CommandBuffer cmd, RTHandle source, RTHandle target, float blurRadius, int iterationsLimit = 2)
         {
             s_BlitMaterial.SetFloat(BlurShaderIDs._Offset, blurRadius);
-
-            RenderTextureDescriptor desc = new();
-            desc.colorFormat = target.rt.format;
+            
+            RenderTextureDescriptor desc = new(source.rt.width, source.rt.height, source.rt.format);
+            desc.volumeDepth = 1;
+            desc.bindMS = false;
+            desc.msaaSamples = 1;
+            desc.dimension = TextureDimension.Tex2D;
 
             RTHandle last = source;
-            float scale = 1;
-
-
-            var scaledViewportSize = source.GetScaledSize(source.rtHandleProperties.currentViewportSize);
-            var logh = Mathf.Log(Mathf.Max(scaledViewportSize.x, scaledViewportSize.y), 2) + blurRadius - 8;
-            var logh_i = (int)logh;
-            var iterations = Mathf.Clamp(logh_i, 2, kMaxIterations);
-            iterations = Mathf.Min(iterations, iterationsLimit);
-            Debug.LogError($"iterations {iterations} {logh_i} {logh}");
+            
+            var iterations = Mathf.Clamp(iterationsLimit, 1, kMaxIterations);
 
             //down
             for (int level = 0; level < iterations; level++)
             {
-                scale *= 0.5f;
-                desc.width = (int)(source.rt.width * scale);
-                desc.height = (int)(source.rt.height * scale);
-
                 RenderingUtils.ReAllocateIfNeeded(ref s_TempDown[level], desc, FilterMode.Point, name: $"_BlurPyramid_Down_{level}");
-
+                RenderingUtils.ReAllocateIfNeeded(ref s_TemmpUp[level], desc, FilterMode.Point, name: $"_BlurPyramid_Up_{level}");
 
                 var downPassTarget = iterations == 1 ? target : s_TempDown[level];
                 var currentTarget = level == 0 ? source : last;
@@ -91,31 +83,20 @@ namespace Game.Core.PostProcessing
                 cmd.Blit(currentTarget, downPassTarget, s_BlitMaterial, (int)PassIndex.Down);
 
                 last = s_TempDown[level];
+                desc.width = Mathf.Max(Mathf.FloorToInt(desc.width / 2), 1);
+                desc.height = Mathf.Max(Mathf.FloorToInt(desc.height / 2), 1);
             }
 
             //up
-            for (int level = iterations - 1; level >= 0; level--)
+            for (int level = iterations - 2; level >= 0; level--)
             {
-                if (level != 0)
-                {
-                    desc.width = s_TempDown[level].rt.width * 2;
-                    desc.height = s_TempDown[level].rt.height * 2;
-                    RenderingUtils.ReAllocateIfNeeded(ref s_TemmpUp[level], desc, FilterMode.Point, name: $"_BlurPyramid_Up_{level}");
-                }
-
                 // m_BlurMaterial.SetTexture("_SourceTex", last); //不能这么设置 因为cmd是异步的
                 cmd.SetGlobalTexture(BlurShaderIDs._SourceTex, last);
-                if (level == 0)
-                {
-                    cmd.Blit(last, target, s_BlitMaterial, (int)PassIndex.Up);
-                }
-                else
-                {
-                    cmd.Blit(last, s_TemmpUp[level], s_BlitMaterial, (int)PassIndex.Up);
-                }
-
+                cmd.Blit(last, s_TemmpUp[level], s_BlitMaterial, (int)PassIndex.Up);
                 last = s_TemmpUp[level];
             }
+            
+            cmd.Blit(last, target, s_BlitMaterial, 1);
         }
     }
 }

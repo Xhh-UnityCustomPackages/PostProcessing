@@ -102,9 +102,6 @@ namespace Game.Core.PostProcessing
             internal static readonly int Params2 = Shader.PropertyToID("_Params2");
             internal static readonly int Offset = Shader.PropertyToID("_Offset");
 
-            public static int[] _BlurMipUp;
-            public static int[] _BlurMipDown;
-
             public static string GetDebugKeyword(ScreenSpaceReflection.DebugMode debugMode)
             {
                 switch (debugMode)
@@ -148,17 +145,14 @@ namespace Game.Core.PostProcessing
         RenderTextureDescriptor m_ScreenSpaceReflectionDescriptor;
         string[] m_ShaderKeywords = new string[2];
         Material m_ScreenSpaceReflectionMaterial;
-        Material m_BlurMaterial;
 
         bool m_SupportARGBHalf = true;
         const int k_MaxPyramidSize = 16;
 
         RTHandle m_TestRT;
         RTHandle m_ResloveRT;
-
-
-        RTHandle[] m_BlurMipUpsRT = new RTHandle[ScreenSpaceReflection.MAX_BLUR_ITERATIONS];
-        RTHandle[] m_BlurMipDownsRT = new RTHandle[ScreenSpaceReflection.MAX_BLUR_ITERATIONS];
+        RTHandle m_ResloveBlurRT;
+        
 
         const int k_NumHistoryTextures = 2;
         RTHandle[] m_HistoryPingPongRT = new RTHandle[k_NumHistoryTextures];
@@ -175,14 +169,6 @@ namespace Game.Core.PostProcessing
 
         public override void Setup()
         {
-            ShaderConstants._BlurMipUp = new int[k_MaxPyramidSize];
-            ShaderConstants._BlurMipDown = new int[k_MaxPyramidSize];
-            for (int i = 0; i < k_MaxPyramidSize; i++)
-            {
-                ShaderConstants._BlurMipUp[i] = Shader.PropertyToID("_SSR_BlurMipUp" + i);
-                ShaderConstants._BlurMipDown[i] = Shader.PropertyToID("_SSR_BlurMipDown" + i);
-            }
-
             m_SupportARGBHalf = SystemInfo.SupportsRenderTextureFormat(RenderTextureFormat.ARGBHalf);
         }
         
@@ -218,6 +204,7 @@ namespace Game.Core.PostProcessing
 
             RenderingUtils.ReAllocateIfNeeded(ref m_TestRT, testDesc, FilterMode.Point, name: "_TestTex");
             RenderingUtils.ReAllocateIfNeeded(ref m_ResloveRT, m_ScreenSpaceReflectionDescriptor, FilterMode.Bilinear, name: "_ResolveTex");
+            RenderingUtils.ReAllocateIfNeeded(ref m_ResloveBlurRT, m_ScreenSpaceReflectionDescriptor, FilterMode.Bilinear, name: "_ResolveBlurTex");
         }
 
 
@@ -255,36 +242,15 @@ namespace Game.Core.PostProcessing
 
             // ------------------------------------------------------------------------------------------------
             // 简化版本 DualBlur替代 放弃不同粗糙度mipmap的采样
-            int iter = settings.blurIterations.value;
-            RTHandle lastUp;
+            var finalRT = m_ResloveRT;
+            var iter = settings.blurIterations.value;
             if (iter > 0)
             {
-                RenderTextureDescriptor blurDesc = m_ScreenSpaceReflectionDescriptor;
-                for (int i = 0; i < iter; i++)
-                {
-                    RenderingUtils.ReAllocateIfNeeded(ref m_BlurMipUpsRT[i], blurDesc, FilterMode.Bilinear, name: "_BlurMipUp" + i);
-                    RenderingUtils.ReAllocateIfNeeded(ref m_BlurMipDownsRT[i], blurDesc, FilterMode.Bilinear, name: "_BlurMipDown" + i);
-
-                    Blit(cmd, lastDownId, m_BlurMipDownsRT[i], m_BlurMaterial, 0);
-
-                    lastDownId = m_BlurMipDownsRT[i];
-                    DescriptorDownSample(ref blurDesc, 2);
-                }
-
-                // Upsample
-                lastUp = m_BlurMipDownsRT[iter - 1];
-                for (int i = iter - 2; i >= 0; i--)
-                {
-                    Blit(cmd, lastUp, m_BlurMipUpsRT[i], m_BlurMaterial, 1);
-                    lastUp = m_BlurMipUpsRT[i];
-                }
-
-                // Render blurred texture in blend pass
-                Blit(cmd, lastUp, m_ResloveRT, m_BlurMaterial, 1);
+                PyramidBlur.ComputeBlurPyramid(cmd, lastDownId, m_ResloveBlurRT, 0.1f, iter);
+                finalRT = m_ResloveBlurRT;
             }
-
-
-            m_ScreenSpaceReflectionMaterial.SetTexture(ShaderConstants.ResolveTex, m_ResloveRT);
+            
+            m_ScreenSpaceReflectionMaterial.SetTexture(ShaderConstants.ResolveTex, finalRT);
             Blit(cmd, source, target, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Composite);
         }
 
@@ -293,20 +259,12 @@ namespace Game.Core.PostProcessing
         {
             CoreUtils.Destroy(m_ScreenSpaceReflectionMaterial);
             m_ScreenSpaceReflectionMaterial = null;
-            CoreUtils.Destroy(m_BlurMaterial);
-            m_BlurMaterial = null;
 
             m_ResloveRT?.Release();
             m_TestRT?.Release();
 
             for (int i = 0; i < m_HistoryPingPongRT.Length; i++)
                 m_HistoryPingPongRT[i]?.Release();
-
-            for (int i = 0; i < m_BlurMipUpsRT.Length; i++)
-                m_BlurMipUpsRT[i]?.Release();
-
-            for (int i = 0; i < m_BlurMipDownsRT.Length; i++)
-                m_BlurMipDownsRT[i]?.Release();
         }
 
 
@@ -314,8 +272,6 @@ namespace Game.Core.PostProcessing
         {
             if (m_ScreenSpaceReflectionMaterial == null)
                 m_ScreenSpaceReflectionMaterial = GetMaterial(postProcessFeatureData.shaders.screenSpaceReflectionPS);
-            if (m_BlurMaterial == null)
-                m_BlurMaterial = Material.Instantiate(postProcessFeatureData.materials.DualBlur);
             
             var cameraData = renderingData.cameraData;
             var camera = cameraData.camera;
@@ -323,9 +279,6 @@ namespace Game.Core.PostProcessing
             var width = cameraData.cameraTargetDescriptor.width;
             var height = cameraData.cameraTargetDescriptor.height;
             var size = m_ScreenSpaceReflectionDescriptor.width;
-
-            var noiseTex = postProcessFeatureData.textures.blueNoiseTex;
-            m_ScreenSpaceReflectionMaterial.SetTexture(ShaderConstants.NoiseTex, noiseTex);
 
 
             var screenSpaceProjectionMatrix = new Matrix4x4();
@@ -343,11 +296,20 @@ namespace Game.Core.PostProcessing
             m_ScreenSpaceReflectionMaterial.SetMatrix(ShaderConstants.ScreenSpaceProjectionMatrix, screenSpaceProjectionMatrix);
             m_ScreenSpaceReflectionMaterial.SetVector(ShaderConstants.Params1,
                 new Vector4(settings.vignette.value, settings.distanceFade.value, settings.maximumMarchDistance.value, settings.intensity.value));
-            m_ScreenSpaceReflectionMaterial.SetVector(ShaderConstants.Params2,
-                new Vector4(width / height, size / (float)noiseTex.width, settings.thickness.value, settings.maximumIterationCount.value));
-
-            // 没有调节的需求
-            m_BlurMaterial.SetFloat(ShaderConstants.Offset, 0.1f);
+          
+            
+            if (settings.jitterMode.value == ScreenSpaceReflection.JitterMode.BlueNoise)
+            {
+                var noiseTex = postProcessFeatureData.textures.blueNoiseTex;
+                m_ScreenSpaceReflectionMaterial.SetTexture(ShaderConstants.NoiseTex, noiseTex);
+                m_ScreenSpaceReflectionMaterial.SetVector(ShaderConstants.Params2,
+                    new Vector4((float)width / height, size / (float)noiseTex.width, settings.thickness.value, settings.maximumIterationCount.value));
+            }
+            else
+            {
+                m_ScreenSpaceReflectionMaterial.SetVector(ShaderConstants.Params2,
+                    new Vector4(0, 0, settings.thickness.value, settings.maximumIterationCount.value));
+            }
 
             // -------------------------------------------------------------------------------------------------
             // local shader keywords
