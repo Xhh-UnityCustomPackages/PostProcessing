@@ -182,6 +182,7 @@ float4 FragTestHiZ(Varyings input) : SV_Target
                                        ray.direction,
                                        _TestTex_TexelSize,
                                        jitter,
+                                       normalVS,
                                        _MaximumIterationCount,
                                        Thickness,
                                        _MaximumMarchDistance,

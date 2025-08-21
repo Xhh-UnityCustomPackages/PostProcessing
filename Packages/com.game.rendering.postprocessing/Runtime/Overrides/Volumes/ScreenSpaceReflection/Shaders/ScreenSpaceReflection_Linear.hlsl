@@ -24,7 +24,7 @@ bool RayIterations(inout half2 P,
         
         rayZMin = prevZMaxEstimate;
         rayZMax = (dQ.z * 0.5 + Q.z) / (dk * 0.5 + k);
-        // prevZMaxEstimate = rayZMax;
+        prevZMaxEstimate = rayZMax;
 
         //确保rayZMin < rayZMax
         if (rayZMin > rayZMax)
@@ -48,6 +48,7 @@ Result Linear2D_Trace(half3 csOrigin,
                     half3 csDirection,
                     half4 csZBufferSize,//Test Tex大小
                     half jitter,
+                    float3 normalVS,
                     int maxSteps,
                     half layerThickness,
                     half traceDistance,
@@ -69,8 +70,8 @@ Result Linear2D_Trace(half3 csOrigin,
     }
 
     
-    // half RayBump = max(-0.0002 * stepSize * csOrigin.z, 0.001);
-    // half3 csOrigin = csOrigin + normalVS * RayBump;//射线起始坐标 沿着法线方向稍微偏移一下 避免自相交
+    half RayBump = max(-0.0002 * stepSize * csOrigin.z, 0.001);
+    csOrigin = csOrigin + normalVS * RayBump;//射线起始坐标 沿着法线方向稍微偏移一下 避免自相交
     
     //确保射线不会超出近平面
     half nearPlaneZ = -0.01;//_ProjectionParams.y
@@ -114,8 +115,8 @@ Result Linear2D_Trace(half3 csOrigin,
     k1 = lerp(k1, k0, alpha);
     Q1 = lerp(Q1, Q0, alpha);
     */
-
-    P1 = (GetSquaredDistance(P0, P1) < 0.0001) ? P0 + half2(0.01, 0.01) : P1;
+    P1 = (GetSquaredDistance(P0, P1) < 0.0001) ? P0 + half2(_TestTex_TexelSize.x, _TestTex_TexelSize.y) : P1;
+    // P1 = (GetSquaredDistance(P0, P1) < 0.0001) ? P0 + half2(0.01, 0.01) : P1;
     half2 delta = P1 - P0;
     bool permute = false;
 
@@ -153,7 +154,7 @@ Result Linear2D_Trace(half3 csOrigin,
     half2 P = P0;
     int originalStepCount = 0;
 
-    float2 hitPixel = half2(-1, -1);
+    float2 hitPixel = half2(0, 0);
 
     RayIterations(P, stepDirection, end, originalStepCount,
                   maxSteps,
@@ -234,6 +235,7 @@ float4 FragTestLinear(Varyings input) : SV_Target
                                    ray.direction,
                                    _TestTex_TexelSize,
                                    jitter,
+                                   normalVS,
                                    _MaximumIterationCount,
                                    Thickness,
                                    _MaximumMarchDistance,
