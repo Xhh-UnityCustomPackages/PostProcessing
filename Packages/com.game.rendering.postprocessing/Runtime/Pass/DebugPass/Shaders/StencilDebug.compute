@@ -1,0 +1,87 @@
+#pragma kernel StencilDebug
+
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+
+TEXTURE2D(_CameraColorTexture);
+Texture2D<uint2> _StencilTexture;
+RWTexture2D<float4> _StencilDebugTexture;
+
+float _Scale;
+float _Margin;
+
+static float4 digit_colors[10] = {
+    float4(0.1, 0.1, 0.1, 0.3),
+    float4(0.4, 0.7, 0.4, 1.0),
+    float4(0.4, 0.4, 0.7, 1.0),
+    float4(0.9, 0.9, 0.5, 1.0),
+    float4(0.8, 0.5, 0.8, 0.8),
+    float4(0.5, 0.8, 0.8, 0.8),
+    float4(0.9, 0.6, 0.4, 0.8),
+    float4(0.6, 0.4, 0.6, 0.8),
+    float4(0.7, 0.4, 0.4, 0.6),
+    float4(0.9, 0.9, 0.9, 0.8)
+};
+
+static uint bits[5] = {
+    3959160828,
+    2828738996,
+    2881485308,
+    2853333412,
+    3958634981
+};
+
+// The draw_digit method implementation was written by Freya Holmér.
+// See the code in its original context here:
+// https://gist.github.com/FreyaHolmer/71717be9f3030c1b0990d3ed1ae833e3
+float draw_digit(int2 px, const int digit)
+{
+    if (px.x < 0 || px.x > 2 || px.y < 0 || px.y > 4) {
+        return 0;
+    }
+
+    const int id = digit == -1 ? 18 : 31 - (3 * digit + px.x);
+    return (bits[4 - px.y] & 1 << id) != 0;
+}
+
+[numthreads(8, 8, 1)]
+void StencilDebug(uint3 id : SV_DispatchThreadID)
+{
+    float4 cameraColor = LOAD_TEXTURE2D_X(_CameraColorTexture, id.xy);
+    uint stencilValue = GetStencilValue(LOAD_TEXTURE2D_X(_StencilTexture, id.xy));
+    float2 texcoord = float2(id.x, id.y) / _ScreenParams.xy;
+
+    _StencilDebugTexture[id.xy] = cameraColor;
+
+    float aspect_ratio = _ScreenParams.y / _ScreenParams.x;
+
+    float scale = _Scale * _ScreenParams.x / 1024.0;
+    float margin = _Margin * (1.0 - scale * 0.5) * 0.02f;
+    float width = 2.0;
+    float height = 1.0;
+
+    float2 scaled_texcoord = texcoord.xy * scale;
+    scaled_texcoord.x /= width;
+    scaled_texcoord.y *= aspect_ratio / height;
+    scaled_texcoord = frac(scaled_texcoord);
+
+    float2 grid_pos = float2(scaled_texcoord.x * (1.0 - margin * 2.0 / width), scaled_texcoord.y * (1.0 - margin * 2.0 / height));
+
+    if (grid_pos.x < 0.0 || grid_pos.x > 1.0 || grid_pos.y < 0.0 || grid_pos.y > 1.0) {
+        return;
+    }
+    
+    int2 px = int2(floor(grid_pos.x * (3 * 3 + 2)), floor(grid_pos.y * 5));
+
+    float digit = 0;
+    digit += draw_digit(px, (stencilValue / 100) % 10); // 100
+    px.x -= 4;
+    digit += draw_digit(px, (stencilValue / 10) % 10); // 10
+    px.x -= 4;
+    digit += draw_digit(px, (stencilValue / 1) % 10); // 1
+    
+    float4 color = digit_colors[stencilValue % 10];
+    
+    float alpha = digit * color.a;
+
+    _StencilDebugTexture[id.xy] = float4(lerp(cameraColor.rgb, color.rgb, alpha), cameraColor.a);
+}

@@ -28,6 +28,12 @@ namespace Game.Core.PostProcessing
             m_Material = CoreUtils.CreateEngineMaterial("Hidden/PostProcessing/PostProcessingDebugPass");
         }
 
+        public void Dispose()
+        {
+            m_DebugTargetHandle?.Release();
+            CoreUtils.Destroy(m_Material);
+        }
+
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
         {
             var desc = renderingData.cameraData.cameraTargetDescriptor;

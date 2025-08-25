@@ -53,7 +53,6 @@ namespace Game.Core.PostProcessing
 
 #if UNITY_EDITOR
         DebugHandler m_DebugHandler;
-        PostProcessingDebugPass m_DebugPass;
 #endif
 
         public override void Create()
@@ -88,8 +87,6 @@ namespace Game.Core.PostProcessing
 #if UNITY_EDITOR
             m_DebugHandler = new DebugHandler();
             m_DebugHandler.Init();
-
-            m_DebugPass = new PostProcessingDebugPass(m_DebugHandler);
 #endif
         }
 
@@ -134,10 +131,7 @@ namespace Game.Core.PostProcessing
 
 
 #if UNITY_EDITOR
-            if (!renderingData.cameraData.isPreviewCamera && m_DebugHandler.AreAnySettingsActive)
-            {
-                renderer.EnqueuePass(m_DebugPass);
-            }
+            m_DebugHandler.EnqueuePass(renderer);
 #endif
 
         }
@@ -151,6 +145,10 @@ namespace Game.Core.PostProcessing
             m_AfterRenderingPostProcessing.Dispose(disposing);
             m_UberPostProcessing.Dispose();
             PyramidBlur.Release();
+
+#if UNITY_EDITOR
+            m_DebugHandler.Dispose();
+#endif
         }
 
 
