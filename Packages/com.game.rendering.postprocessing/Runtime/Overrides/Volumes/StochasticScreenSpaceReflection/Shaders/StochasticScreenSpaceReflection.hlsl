@@ -464,8 +464,9 @@ half4 CombineReflectionColor(Varyings i) : SV_Target
 
     // half4 SceneColor = SAMPLE_TEXTURE2D_LOD(_SSR_SceneColor_RT, sampler_LinearClamp, uv, 0);
     half4 SceneColor = SAMPLE_TEXTURE2D(_BlitTexture, sampler_PointClamp, uv);
+    
     half4 CubemapColor = half4(GlossyEnvironmentReflectionSSR(reflectVector, positionWS, brdfData.perceptualRoughness, ReflectionOcclusion), 1);
-    CubemapColor = 0;//
+    // CubemapColor = 0;//
     SceneColor.rgb = max(1e-5, SceneColor.rgb - CubemapColor.rgb);
 
     half4 SSRColor = SAMPLE_TEXTURE2D(_SSR_TemporalCurr_RT, sampler_LinearClamp, uv);
@@ -477,7 +478,7 @@ half4 CombineReflectionColor(Varyings i) : SV_Target
         return half4(ReflectionColor.rgb, 1);
     #endif
 
-    return SSRMask;
+    // return SSRMask;
 
     return SceneColor + ReflectionColor  ;
 }

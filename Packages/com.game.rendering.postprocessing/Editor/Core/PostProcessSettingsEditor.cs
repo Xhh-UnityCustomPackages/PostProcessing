@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEditor;
 using UnityEditorInternal;
 using Game.Core.PostProcessing;
+using UnityEngine.Rendering.Universal;
 using PostProcessAttribute = Game.Core.PostProcessing.PostProcessAttribute;
 
 namespace Game.Core.PostProcessing.UnityEditor
@@ -13,6 +14,7 @@ namespace Game.Core.PostProcessing.UnityEditor
     [CustomPropertyDrawer(typeof(PostProcessFeature.PostProcessSettings), true)]
     internal class PostProcessSettingsEditor : PropertyDrawer
     {
+        private RenderingMode m_RenderingMode;
         private SerializedProperty m_PostProcessFeatureData;
         private SerializedProperty m_GeneratorPyramidDepth;
 
@@ -31,7 +33,9 @@ namespace Game.Core.PostProcessing.UnityEditor
         /// Contains 3 Reorderable list for each settings property.
         private struct DrawerState
         {
-            public ReorderableList listBeforeRenderingGBuffer, listBeforeRenderingDeferredLights, listAfterRenderingSkybox, listBeforeRenderingPostProcessing, listAfterRenderingPostProcessing;
+            public ReorderableList listBeforeRenderingOpaques, listAfterRenderingOpaques;
+            public ReorderableList listBeforeRenderingGBuffer, listBeforeRenderingDeferredLights;
+            public ReorderableList listAfterRenderingSkybox, listBeforeRenderingPostProcessing, listAfterRenderingPostProcessing;
         }
 
         /// Since the drawer is shared for multiple properties, we need to store the reorderable lists for each property by path.
@@ -96,21 +100,30 @@ namespace Game.Core.PostProcessing.UnityEditor
         /// Initialize a drawer state for the giver property if none already exists.
         private void Init(SerializedProperty property)
         {
+            var feature = property.serializedObject.targetObject as PostProcessFeature;
+            m_RenderingMode = feature.RenderingMode;
+            
             var path = property.propertyPath;
             if (!propertyStates.ContainsKey(path))
             {
                 var state = new DrawerState();
-                var feature = property.serializedObject.targetObject as PostProcessFeature;
+                
                 InitList(ref state.listBeforeRenderingGBuffer, feature.m_Settings.m_RenderersBeforeRenderingGBuffer,
-                                        "BeforeRenderingGBuffer", PostProcessInjectionPoint.BeforeRenderingGBuffer, feature);
+                    "BeforeRenderingGBuffer", PostProcessInjectionPoint.BeforeRenderingGBuffer, feature);
                 InitList(ref state.listBeforeRenderingDeferredLights, feature.m_Settings.m_RenderersBeforeRenderingDeferredLights,
-                                        "BeforeRenderingDeferredLights", PostProcessInjectionPoint.BeforeRenderingDeferredLights, feature);
+                    "BeforeRenderingDeferredLights", PostProcessInjectionPoint.BeforeRenderingDeferredLights, feature);
+
+                InitList(ref state.listBeforeRenderingOpaques, feature.m_Settings.m_RenderersBeforeRenderingOpaques,
+                    "BeforeRenderingOpaques", PostProcessInjectionPoint.BeforeRenderingOpaques, feature);
+                InitList(ref state.listAfterRenderingOpaques, feature.m_Settings.m_RenderersAfterRenderingOpaques,
+                    "AfterRenderingOpaques", PostProcessInjectionPoint.AfterRenderingOpaques, feature);
+                
                 InitList(ref state.listAfterRenderingSkybox, feature.m_Settings.m_RenderersAfterRenderingSkybox,
-                                        "AfterRenderingSkybox", PostProcessInjectionPoint.AfterRenderingSkybox, feature);
+                    "AfterRenderingSkybox", PostProcessInjectionPoint.AfterRenderingSkybox, feature);
                 InitList(ref state.listBeforeRenderingPostProcessing, feature.m_Settings.m_RenderersBeforeRenderingPostProcessing,
-                                        "BeforeRenderingPostProcessing", PostProcessInjectionPoint.BeforeRenderingPostProcessing, feature);
+                    "BeforeRenderingPostProcessing", PostProcessInjectionPoint.BeforeRenderingPostProcessing, feature);
                 InitList(ref state.listAfterRenderingPostProcessing, feature.m_Settings.m_RenderersAfterRenderingPostProcessing,
-                                        "AfterRenderingPostProcessing", PostProcessInjectionPoint.AfterRenderingPostProcessing, feature);
+                    "AfterRenderingPostProcessing", PostProcessInjectionPoint.AfterRenderingPostProcessing, feature);
                 propertyStates.Add(path, state);
             }
         }
@@ -138,10 +151,21 @@ namespace Game.Core.PostProcessing.UnityEditor
             EditorGUI.BeginProperty(position, label, property);
             Init(property);
             DrawerState state = propertyStates[property.propertyPath];
+
             EditorGUI.BeginChangeCheck();
-            state.listBeforeRenderingGBuffer.DoLayoutList();
-            EditorGUILayout.Space();
-            state.listBeforeRenderingDeferredLights.DoLayoutList();
+            if (m_RenderingMode == RenderingMode.Deferred)
+            {
+                state.listBeforeRenderingGBuffer.DoLayoutList();
+                EditorGUILayout.Space();
+                state.listBeforeRenderingDeferredLights.DoLayoutList();
+            }
+            else
+            {
+                state.listBeforeRenderingOpaques.DoLayoutList();
+                EditorGUILayout.Space();
+                state.listAfterRenderingOpaques.DoLayoutList();
+            }
+            
             EditorGUILayout.Space();
             state.listAfterRenderingSkybox.DoLayoutList();
             EditorGUILayout.Space();
@@ -168,6 +192,8 @@ namespace Game.Core.PostProcessing.UnityEditor
             if (_availableRenderers != null) return;
             _availableRenderers = new Dictionary<PostProcessInjectionPoint, List<Type>>()
         {
+            { PostProcessInjectionPoint.BeforeRenderingOpaques       , new List<Type>() },
+            { PostProcessInjectionPoint.AfterRenderingOpaques        , new List<Type>() },
             { PostProcessInjectionPoint.BeforeRenderingGBuffer       , new List<Type>() },
             { PostProcessInjectionPoint.BeforeRenderingDeferredLights, new List<Type>() },
             { PostProcessInjectionPoint.AfterRenderingSkybox         , new List<Type>() },
@@ -180,6 +206,10 @@ namespace Game.Core.PostProcessing.UnityEditor
                 var attributes = type.GetCustomAttributes(typeof(PostProcessAttribute), false);
                 if (attributes.Length != 1) continue;
                 PostProcessAttribute attribute = attributes[0] as PostProcessAttribute;
+                if (attribute.InjectionPoint.HasFlag(PostProcessInjectionPoint.BeforeRenderingOpaques))
+                    _availableRenderers[PostProcessInjectionPoint.BeforeRenderingOpaques].Add(type);
+                if (attribute.InjectionPoint.HasFlag(PostProcessInjectionPoint.AfterRenderingOpaques))
+                    _availableRenderers[PostProcessInjectionPoint.AfterRenderingOpaques].Add(type);
                 if (attribute.InjectionPoint.HasFlag(PostProcessInjectionPoint.BeforeRenderingGBuffer))
                     _availableRenderers[PostProcessInjectionPoint.BeforeRenderingGBuffer].Add(type);
                 if (attribute.InjectionPoint.HasFlag(PostProcessInjectionPoint.BeforeRenderingDeferredLights))

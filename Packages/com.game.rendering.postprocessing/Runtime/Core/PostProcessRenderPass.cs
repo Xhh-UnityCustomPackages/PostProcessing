@@ -41,6 +41,14 @@ namespace Game.Core.PostProcessing
                     renderPassEvent = RenderPassEvent.BeforeRenderingDeferredLights;
                     m_PassName = "PostProcessRenderPass BeforeRenderingDeferredLights";
                     break;
+                case PostProcessInjectionPoint.BeforeRenderingOpaques:
+                    renderPassEvent = RenderPassEvent.BeforeRenderingOpaques;
+                    m_PassName = "PostProcessRenderPass BeforeRenderingOpaques";
+                    break;
+                case PostProcessInjectionPoint.AfterRenderingOpaques:
+                    renderPassEvent = RenderPassEvent.AfterRenderingOpaques;
+                    m_PassName = "PostProcessRenderPass AfterRenderingOpaques";
+                    break;
                 case PostProcessInjectionPoint.AfterRenderingSkybox:
                     // +1 为了放在MotionVector后面
                     renderPassEvent = RenderPassEvent.AfterRenderingSkybox + 1;

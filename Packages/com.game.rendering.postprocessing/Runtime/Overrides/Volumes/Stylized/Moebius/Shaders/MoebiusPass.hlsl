@@ -6,8 +6,8 @@
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareNormalsTexture.hlsl"
 
-
-float4 _BlitTexture_TexelSize;
+// URP 17 在其他HLSL定义了 在这不需要定义了
+// float4 _BlitTexture_TexelSize;
 float4 _UVToView;
 float _NoiseIntensity;
 

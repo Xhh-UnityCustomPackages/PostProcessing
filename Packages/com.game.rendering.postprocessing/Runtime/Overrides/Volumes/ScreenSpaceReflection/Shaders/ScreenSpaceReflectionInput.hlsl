@@ -54,8 +54,8 @@ TEXTURE2D_FLOAT(_MaskDepthRT);              SAMPLER(sampler_MaskDepthRT);
 TEXTURE2D(_MinimapPlanarReflectTex);        SAMPLER(sampler_MinimapPlanarReflectTex);
 
 
-
-float4 _BlitTexture_TexelSize;
+// URP 17 在其他HLSL定义了 在这不需要定义了
+// float4 _BlitTexture_TexelSize;
 float4 _TestTex_TexelSize;
 
 float4x4 _ViewMatrixSSR;

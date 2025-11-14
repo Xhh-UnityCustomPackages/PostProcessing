@@ -18,7 +18,8 @@ TEXTURE2D(_DownscaledShinyDepthRT);
 TEXTURE2D(_RayCastRT);
 
 TEXTURE2D(_NoiseTex);   float4 _NoiseTex_TexelSize;
-float4 _BlitTexture_TexelSize;
+// URP 17 在其他HLSL定义了 在这不需要定义了
+// float4 _BlitTexture_TexelSize;
 
 TEXTURE2D_FLOAT(_MotionVectorTexture);
 TEXTURE2D(_PrevResolve);
