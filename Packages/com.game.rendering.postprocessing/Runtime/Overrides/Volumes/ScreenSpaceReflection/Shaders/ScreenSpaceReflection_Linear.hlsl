@@ -180,13 +180,6 @@ Result Linear2D_Trace(half3 csOrigin,
 float4 FragTestLinear(Varyings input) : SV_Target
 {
     float2 uv = input.texcoord;
-    half4 gbuffer2 = SAMPLE_TEXTURE2D_LOD(_GBuffer2, sampler_PointClamp, uv, 0);
-
-    //朝上的像素 不发生反射直接跳过
-    UNITY_BRANCH
-    if (dot(gbuffer2.xyz, 1.0) == 0.0)
-        return 0.0;
-
     float rawDepth = SampleSceneDepth(uv);
 
     UNITY_BRANCH
@@ -207,8 +200,7 @@ float4 FragTestLinear(Varyings input) : SV_Target
     UNITY_BRANCH
     if (ray.origin.z < - _MaximumMarchDistance)
         return 0.0;
-
-    float3 normalWS = normalize(UnpackNormal(gbuffer2.xyz));
+    float3 normalWS = GetNormalWS(uv);
     float3 normalVS = mul((float3x3)_ViewMatrixSSR, normalWS);
     float3 reflectionDirectionVS = normalize(reflect(normalize(ray.origin), normalVS));
     ray.direction = reflectionDirectionVS;

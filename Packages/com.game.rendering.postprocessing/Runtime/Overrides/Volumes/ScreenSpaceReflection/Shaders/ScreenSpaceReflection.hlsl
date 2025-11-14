@@ -3,8 +3,6 @@
 
 #include "ScreenSpaceReflectionInput.hlsl"
 
-#include "ScreenSpaceReflection_Hiz.hlsl"
-
 //
 // Helper functions
 //

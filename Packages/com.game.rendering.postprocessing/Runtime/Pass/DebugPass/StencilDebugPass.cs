@@ -78,11 +78,6 @@ namespace Game.Core.PostProcessing
             context.ExecuteCommandBuffer(cmd);
             CommandBufferPool.Release(cmd);
         }
-
-        
-        public void SetTarget(RTHandle depth)
-        {
-        }
         
         public void Dispose()
         {

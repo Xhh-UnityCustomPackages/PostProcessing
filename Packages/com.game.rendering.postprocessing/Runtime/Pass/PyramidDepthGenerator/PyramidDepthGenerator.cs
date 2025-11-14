@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -45,9 +46,9 @@ namespace Game.Core.PostProcessing
         {
             int width = renderingData.cameraData.cameraTargetDescriptor.width;
             int height = renderingData.cameraData.cameraTargetDescriptor.height;
-
-            // width = Mathf.NextPowerOfTwo(width);
-            // height = Mathf.NextPowerOfTwo(height);
+            width = 1 << Math.Max((int)Math.Ceiling(Mathf.Log(width, 2) - 1.0f), 1);
+            height = 1 << Math.Max((int)Math.Ceiling(Mathf.Log(height, 2) - 1.0f), 1);
+            
             m_HiZMipLevels = (int)Mathf.Floor(Mathf.Log(width, 2f));
             
             if (m_HiZDepthDesc.width != width || m_HiZDepthDesc.height != height)

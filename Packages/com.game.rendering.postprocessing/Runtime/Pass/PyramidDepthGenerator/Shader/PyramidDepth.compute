@@ -40,7 +40,8 @@ void CSReduceTexture(uint2 id : SV_DispatchThreadID)
     r.z = source.SampleLevel(sampler_source, uv + float2(0, 1.0 / sourceSizeY), 0).r;
     r.w = source.SampleLevel(sampler_source, uv + float2(0, -1.0 / sourceSizeY), 0).r;
     
-    float minimum = min(min(min(r.x, r.y), r.z), r.w);
+    // float minimum = min(min(r.x, r.y), min(r.z, r.w));
+    float minimum = max(max(r.x, r.y), max(r.z, r.w));
     
     destination[id.xy] = float4(minimum, 1.0, 1.0, 1.0);
 }
