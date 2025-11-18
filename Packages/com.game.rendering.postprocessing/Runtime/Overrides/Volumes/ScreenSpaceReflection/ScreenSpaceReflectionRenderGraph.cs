@@ -98,9 +98,9 @@ namespace Game.Core.PostProcessing
             TextureHandle cameraNormalsTexture = resourceData.cameraNormalsTexture;
             TextureHandle cameraDepthTexture = resourceData.cameraDepthTexture;
             
-            var testRT = UniversalRenderer.CreateRenderGraphTexture(renderGraph, testDesc, "_SSR_TestTex", true);
-            var resolveTex = UniversalRenderer.CreateRenderGraphTexture(renderGraph, m_ScreenSpaceReflectionDescriptor, "_SSR_ResolveTex", true);
-            var resolveBlurTex = UniversalRenderer.CreateRenderGraphTexture(renderGraph, m_ScreenSpaceReflectionDescriptor, "_SSR_ResolveBlurTex", true);
+            var testRT = UniversalRenderer.CreateRenderGraphTexture(renderGraph, testDesc, "_SSR_TestTex", false);
+            var resolveTex = UniversalRenderer.CreateRenderGraphTexture(renderGraph, m_ScreenSpaceReflectionDescriptor, "_SSR_ResolveTex", false);
+            var resolveBlurTex = UniversalRenderer.CreateRenderGraphTexture(renderGraph, m_ScreenSpaceReflectionDescriptor, "_SSR_ResolveBlurTex", false);
             
             using (var builder = renderGraph.AddUnsafePass<ScreenSpaceReflectionPassData>(profilingSampler.name, out var passData))
             {

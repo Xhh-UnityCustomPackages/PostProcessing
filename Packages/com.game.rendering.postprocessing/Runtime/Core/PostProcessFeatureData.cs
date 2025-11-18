@@ -35,6 +35,7 @@ namespace Game.Core.PostProcessing
             public Shader CRTScreenPS;
             public Shader MoebiusPS;
             public Shader EightColorPS;
+            public Shader bloomPS;
         }
 
         [Serializable]

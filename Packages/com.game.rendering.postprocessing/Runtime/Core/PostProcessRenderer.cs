@@ -80,7 +80,7 @@ namespace Game.Core.PostProcessing
             return CoreUtils.CreateEngineMaterial(shader);
         }
 
-        public void InitProfilingSampler()
+        public virtual void InitProfilingSampler()
         {
             var attribute = PostProcessAttribute.GetAttribute(GetType());
             profilingSampler = new ProfilingSampler(attribute?.Name);

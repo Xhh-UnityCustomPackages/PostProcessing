@@ -80,8 +80,8 @@ namespace Game.Core.PostProcessing
             TextureHandle cameraNormalsTexture = resourceData.cameraNormalsTexture;
             TextureHandle cameraDepthTexture = resourceData.cameraDepthTexture;
             
-            var cavityFinalRT = UniversalRenderer.CreateRenderGraphTexture(renderGraph, desc, "_ScreenSpaceCavityRT", true);
-            var tempRT = UniversalRenderer.CreateRenderGraphTexture(renderGraph, desc, "_ScreenSpaceCavityTempRT", true);
+            var cavityFinalRT = UniversalRenderer.CreateRenderGraphTexture(renderGraph, desc, "_ScreenSpaceCavityRT", false);
+            var tempRT = UniversalRenderer.CreateRenderGraphTexture(renderGraph, desc, "_ScreenSpaceCavityTempRT", false);
             
             using (var builder = renderGraph.AddUnsafePass<ScreenSpaceCavityRendererPassData>(profilingSampler.name, out var passData))
             {

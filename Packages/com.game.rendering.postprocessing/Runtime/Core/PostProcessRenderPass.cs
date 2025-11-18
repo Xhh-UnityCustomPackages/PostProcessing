@@ -59,7 +59,7 @@ namespace Game.Core.PostProcessing
                     m_PassName = "PostProcessRenderPass BeforeRenderingPostProcessing";
                     break;
                 case PostProcessInjectionPoint.AfterRenderingPostProcessing:
-                    renderPassEvent = RenderPassEvent.AfterRenderingPostProcessing;
+                    renderPassEvent = RenderPassEvent.AfterRenderingPostProcessing - 1;//这里-1 是为了适配RenderGraph
                     m_PassName = "PostProcessRenderPass AfterRenderingPostProcessing";
                     break;
             }
