@@ -20,6 +20,7 @@ namespace Game.Core.PostProcessing
         AfterRenderingOpaques = 1 << 6,
     }
 
+    [DisallowMultipleRendererFeature]
     public class PostProcessFeature : ScriptableRendererFeature
     {
         [System.Serializable]
@@ -154,6 +155,7 @@ namespace Game.Core.PostProcessing
                 renderer.EnqueuePass(m_UberPostProcessing);
             }
 
+            //TODO 这里改为类似与CameraMode 那种请求模式
             if (m_Settings.GeneratorPyramidDepth)
             {
                 if (m_HizDepthGenerator == null)

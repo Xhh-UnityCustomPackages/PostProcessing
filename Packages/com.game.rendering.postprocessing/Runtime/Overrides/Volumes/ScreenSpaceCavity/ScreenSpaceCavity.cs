@@ -143,8 +143,7 @@ namespace Game.Core.PostProcessing
 
             RenderTextureDescriptor cameraTargetDescriptor = renderingData.cameraData.cameraTargetDescriptor;
             var desc = cameraTargetDescriptor;
-            desc.msaaSamples = 1;
-            desc.depthBufferBits = 0;
+            GetCompatibleDescriptor(ref desc, desc.graphicsFormat);
             desc.colorFormat = SystemInfo.SupportsRenderTextureFormat(RenderTextureFormat.R8) ? RenderTextureFormat.R8 : RenderTextureFormat.RHalf;
 
             var resolution = settings.cavityResolution.value;
@@ -155,10 +154,10 @@ namespace Game.Core.PostProcessing
 
             if (settings.output.value == ScreenSpaceCavity.OutputEffectTo._ScreenSpaceCavityRT)
             {
-                RenderingUtils.ReAllocateIfNeeded(ref m_CavityFinalRT, desc, FilterMode.Bilinear, name: "_ScreenSpaceCavityRT");
+                RenderingUtils.ReAllocateHandleIfNeeded(ref m_CavityFinalRT, desc, FilterMode.Bilinear, name: "_ScreenSpaceCavityRT");
             }
 
-            RenderingUtils.ReAllocateIfNeeded(ref m_TempRT, desc, FilterMode.Bilinear, name: "_ScreenSpaceCavityTempRT");
+            RenderingUtils.ReAllocateHandleIfNeeded(ref m_TempRT, desc, FilterMode.Bilinear, name: "_ScreenSpaceCavityTempRT");
         }
 
         public override void Render(CommandBuffer cmd, RTHandle source, RTHandle destination, ref RenderingData renderingData)

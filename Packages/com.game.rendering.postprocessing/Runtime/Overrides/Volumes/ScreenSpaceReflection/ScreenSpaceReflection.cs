@@ -84,13 +84,15 @@ namespace Game.Core.PostProcessing
     
     
     [PostProcess("ScreenSpaceReflection", PostProcessInjectionPoint.BeforeRenderingPostProcessing)]
-    public class ScreenSpaceReflectionRenderer : PostProcessVolumeRenderer<ScreenSpaceReflection>
+    public partial class ScreenSpaceReflectionRenderer : PostProcessVolumeRenderer<ScreenSpaceReflection>
     {
         static class ShaderConstants
         {
-            internal static readonly int ResolveTex = Shader.PropertyToID("_ResolveTex");
+            internal static readonly int s_CameraNormalsTextureID = Shader.PropertyToID("_CameraNormalsTexture");
+            internal static readonly int ResolveTex = Shader.PropertyToID("_SSR_ResolveTex");
             internal static readonly int NoiseTex = Shader.PropertyToID("_NoiseTex");
-            internal static readonly int TestTex = Shader.PropertyToID("_TestTex");
+            internal static readonly int TestTex = Shader.PropertyToID("_SSR_TestTex");
+            internal static readonly int _SSR_TestTex_TexelSize = Shader.PropertyToID("_SSR_TestTex_TexelSize");
             internal static readonly int HistoryTex = Shader.PropertyToID("_HistoryTex");
 
             internal static readonly int ViewMatrix = Shader.PropertyToID("_ViewMatrixSSR");
@@ -146,7 +148,6 @@ namespace Game.Core.PostProcessing
         Material m_ScreenSpaceReflectionMaterial;
 
         bool m_SupportARGBHalf = true;
-        const int k_MaxPyramidSize = 16;
 
         RTHandle m_TestRT;
         RTHandle m_ResloveRT;
@@ -156,6 +157,8 @@ namespace Game.Core.PostProcessing
         const int k_NumHistoryTextures = 2;
         RTHandle[] m_HistoryPingPongRT = new RTHandle[k_NumHistoryTextures];
         int m_PingPong = 0;
+
+        public override ScriptableRenderPassInput input => ScriptableRenderPassInput.Depth | ScriptableRenderPassInput.Normal;
 
         public void GetHistoryPingPongRT(ref RTHandle rt1, ref RTHandle rt2)
         {
@@ -174,17 +177,13 @@ namespace Game.Core.PostProcessing
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
         {
             m_ScreenSpaceReflectionDescriptor = renderingData.cameraData.cameraTargetDescriptor;
-            m_ScreenSpaceReflectionDescriptor.msaaSamples = 1;
-            m_ScreenSpaceReflectionDescriptor.depthBufferBits = 0;
-
             int size = Mathf.ClosestPowerOfTwo(Mathf.Min(m_ScreenSpaceReflectionDescriptor.width, m_ScreenSpaceReflectionDescriptor.height));
 
             if (settings.resolution.value == ScreenSpaceReflection.Resolution.Half)
                 size >>= 1;
             else if (settings.resolution.value == ScreenSpaceReflection.Resolution.Double)
                 size <<= 1;
-            m_ScreenSpaceReflectionDescriptor.width = size;
-            m_ScreenSpaceReflectionDescriptor.height = size;
+            GetCompatibleDescriptor(ref m_ScreenSpaceReflectionDescriptor, size, size, m_ScreenSpaceReflectionDescriptor.graphicsFormat);
 
 
             // SSR 移动端用B10G11R11 见MakeRenderTextureGraphicsFormat 就算不管Alpha通道问题 精度也非常难受
@@ -201,11 +200,10 @@ namespace Game.Core.PostProcessing
                 m_ScreenSpaceReflectionDescriptor.colorFormat = RenderTextureFormat.ARGB32;
             }
 
-            RenderingUtils.ReAllocateIfNeeded(ref m_TestRT, testDesc, FilterMode.Point, name: "_TestTex");
-            RenderingUtils.ReAllocateIfNeeded(ref m_ResloveRT, m_ScreenSpaceReflectionDescriptor, FilterMode.Bilinear, name: "_ResolveTex");
-            RenderingUtils.ReAllocateIfNeeded(ref m_ResloveBlurRT, m_ScreenSpaceReflectionDescriptor, FilterMode.Bilinear, name: "_ResolveBlurTex");
+            RenderingUtils.ReAllocateHandleIfNeeded(ref m_TestRT, testDesc, FilterMode.Point, name: "_SSR_TestTex");
+            RenderingUtils.ReAllocateHandleIfNeeded(ref m_ResloveRT, m_ScreenSpaceReflectionDescriptor, FilterMode.Bilinear, name: "_SSR_ResolveTex");
+            RenderingUtils.ReAllocateHandleIfNeeded(ref m_ResloveBlurRT, m_ScreenSpaceReflectionDescriptor, FilterMode.Bilinear, name: "_SSR_ResolveBlurTex");
         }
-
 
         public override void Render(CommandBuffer cmd, RTHandle source, RTHandle target, ref RenderingData renderingData)
         {
@@ -225,8 +223,8 @@ namespace Game.Core.PostProcessing
             // 简化版本没有用Jitter所以sceneview部分就不处理了
             if (!renderingData.cameraData.isSceneViewCamera && settings.antiFlicker.value)
             {
-                RenderingUtils.ReAllocateIfNeeded(ref m_HistoryPingPongRT[0], m_ScreenSpaceReflectionDescriptor);
-                RenderingUtils.ReAllocateIfNeeded(ref m_HistoryPingPongRT[1], m_ScreenSpaceReflectionDescriptor);
+                RenderingUtils.ReAllocateHandleIfNeeded(ref m_HistoryPingPongRT[0], m_ScreenSpaceReflectionDescriptor);
+                RenderingUtils.ReAllocateHandleIfNeeded(ref m_HistoryPingPongRT[1], m_ScreenSpaceReflectionDescriptor);
 
                 // 不确定移动端CopyTexture的支持，所以先用这种方法
                 RTHandle rt1 = null, rt2 = null;

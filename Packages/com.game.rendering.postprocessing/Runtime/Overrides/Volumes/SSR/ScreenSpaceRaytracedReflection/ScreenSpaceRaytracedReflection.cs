@@ -323,24 +323,24 @@ namespace Game.Core.PostProcessing
             sourceDesc.msaaSamples = 1;
             sourceDesc.depthBufferBits = 0;
 
-            RenderingUtils.ReAllocateIfNeeded(ref m_RayCastTargetHandle, sourceDesc, FilterMode.Point, name: "_SSR_RayCastRT");
-            RenderingUtils.ReAllocateIfNeeded(ref m_ReflectionTargetHandle, sourceDesc, FilterMode.Point, name: "_SSR_ReflectionRT");
+            RenderingUtils.ReAllocateHandleIfNeeded(ref m_RayCastTargetHandle, sourceDesc, FilterMode.Point, name: "_SSR_RayCastRT");
+            RenderingUtils.ReAllocateHandleIfNeeded(ref m_ReflectionTargetHandle, sourceDesc, FilterMode.Point, name: "_SSR_ReflectionRT");
 
 
             var depthDesc = sourceDesc;
             depthDesc.colorFormat = settings.computeBackFaces.value ? RenderTextureFormat.RGHalf : RenderTextureFormat.RHalf;
             depthDesc.sRGB = false;
             // sourceDesc.depthBufferBits = 32;
-            RenderingUtils.ReAllocateIfNeeded(ref m_DownscaleDepthTargetHandle, depthDesc, FilterMode.Point, name: "_SSR_DownscaleDepthRT");
+            RenderingUtils.ReAllocateHandleIfNeeded(ref m_DownscaleDepthTargetHandle, depthDesc, FilterMode.Point, name: "_SSR_DownscaleDepthRT");
 
 
             // temporalFilter
             if (settings.temporalFilter.value)
             {
                 prevs.TryGetValue(camera, out RTHandle prev);
-                RenderingUtils.ReAllocateIfNeeded(ref prev, sourceDesc, FilterMode.Bilinear, name: "_SSR_TemporalFilterRT");
+                RenderingUtils.ReAllocateHandleIfNeeded(ref prev, sourceDesc, FilterMode.Bilinear, name: "_SSR_TemporalFilterRT");
                 prevs[camera] = prev;
-                RenderingUtils.ReAllocateIfNeeded(ref m_TempAcumTargetHandle, sourceDesc, FilterMode.Bilinear, name: "_SSR_TempAcumRT");
+                RenderingUtils.ReAllocateHandleIfNeeded(ref m_TempAcumTargetHandle, sourceDesc, FilterMode.Bilinear, name: "_SSR_TempAcumRT");
             }
 
 
@@ -360,8 +360,8 @@ namespace Game.Core.PostProcessing
             {
                 blurDesc.width = Mathf.Max(2, blurDesc.width / 2);
                 blurDesc.height = Mathf.Max(2, blurDesc.height / 2);
-                RenderingUtils.ReAllocateIfNeeded(ref m_BlurMipDownTargetHandles[k], blurDesc, FilterMode.Bilinear, name: "_SSR_BlurMip" + k);
-                RenderingUtils.ReAllocateIfNeeded(ref m_BlurMipDownTargetHandles2[k], blurDesc, FilterMode.Bilinear, name: "_SSR_BlurMip" + k);
+                RenderingUtils.ReAllocateHandleIfNeeded(ref m_BlurMipDownTargetHandles[k], blurDesc, FilterMode.Bilinear, name: "_SSR_BlurMip" + k);
+                RenderingUtils.ReAllocateHandleIfNeeded(ref m_BlurMipDownTargetHandles2[k], blurDesc, FilterMode.Bilinear, name: "_SSR_BlurMip" + k);
             }
 
         }

@@ -101,12 +101,11 @@ namespace Game.Core.PostProcessing
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
         {
             var desc = renderingData.cameraData.cameraTargetDescriptor;
-            desc.graphicsFormat = GraphicsFormat.R8_UNorm;
-            desc.depthBufferBits = 0;
+            GetCompatibleDescriptor(ref desc, GraphicsFormat.R8_UNorm);
             desc.enableRandomWrite = true;
             desc.useMipMap = false;
 
-            RenderingUtils.ReAllocateIfNeeded(ref m_PassData.contactShadowsTexture, desc);
+            RenderingUtils.ReAllocateHandleIfNeeded(ref m_PassData.contactShadowsTexture, desc);
 
             Shader.SetGlobalTexture("_ContactShadowMap", m_PassData.contactShadowsTexture);
         }

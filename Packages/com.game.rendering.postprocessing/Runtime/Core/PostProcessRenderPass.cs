@@ -8,7 +8,7 @@ using UnityEngine.Rendering.Universal;
 
 namespace Game.Core.PostProcessing
 {
-    public class PostProcessRenderPass : ScriptableRenderPass
+    public partial class PostProcessRenderPass : ScriptableRenderPass
     {
         List<PostProcessRenderer> m_PostProcessRenderers;
         List<PostProcessRenderer> m_ActivePostProcessRenderers;
@@ -127,8 +127,8 @@ namespace Game.Core.PostProcessing
             sourceDesc.msaaSamples = 1;
             sourceDesc.depthBufferBits = 0;
 
-            RenderingUtils.ReAllocateIfNeeded(ref m_TempRT0, sourceDesc, name: "_TempRT0");
-            RenderingUtils.ReAllocateIfNeeded(ref m_TempRT1, sourceDesc, name: "_TempRT1");
+            RenderingUtils.ReAllocateHandleIfNeeded(ref m_TempRT0, sourceDesc, name: "_TempRT0");
+            RenderingUtils.ReAllocateHandleIfNeeded(ref m_TempRT1, sourceDesc, name: "_TempRT1");
         }
 
         // 在OnCameraSetup之后Execute之前，暂时先不放在这个阶段

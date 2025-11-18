@@ -68,7 +68,7 @@ namespace Game.Core.PostProcessing
             }
             
             
-            RenderingUtils.ReAllocateIfNeeded(ref m_HiZDepthRT, m_HiZDepthDesc, FilterMode.Point, wrapMode: TextureWrapMode.Clamp, name: "HiZDepthRT");
+            RenderingUtils.ReAllocateHandleIfNeeded(ref m_HiZDepthRT, m_HiZDepthDesc, FilterMode.Point, wrapMode: TextureWrapMode.Clamp, name: "HiZDepthRT");
             
           
             if (m_HiZMipsLevelRT == null || m_HiZMipsLevelRT.Length != m_HiZMipLevels)
@@ -95,7 +95,7 @@ namespace Game.Core.PostProcessing
                 m_HiZMipDesc.width = width;
                 m_HiZMipDesc.height = height;
             
-                RenderingUtils.ReAllocateIfNeeded(ref m_HiZMipsLevelRT[i], m_HiZMipDesc, FilterMode.Point, wrapMode: TextureWrapMode.Clamp, name: "HiZDepthRT_Mip_" + i);
+                RenderingUtils.ReAllocateHandleIfNeeded(ref m_HiZMipsLevelRT[i], m_HiZMipDesc, FilterMode.Point, wrapMode: TextureWrapMode.Clamp, name: "HiZDepthRT_Mip_" + i);
             }
             
             ConfigureTarget(m_HiZDepthRT);

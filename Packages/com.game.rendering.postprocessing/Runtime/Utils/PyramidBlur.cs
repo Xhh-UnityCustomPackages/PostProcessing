@@ -74,8 +74,8 @@ namespace Game.Core.PostProcessing
             //down
             for (int level = 0; level < iterations; level++)
             {
-                RenderingUtils.ReAllocateIfNeeded(ref s_TempDown[level], desc, FilterMode.Point, name: $"_BlurPyramid_Down_{level}");
-                RenderingUtils.ReAllocateIfNeeded(ref s_TemmpUp[level], desc, FilterMode.Point, name: $"_BlurPyramid_Up_{level}");
+                RenderingUtils.ReAllocateHandleIfNeeded(ref s_TempDown[level], desc, FilterMode.Point, name: $"_BlurPyramid_Down_{level}");
+                RenderingUtils.ReAllocateHandleIfNeeded(ref s_TemmpUp[level], desc, FilterMode.Point, name: $"_BlurPyramid_Up_{level}");
 
                 var downPassTarget = iterations == 1 ? target : s_TempDown[level];
                 var currentTarget = level == 0 ? source : last;

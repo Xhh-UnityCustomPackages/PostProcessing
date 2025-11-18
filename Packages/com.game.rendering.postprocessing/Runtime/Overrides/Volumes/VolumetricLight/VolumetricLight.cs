@@ -198,17 +198,16 @@ namespace Game.Core.PostProcessing
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
         {
             m_Descriptor = renderingData.cameraData.cameraTargetDescriptor;
-            m_Descriptor.msaaSamples = 1;
-            m_Descriptor.depthBufferBits = 0;
+            GetCompatibleDescriptor(ref  m_Descriptor, m_Descriptor.graphicsFormat);
 
-            RenderingUtils.ReAllocateIfNeeded(ref m_VolumetricLightRT, m_Descriptor, FilterMode.Bilinear, name: "_VolumetricLightRT");
+            RenderingUtils.ReAllocateHandleIfNeeded(ref m_VolumetricLightRT, m_Descriptor, FilterMode.Bilinear, name: "_VolumetricLightRT");
 
             if (settings.downSample.value == VolumetricLight.DownSample.Half)
             {
                 //降采样
                 DescriptorDownSample(ref m_Descriptor, 2);
-                RenderingUtils.ReAllocateIfNeeded(ref m_HalfVolumetricLightRT, m_Descriptor, FilterMode.Bilinear, name: "_HalfVolumetricLightRT");
-                RenderingUtils.ReAllocateIfNeeded(ref m_TempRT, m_Descriptor, FilterMode.Bilinear, name: "_VolumetricLightTempRT");
+                RenderingUtils.ReAllocateHandleIfNeeded(ref m_HalfVolumetricLightRT, m_Descriptor, FilterMode.Bilinear, name: "_HalfVolumetricLightRT");
+                RenderingUtils.ReAllocateHandleIfNeeded(ref m_TempRT, m_Descriptor, FilterMode.Bilinear, name: "_VolumetricLightTempRT");
 
                 m_DepthDescriptor = renderingData.cameraData.cameraTargetDescriptor;
                 m_DepthDescriptor.msaaSamples = 1;
@@ -222,7 +221,7 @@ namespace Game.Core.PostProcessing
                 m_DepthDescriptor.depthBufferBits = 0;
 
                 DescriptorDownSample(ref m_DepthDescriptor, 2);
-                RenderingUtils.ReAllocateIfNeeded(ref m_HalfDepthRT, m_DepthDescriptor, FilterMode.Bilinear, name: "_HalfDepthRT");
+                RenderingUtils.ReAllocateHandleIfNeeded(ref m_HalfDepthRT, m_DepthDescriptor, FilterMode.Bilinear, name: "_HalfDepthRT");
             }
         }
 

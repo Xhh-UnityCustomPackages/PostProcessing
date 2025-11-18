@@ -37,8 +37,8 @@ struct Result
 // Uniforms
 //
 TEXTURE2D(_NoiseTex);
-TEXTURE2D(_TestTex);
-TEXTURE2D(_ResolveTex);
+TEXTURE2D(_SSR_TestTex);
+TEXTURE2D(_SSR_ResolveTex);
 
 TEXTURE2D(_HistoryTex);
 TEXTURE2D_FLOAT(_MotionVectorTexture);
@@ -46,6 +46,7 @@ TEXTURE2D_FLOAT(_MotionVectorTexture);
 TEXTURE2D_HALF(_GBuffer0);
 TEXTURE2D_HALF(_GBuffer1);
 TEXTURE2D_HALF(_GBuffer2);
+TEXTURE2D_HALF(_CameraNormalsTexture);
 
 // copy depth of gbuffer
 TEXTURE2D_FLOAT(_MaskDepthRT);              SAMPLER(sampler_MaskDepthRT);
@@ -54,9 +55,7 @@ TEXTURE2D_FLOAT(_MaskDepthRT);              SAMPLER(sampler_MaskDepthRT);
 TEXTURE2D(_MinimapPlanarReflectTex);        SAMPLER(sampler_MinimapPlanarReflectTex);
 
 
-// URP 17 在其他HLSL定义了 在这不需要定义了
-// float4 _BlitTexture_TexelSize;
-float4 _TestTex_TexelSize;
+float4 _SSR_TestTex_TexelSize;
 
 float4x4 _ViewMatrixSSR;
 float4x4 _InverseViewMatrixSSR;
@@ -92,7 +91,7 @@ half4 _Inutan_GlossyEnvironmentCubeMap_HDR;
 float3 GetNormalWS(float2 uv)
 {
     //Deferred
-    half4 gbuffer2 = SAMPLE_TEXTURE2D_LOD(_GBuffer2, sampler_PointClamp, uv, 0);
+    half4 gbuffer2 = SAMPLE_TEXTURE2D_LOD(_CameraNormalsTexture, sampler_PointClamp, uv, 0);
     float3 normalWS = normalize(UnpackNormal(gbuffer2.xyz));
     //forward
     return normalWS;

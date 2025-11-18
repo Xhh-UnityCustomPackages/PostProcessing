@@ -47,7 +47,7 @@ namespace Game.Core.PostProcessing
             desc.depthStencilFormat = GraphicsFormat.None;
             desc.enableRandomWrite = true;
 
-            RenderingUtils.ReAllocateIfNeeded(ref debugRTHandle, desc);
+            RenderingUtils.ReAllocateHandleIfNeeded(ref debugRTHandle, desc);
 
             cameraDepthRTHandle = renderingData.cameraData.renderer.cameraDepthTargetHandle;
         }

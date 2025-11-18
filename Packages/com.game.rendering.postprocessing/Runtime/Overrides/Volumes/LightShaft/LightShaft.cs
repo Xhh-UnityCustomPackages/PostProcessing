@@ -93,16 +93,15 @@ namespace Game.Core.PostProcessing
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
         {
             m_Descriptor = renderingData.cameraData.cameraTargetDescriptor;
-            m_Descriptor.msaaSamples = 1;
-            m_Descriptor.depthBufferBits = 0;
+            GetCompatibleDescriptor(ref m_Descriptor, m_Descriptor.graphicsFormat);
 
             if ((int)settings.downSample.value > 1)
             {
                 DescriptorDownSample(ref m_Descriptor, (int)settings.downSample.value);
             }
 
-            RenderingUtils.ReAllocateIfNeeded(ref m_LightShaftRT0, m_Descriptor, FilterMode.Bilinear, name: "_LightShaftRT0");
-            RenderingUtils.ReAllocateIfNeeded(ref m_LightShaftRT1, m_Descriptor, FilterMode.Bilinear, name: "_LightShaftRT1");
+            RenderingUtils.ReAllocateHandleIfNeeded(ref m_LightShaftRT0, m_Descriptor, FilterMode.Bilinear, name: "_LightShaftRT0");
+            RenderingUtils.ReAllocateHandleIfNeeded(ref m_LightShaftRT1, m_Descriptor, FilterMode.Bilinear, name: "_LightShaftRT1");
         }
 
         public override void Render(CommandBuffer cmd, RTHandle source, RTHandle target, ref RenderingData renderingData)

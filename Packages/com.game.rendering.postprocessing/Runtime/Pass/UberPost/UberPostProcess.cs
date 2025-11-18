@@ -57,7 +57,7 @@ namespace Game.Core.PostProcessing
             ref ScriptableRenderer renderer = ref cameraData.renderer;
             var source = renderer.cameraColorTargetHandle;
 
-            RenderingUtils.ReAllocateIfNeeded(ref m_CameraTargetHandle, GetCompatibleDescriptor(), FilterMode.Bilinear, TextureWrapMode.Clamp, name: "_TempTarget");
+            RenderingUtils.ReAllocateHandleIfNeeded(ref m_CameraTargetHandle, GetCompatibleDescriptor(), FilterMode.Bilinear, TextureWrapMode.Clamp, name: "_TempTarget");
 
             TonemappingRenderer.ExecutePass(cmd, m_Material, m_Tonemapping);
 

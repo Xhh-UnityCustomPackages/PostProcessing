@@ -335,9 +335,9 @@ namespace Game.Core.PostProcessing
                 DescriptorDownSample(ref m_AmbientOcclusionDescriptor, 4);
             }
 
-            RenderingUtils.ReAllocateIfNeeded(ref m_OcclusionFinalRT, m_AmbientOcclusionDescriptor, FilterMode.Bilinear, name: "OcclusionFinalRT");
-            RenderingUtils.ReAllocateIfNeeded(ref m_OcclusionDepthRT, m_AmbientOcclusionDescriptor, FilterMode.Bilinear, name: "OcclusionDepthRT");
-            RenderingUtils.ReAllocateIfNeeded(ref m_OcclusionTempRT, m_AmbientOcclusionDescriptor, FilterMode.Bilinear, name: "OcclusionTempRT");
+            RenderingUtils.ReAllocateHandleIfNeeded(ref m_OcclusionFinalRT, m_AmbientOcclusionDescriptor, FilterMode.Bilinear, name: "OcclusionFinalRT");
+            RenderingUtils.ReAllocateHandleIfNeeded(ref m_OcclusionDepthRT, m_AmbientOcclusionDescriptor, FilterMode.Bilinear, name: "OcclusionDepthRT");
+            RenderingUtils.ReAllocateHandleIfNeeded(ref m_OcclusionTempRT, m_AmbientOcclusionDescriptor, FilterMode.Bilinear, name: "OcclusionTempRT");
 
             m_RenderPass.ConfigureTarget(m_OcclusionFinalRT);
         }

@@ -91,7 +91,7 @@ namespace Game.Core.PostProcessing
 
             for (int i = 0; i < m_AutoExposurePool.Length; i++)
             {
-                RenderingUtils.ReAllocateIfNeeded(ref m_AutoExposurePool[i], desc);
+                RenderingUtils.ReAllocateHandleIfNeeded(ref m_AutoExposurePool[i], desc);
             }
         }
 

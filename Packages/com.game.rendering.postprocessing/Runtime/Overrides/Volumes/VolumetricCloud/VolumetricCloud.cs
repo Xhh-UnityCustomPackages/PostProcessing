@@ -130,11 +130,11 @@ namespace Game.Core.PostProcessing
             // 下采样
             desc.width /= downSample;
             desc.height /= downSample;
-            RenderingUtils.ReAllocateIfNeeded(ref CloudColorBuffer, desc, filterMode, TextureWrapMode.Clamp, name: "_VoxCloudColorBuffer");
+            RenderingUtils.ReAllocateHandleIfNeeded(ref CloudColorBuffer, desc, filterMode, TextureWrapMode.Clamp, name: "_VoxCloudColorBuffer");
             desc.width /= settings.blurDownSample.value;
             desc.height /= settings.blurDownSample.value;
-            RenderingUtils.ReAllocateIfNeeded(ref bloomRT_Temp0, desc, filterMode, TextureWrapMode.Clamp, name: "_VoxCloudBlurTemp0");
-            RenderingUtils.ReAllocateIfNeeded(ref bloomRT_Temp1, desc, filterMode, TextureWrapMode.Clamp, name: "_VoxCloudBlurTemp1");
+            RenderingUtils.ReAllocateHandleIfNeeded(ref bloomRT_Temp0, desc, filterMode, TextureWrapMode.Clamp, name: "_VoxCloudBlurTemp0");
+            RenderingUtils.ReAllocateHandleIfNeeded(ref bloomRT_Temp1, desc, filterMode, TextureWrapMode.Clamp, name: "_VoxCloudBlurTemp1");
 
             // ConfigureTarget(CloudColorBuffer);
             // ConfigureClear(ClearFlag.Color, Color.clear);

@@ -79,7 +79,7 @@ namespace Game.Core.PostProcessing
             var desc = renderingData.cameraData.cameraTargetDescriptor;
             desc.colorFormat = RenderTextureFormat.ARGB32;
             desc.depthBufferBits = 0;
-            RenderingUtils.ReAllocateIfNeeded(ref m_SobelResultRT, desc, name: "_SobelResultRT");
+            RenderingUtils.ReAllocateHandleIfNeeded(ref m_SobelResultRT, desc, name: "_SobelResultRT");
         }
 
         public override void Render(CommandBuffer cmd, RTHandle source, RTHandle destination, ref RenderingData renderingData)

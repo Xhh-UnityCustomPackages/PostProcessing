@@ -221,17 +221,17 @@ namespace Game.Core.PostProcessing
             if (settings.resolution != StochasticScreenSpaceReflection.RenderResolution.Full)
                 DescriptorDownSample(ref desc, (int)settings.resolution.value);
 
-            RenderingUtils.ReAllocateIfNeeded(ref m_SSR_TrackMask[0], desc, name: "_SSR_RayHit");
-            RenderingUtils.ReAllocateIfNeeded(ref m_SSR_TrackMask[1], desc, name: "_SSR_TrackMask");
+            RenderingUtils.ReAllocateHandleIfNeeded(ref m_SSR_TrackMask[0], desc, name: "_SSR_RayHit");
+            RenderingUtils.ReAllocateHandleIfNeeded(ref m_SSR_TrackMask[1], desc, name: "_SSR_TrackMask");
 
             SSR_TraceMask_ID[0] = m_SSR_TrackMask[0].nameID;
             SSR_TraceMask_ID[1] = m_SSR_TrackMask[1].nameID;
 
 
-            RenderingUtils.ReAllocateIfNeeded(ref m_SSR_Spatial_RT, soatialDesc, FilterMode.Bilinear, name: "_SSR_Spatial");
-            RenderingUtils.ReAllocateIfNeeded(ref m_SSR_TemporalCurr_RT, soatialDesc, FilterMode.Bilinear, name: "_SSR_TemporalCurr_RT");
-            RenderingUtils.ReAllocateIfNeeded(ref m_SSR_TemporalPrev_RT, soatialDesc, FilterMode.Bilinear, name: "_SSR_TemporalPrev_RT");
-            RenderingUtils.ReAllocateIfNeeded(ref m_SSR_CombineScene_RT, soatialDesc, FilterMode.Point, name: "_SSR_CombineScene_RT");
+            RenderingUtils.ReAllocateHandleIfNeeded(ref m_SSR_Spatial_RT, soatialDesc, FilterMode.Bilinear, name: "_SSR_Spatial");
+            RenderingUtils.ReAllocateHandleIfNeeded(ref m_SSR_TemporalCurr_RT, soatialDesc, FilterMode.Bilinear, name: "_SSR_TemporalCurr_RT");
+            RenderingUtils.ReAllocateHandleIfNeeded(ref m_SSR_TemporalPrev_RT, soatialDesc, FilterMode.Bilinear, name: "_SSR_TemporalPrev_RT");
+            RenderingUtils.ReAllocateHandleIfNeeded(ref m_SSR_CombineScene_RT, soatialDesc, FilterMode.Point, name: "_SSR_CombineScene_RT");
         }
 
         public override void Render(CommandBuffer cmd, RTHandle source, RTHandle target, ref RenderingData renderingData)

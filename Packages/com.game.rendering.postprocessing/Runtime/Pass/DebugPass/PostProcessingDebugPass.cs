@@ -38,7 +38,7 @@ namespace Game.Core.PostProcessing
         {
             var desc = renderingData.cameraData.cameraTargetDescriptor;
             desc.depthBufferBits = 0;
-            RenderingUtils.ReAllocateIfNeeded(ref m_DebugTargetHandle, desc, name: "_PostProcessingDebugTarget");
+            RenderingUtils.ReAllocateHandleIfNeeded(ref m_DebugTargetHandle, desc, name: "_PostProcessingDebugTarget");
         }
 
         public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)

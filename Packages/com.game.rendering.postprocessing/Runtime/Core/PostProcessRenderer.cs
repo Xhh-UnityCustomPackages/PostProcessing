@@ -2,14 +2,15 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
+using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Rendering.Universal;
 
 namespace Game.Core.PostProcessing
 {
     public abstract class PostProcessRenderer
     {
-        static readonly int m_SourceTex = Shader.PropertyToID("_SourceTex");
         bool m_Initialized = false;
         bool m_ShowHide = false;
 
@@ -45,6 +46,11 @@ namespace Game.Core.PostProcessing
         // 只会调用一次
         public virtual void Setup() { }
         public abstract void Render(CommandBuffer cmd, RTHandle source, RTHandle destination, ref RenderingData renderingData);
+
+        public virtual void DoRenderGraph(RenderGraph renderGraph, TextureHandle source, TextureHandle destination, ref UniversalResourceData resourceData, ref UniversalCameraData cameraData)
+        {
+        }
+
         public virtual void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData) { }
         public virtual void OnCameraCleanup(CommandBuffer cmd) { }
         public virtual void AddRenderPasses(ref RenderingData renderingData) { }
@@ -88,6 +94,22 @@ namespace Game.Core.PostProcessing
         protected void Blit(CommandBuffer cmd, RTHandle source, RTHandle destination)
         {
             Blitter.BlitCameraTexture(cmd, source, destination);
+        }
+
+        protected void GetCompatibleDescriptor(ref RenderTextureDescriptor desc, GraphicsFormat format)
+        {
+            desc.graphicsFormat = format;
+            desc.msaaSamples = 1;
+            desc.depthBufferBits = 0;
+        }
+        
+        protected void GetCompatibleDescriptor(ref RenderTextureDescriptor desc, int width, int height, GraphicsFormat format)
+        {
+            desc.width = width;
+            desc.height = height;
+            desc.graphicsFormat = format;
+            desc.msaaSamples = 1;
+            desc.depthBufferBits = 0;
         }
 
         protected void DescriptorDownSample(ref RenderTextureDescriptor desc, int downSample)

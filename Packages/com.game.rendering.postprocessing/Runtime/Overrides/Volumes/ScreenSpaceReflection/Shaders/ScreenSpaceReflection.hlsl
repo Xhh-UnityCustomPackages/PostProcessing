@@ -75,7 +75,7 @@ float4 FragReproject(Varyings input) : SV_Target
 
 float4 FragResolve(Varyings input) : SV_Target
 {
-    float4 test = SAMPLE_TEXTURE2D(_TestTex, sampler_PointClamp, input.texcoord);
+    float4 test = SAMPLE_TEXTURE2D(_SSR_TestTex, sampler_PointClamp, input.texcoord);
 
     // 兼容HDR R11G11B10格式 alpha通道isHit替代判断
     test.w = test.z > 0;
@@ -132,7 +132,7 @@ float4 FragComposite(Varyings input) : SV_Target
 
     half4 gbuffer0 = SAMPLE_TEXTURE2D_LOD(_GBuffer0, sampler_PointClamp, uv, 0);
     half4 gbuffer1 = SAMPLE_TEXTURE2D_LOD(_GBuffer1, sampler_PointClamp, uv, 0);
-    half4 gbuffer2 = SAMPLE_TEXTURE2D_LOD(_GBuffer2, sampler_PointClamp, uv, 0);
+    half4 gbuffer2 = SAMPLE_TEXTURE2D_LOD(_CameraNormalsTexture, sampler_PointClamp, uv, 0);
 
     // uint materialFlags = UnpackMaterialFlags(gbuffer0.a);
 
@@ -167,7 +167,7 @@ float4 FragComposite(Varyings input) : SV_Target
     float4 resolve = 0;
     // UNITY_BRANCH
     // if (_MobileMode == 0)
-    resolve = SAMPLE_TEXTURE2D(_ResolveTex, sampler_LinearClamp, uv);
+    resolve = SAMPLE_TEXTURE2D(_SSR_ResolveTex, sampler_LinearClamp, uv);
     // UNITY_BRANCH
     // if (_MobileMode == 3)
     //     resolve = SAMPLE_TEXTURE2D(_MinimapPlanarReflectTex, sampler_MinimapPlanarReflectTex, uv);
@@ -276,7 +276,7 @@ float4 FragMobilePlanarReflection(Varyings input) : SV_Target
     half fresnelTerm = Pow4(1.0 - NoV) * (1.0 - NoV);
 
     // TODO 简化版本 没有做mipmap模糊 无法根据粗糙度采样
-    float4 resolve = SAMPLE_TEXTURE2D(_ResolveTex, sampler_LinearClamp, uv);
+    float4 resolve = SAMPLE_TEXTURE2D(_SSR_ResolveTex, sampler_LinearClamp, uv);
 
     float confidence = saturate(2.0 * dot(-viewDirectionWS, normalize(reflectVector)));
 
