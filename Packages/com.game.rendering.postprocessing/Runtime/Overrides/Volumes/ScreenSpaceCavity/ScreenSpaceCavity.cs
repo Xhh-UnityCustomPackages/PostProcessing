@@ -93,7 +93,7 @@ namespace Game.Core.PostProcessing
 
 
     [PostProcess("ScreenSpaceCavity", PostProcessInjectionPoint.AfterRenderingSkybox)]
-    public class ScreenSpaceCavityRenderer : PostProcessVolumeRenderer<ScreenSpaceCavity>
+    public partial class ScreenSpaceCavityRenderer : PostProcessVolumeRenderer<ScreenSpaceCavity>
     {
         static class ShaderConstants
         {
@@ -140,7 +140,6 @@ namespace Game.Core.PostProcessing
 
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
         {
-
             RenderTextureDescriptor cameraTargetDescriptor = renderingData.cameraData.cameraTargetDescriptor;
             var desc = cameraTargetDescriptor;
             GetCompatibleDescriptor(ref desc, desc.graphicsFormat);

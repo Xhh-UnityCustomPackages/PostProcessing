@@ -10,9 +10,9 @@ namespace Game.Core.PostProcessing
         private class ScreenSpaceReflectionPassData
         {
             // Setup
+            public Material material;
             // Inputs
             internal TextureHandle sourceTexture;
-            public Material material;
             // Pass textures
             internal TextureHandle testTexture;
             internal TextureHandle resolveTexture;
@@ -138,7 +138,7 @@ namespace Game.Core.PostProcessing
                 passData.gBuffer1 = gBuffer[1];
                 passData.gBuffer2 = gBuffer[2];
                 
-                builder.AllowPassCulling(false);
+                // builder.AllowPassCulling(false);
                 
                 builder.SetRenderFunc(static (ScreenSpaceReflectionPassData data, UnsafeGraphContext context) =>
                 {
