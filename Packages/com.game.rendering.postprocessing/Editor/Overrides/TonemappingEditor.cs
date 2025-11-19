@@ -23,6 +23,14 @@ namespace Game.Core.PostProcessing.UnityEditor
         SerializedDataParameter m_FilmShoulder;
         SerializedDataParameter m_FilmBlackClip;
         SerializedDataParameter m_FilmWhiteClip;
+        
+        //Custom GT
+        SerializedDataParameter maximumBrightness;
+        SerializedDataParameter contrast;
+        SerializedDataParameter linearSectionStart;
+        SerializedDataParameter linearSectionLength;
+        SerializedDataParameter blackTightness;
+        SerializedDataParameter blackMin;
 
 
         public override void OnEnable()
@@ -40,6 +48,13 @@ namespace Game.Core.PostProcessing.UnityEditor
             m_FilmShoulder = Unpack(o.Find(x => x.filmShoulder));
             m_FilmBlackClip = Unpack(o.Find(x => x.filmBlackClip));
             m_FilmWhiteClip = Unpack(o.Find(x => x.filmWhiteClip));
+            
+            maximumBrightness = Unpack(o.Find(x => x.maximumBrightness));
+            contrast = Unpack(o.Find(x => x.contrast));
+            linearSectionStart = Unpack(o.Find(x => x.linearSectionStart));
+            linearSectionLength = Unpack(o.Find(x => x.linearSectionLength));
+            blackTightness = Unpack(o.Find(x => x.blackTightness));
+            blackMin = Unpack(o.Find(x => x.blackMin));
         }
 
 
@@ -66,6 +81,16 @@ namespace Game.Core.PostProcessing.UnityEditor
                         PropertyField(m_FilmWhiteClip);
                     }
                 }
+            }
+            else if (m_Mode.value.GetEnumValue<Tonemapping.TonemappingMode>() == Tonemapping.TonemappingMode.CustomGT)
+            {
+                EditorGUILayout.Space();
+                PropertyField(maximumBrightness);
+                PropertyField(contrast);
+                PropertyField(linearSectionStart);
+                PropertyField(linearSectionLength);
+                PropertyField(blackTightness);
+                PropertyField(blackMin);
             }
 
         }

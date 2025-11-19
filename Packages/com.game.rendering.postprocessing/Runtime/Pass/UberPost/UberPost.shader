@@ -3,10 +3,6 @@ Shader "Hidden/UberPost"
     
     HLSLINCLUDE
 
-
-    #pragma multi_compile_local_fragment _  _TONEMAP_ACES _TONEMAP_NEUTRAL _TONEMAP_GT
-
-
     #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
     #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
     #include "Packages/com.unity.render-pipelines.universal/Shaders/PostProcessing/Common.hlsl"
@@ -46,6 +42,8 @@ Shader "Hidden/UberPost"
             Name "UberPost"
 
             HLSLPROGRAM
+            #pragma multi_compile_local_fragment _  _TONEMAP_ACES _TONEMAP_NEUTRAL _TONEMAP_GT _TONEMAP_GT_CUSTOM _TONEMAP_NAES _TONEMAP_LOG2
+            
             #pragma vertex Vert
             #pragma fragment Frag
             ENDHLSL
