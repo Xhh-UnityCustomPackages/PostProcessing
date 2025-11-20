@@ -13,7 +13,7 @@ namespace Game.Core.PostProcessing
     {
         // 只是为了隐式处理点击总的选项开关功能
         [HideInInspector]
-        public BoolParameter enabled = new BoolParameter(true, true);
+        public BoolParameter enabled = new (true, true);
         public abstract bool IsActive();
         public bool IsTileCompatible() => false;
     }

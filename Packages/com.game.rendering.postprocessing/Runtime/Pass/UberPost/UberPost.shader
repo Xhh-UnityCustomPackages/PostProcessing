@@ -3,10 +3,16 @@ Shader "Hidden/UberPost"
     
     HLSLINCLUDE
 
+    #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
+    #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Filtering.hlsl"
+    #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/ScreenCoordOverride.hlsl"
     #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
-    #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
     #include "Packages/com.unity.render-pipelines.universal/Shaders/PostProcessing/Common.hlsl"
+    #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Debug/DebuggingFullscreen.hlsl"
+    #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/DynamicScalingClamping.hlsl"
+    #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRendering.hlsl"
     #include "Packages/com.game.rendering.postprocessing/Runtime/Overrides/Volumes/Tonemapping/Shaders/Tonemapping.hlsl"
+    #include "Packages/com.game.rendering.postprocessing/Runtime/Overrides/Volumes/Vignette/Shaders/Vignette.hlsl"
 
     TEXTURE2D(_AutoExposureLUT);
     
@@ -19,10 +25,11 @@ Shader "Hidden/UberPost"
 
     half4 Frag(Varyings input) : SV_Target
     {
-        float2 uv = input.texcoord;
+        float2 uv = SCREEN_COORD_APPLY_SCALEBIAS(UnityStereoTransformScreenSpaceTex(input.texcoord));
         half3 color = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv).xyz;
 
         color = ApplyExposure(color);
+        color = ApplyVignette(color, uv);
         color = ApplyTonemaping(color);
 
         return half4(color, 1.0);

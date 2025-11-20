@@ -18,7 +18,8 @@ namespace Game.Core.PostProcessing
         RTHandle m_CameraTargetHandle;
 
 
-        Tonemapping m_Tonemapping;
+        private Tonemapping m_Tonemapping;
+        private Vignette m_Vignette;
 
         public UberPostProcess(PostProcessFeatureData PostProcessFeatureData)
         {
@@ -29,6 +30,7 @@ namespace Game.Core.PostProcessing
         {
             var stack = VolumeManager.instance.stack;
             m_Tonemapping = stack.GetComponent<Tonemapping>();
+            m_Vignette = stack.GetComponent<Vignette>();
 
             var cmd = CommandBufferPool.Get();
             using (new ProfilingScope(cmd, m_ProfilingRenderPostProcessing))
@@ -60,6 +62,7 @@ namespace Game.Core.PostProcessing
             RenderingUtils.ReAllocateHandleIfNeeded(ref m_CameraTargetHandle, GetCompatibleDescriptor(), FilterMode.Bilinear, TextureWrapMode.Clamp, name: "_TempTarget");
 
             TonemappingRenderer.ExecutePass(cmd, m_Material, m_Tonemapping);
+            VignetteRenderer.ExecutePass(cmd, m_Descriptor, m_Material, m_Vignette);
 
             Blitter.BlitCameraTexture(cmd, source, m_CameraTargetHandle, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store, m_Material, 0);
 
