@@ -15,7 +15,7 @@ Shader "Hidden/PostProcessing/Bloom"
     #define Threshold           _Params.z
     #define ThresholdKnee       _Params.w
     #define Intensity           _Bloom_Params.x
-    #define Tint                _Bloom_Params.rgb
+    #define Tint                _Bloom_Params.gba
 
     half4 EncodeHDR(half3 color)
     {

@@ -37,6 +37,7 @@ namespace Game.Core.PostProcessing
         /// Set the maximum intensity that Unity uses to calculate Bloom.
         /// If pixels in your Scene are more intense than this, URP renders them at their current intensity, but uses this intensity value for the purposes of Bloom calculations.
         /// </summary>
+        //在提取高亮的时候限制最大值
         [Tooltip("Set the maximum intensity that Unity uses to calculate Bloom. If pixels in your Scene are more intense than this, URP renders them at their current intensity, but uses this intensity value for the purposes of Bloom calculations.")]
         public MinFloatParameter clamp = new MinFloatParameter(65472f, 0f);
 
@@ -65,8 +66,10 @@ namespace Game.Core.PostProcessing
         [Tooltip("The maximum number of iterations in the effect processing sequence."), AdditionalProperty]
         public ClampedIntParameter maxIterations = new ClampedIntParameter(6, 2, 8);
 
-
-
+        
+        public BoolParameter antiFlick = new(false);
+        //在第一次降采样时，加入额外的权重来试图抹平因法线贴图碰巧 NdotL 很接近 1.0 而引起单个超高亮像素。这个做法叫做 Karis Average
+        
 
         public override bool IsActive() => intensity.value > 0f;
     }
