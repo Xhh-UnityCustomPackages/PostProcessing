@@ -15,8 +15,6 @@ namespace Game.Core.PostProcessing
             displayName = "泛光 (Bloom)";
         }
 
-
-
         [Header("Bloom")]
         [Tooltip("Filters out pixels under this level of brightness. Value is in gamma-space.")]
         public MinFloatParameter threshold = new MinFloatParameter(0.9f, 0f);
@@ -174,8 +172,18 @@ namespace Game.Core.PostProcessing
             var lastDown = m_BloomMipDown[0];
             for (int i = 0; i < m_MipmapCount; i++)
             {
-                Blitter.BlitCameraTexture(cmd, lastDown, m_BloomMipUp[i], RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store, m_Material, 1);
-                Blitter.BlitCameraTexture(cmd, m_BloomMipUp[i], m_BloomMipDown[i], RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store, m_Material, 2);
+                if (settings.antiFlick.value && i == 0)
+                {
+                    //这个方法会整体压暗,让Bloom范围不那么大
+                    Blitter.BlitCameraTexture(cmd, lastDown, m_BloomMipUp[i], RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store, m_Material, 5);
+                    Blitter.BlitCameraTexture(cmd, m_BloomMipUp[i], m_BloomMipDown[i], RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store, m_Material, 2);
+                }
+                else
+                {
+                    Blitter.BlitCameraTexture(cmd, lastDown, m_BloomMipUp[i], RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store, m_Material, 1);
+                    Blitter.BlitCameraTexture(cmd, m_BloomMipUp[i], m_BloomMipDown[i], RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store, m_Material, 2);
+                }
+                
                 
                 lastDown = m_BloomMipDown[i];
             }

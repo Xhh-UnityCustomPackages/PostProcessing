@@ -101,16 +101,53 @@ Shader "Hidden/PostProcessing/Bloom"
         half3 c0 = DecodeHDR(SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp,
                                        uv - float2(0.0, texelSize * 3.23076923)));
         half3 c1 = DecodeHDR(SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp,
-       uv - float2(0.0, texelSize * 1.38461538)));
+                                        uv - float2(0.0, texelSize * 1.38461538)));
         half3 c2 = DecodeHDR(SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv));
         half3 c3 = DecodeHDR(SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp,
-  uv + float2(0.0, texelSize * 1.38461538)));
+                                        uv + float2(0.0, texelSize * 1.38461538)));
         half3 c4 = DecodeHDR(SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp,
                                                 uv + float2(0.0, texelSize * 3.23076923)));
 
         half3 color = c0 * 0.07027027 + c1 * 0.31621622
             + c2 * 0.22702703
             + c3 * 0.31621622 + c4 * 0.07027027;
+
+        return EncodeHDR(color);
+    }
+    
+    // According to the call of duty presentation, performing a partial karis average (i.e a non linear intensity mapping function)
+    // prevents firefly effect. The Karis average is done only for mip 0 -> 1.
+    // Source (From Karis himself : https://graphicrants.blogspot.com/2013/12/tone-mapping.html)
+    float3 karisAverage(float3 color)
+    {
+        float luma = dot(color, float3(0.2126, 0.7152, 0.0722));
+        float weight = 1.0 / (1.0 + luma);
+        color *= weight;
+        return color;
+    }
+    
+    half4 FragBlurHkarisAverage(Varyings input) : SV_Target
+    {
+        UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
+        float texelSize = _BlitTexture_TexelSize.x * 2.0;
+        float2 uv = UnityStereoTransformScreenSpaceTex(input.texcoord);
+
+        // 9-tap gaussian blur on the downsampled source
+        half3 c0 = DecodeHDR(SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv - float2(texelSize * 4.0, 0.0)));
+        half3 c1 = DecodeHDR(SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv - float2(texelSize * 3.0, 0.0)));
+        half3 c2 = DecodeHDR(SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv - float2(texelSize * 2.0, 0.0)));
+        half3 c3 = DecodeHDR(SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv - float2(texelSize * 1.0, 0.0)));
+        half3 c4 = DecodeHDR(SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv));
+        half3 c5 = DecodeHDR(SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv + float2(texelSize * 1.0, 0.0)));
+        half3 c6 = DecodeHDR(SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv + float2(texelSize * 2.0, 0.0)));
+        half3 c7 = DecodeHDR(SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv + float2(texelSize * 3.0, 0.0)));
+        half3 c8 = DecodeHDR(SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv + float2(texelSize * 4.0, 0.0)));
+
+        half3 color = c0 * 0.01621622 + c1 * 0.05405405 + c2 * 0.12162162 + c3 * 0.19459459
+            + c4 * 0.22702703
+            + c5 * 0.19459459 + c6 * 0.12162162 + c7 * 0.05405405 + c8 * 0.01621622;
+
+        color = karisAverage(color);
 
         return EncodeHDR(color);
     }
@@ -202,6 +239,16 @@ Shader "Hidden/PostProcessing/Bloom"
             HLSLPROGRAM
             #pragma vertex Vert
             #pragma fragment FragCombine
+            ENDHLSL
+        }
+
+        Pass
+        {
+            Name "Bloom Blur MipDown karisAverage"
+
+            HLSLPROGRAM
+            #pragma vertex Vert
+            #pragma fragment FragBlurHkarisAverage
             ENDHLSL
         }
     }

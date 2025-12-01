@@ -24,6 +24,8 @@ namespace Game.Core.PostProcessing
             internal ProfilingSampler profilingSampler_Downsample;
             internal ProfilingSampler profilingSampler_Upsample;
             internal ProfilingSampler profilingSampler_Combine;
+
+            internal bool antiFlick;
         }
         
         TextureHandle[] _BloomMipUp;
@@ -133,6 +135,7 @@ namespace Game.Core.PostProcessing
                 passData.profilingSampler_Downsample = m_ProfilingSampler_Downsample;
                 passData.profilingSampler_Upsample = m_ProfilingSampler_Upsample;
                 passData.profilingSampler_Combine = m_ProfilingSampler_Combine;
+                passData.antiFlick = settings.antiFlick.value;
                 
                 // TODO RENDERGRAPH: properly setup dependencies between passes
                 builder.AllowPassCulling(false);
@@ -171,8 +174,16 @@ namespace Game.Core.PostProcessing
                             TextureHandle mipDown = data.bloomMipDown[i];
                             TextureHandle mipUp = data.bloomMipUp[i];
 
-                            Blitter.BlitCameraTexture(cmd, lastDown, mipUp, loadAction, storeAction, material, 1);
-                            Blitter.BlitCameraTexture(cmd, mipUp, mipDown, loadAction, storeAction, material, 2);
+                            if (data.antiFlick)
+                            {
+                                Blitter.BlitCameraTexture(cmd, lastDown, mipUp, loadAction, storeAction, material, 5);
+                                Blitter.BlitCameraTexture(cmd, mipUp, mipDown, loadAction, storeAction, material, 2);
+                            }
+                            else
+                            {
+                                Blitter.BlitCameraTexture(cmd, lastDown, mipUp, loadAction, storeAction, material, 1);
+                                Blitter.BlitCameraTexture(cmd, mipUp, mipDown, loadAction, storeAction, material, 2);
+                            }
 
                             lastDown = mipDown;
                         }

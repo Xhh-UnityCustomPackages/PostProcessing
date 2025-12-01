@@ -21,10 +21,6 @@ namespace Game.Core.PostProcessing
             Fixed
         }
 
-        [Serializable]
-        public sealed class EyeAdaptationParameter : VolumeParameter<EyeAdaptation> { }
-
-
         [InspectorName("Filtering (%)"), Tooltip("Filters the bright & dark part of the histogram when computing the average luminance to avoid very dark pixels & very bright pixels from contributing to the auto exposure. Unit is in percent.")]
         public Vector2Parameter filtering = new Vector2Parameter(new Vector2(10f, 90f));//MinMax(1f, 99f), 
 
@@ -39,7 +35,7 @@ namespace Game.Core.PostProcessing
         public MinFloatParameter compensation = new MinFloatParameter(2f, 0f);
 
         [InspectorName("Type"), Tooltip("Use \"Progressive\" if you want auto exposure to be animated. Use \"Fixed\" otherwise.")]
-        public EyeAdaptationParameter eyeAdaptation = new EyeAdaptationParameter { value = EyeAdaptation.Fixed };
+        public EnumParameter<EyeAdaptation> eyeAdaptation = new (EyeAdaptation.Fixed);
 
         [Min(0f), Tooltip("Adaptation speed from a dark to a light environment.")]
         public MinFloatParameter speedUp = new MinFloatParameter(2f, 0f);
