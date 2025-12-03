@@ -18,6 +18,14 @@ MonoBehaviour:
     pyramidDepthGeneratorCS: {fileID: 7200000, guid: 0470cac8a121da44f86629ec95f754bc,
       type: 3}
     contractShadowCS: {fileID: 7200000, guid: a1cf9f88135afee44964499279152289, type: 3}
+    screenSpaceGlobalIlluminationCS: {fileID: 0}
+    diffuseDenoiserCS: {fileID: 0}
+    bilateralUpsampleCS: {fileID: 0}
+    temporalFilterCS: {fileID: 0}
+    fastFourierTransformCS: {fileID: 7200000, guid: 5ca31bf4cdfb89949abf61d2b11923a5,
+      type: 3}
+    fastFourierConvolveCS: {fileID: 7200000, guid: b98a6f3eaa1ad384b936476bf6375ae3,
+      type: 3}
   materials:
     UberPost: {fileID: 2100000, guid: de6e017e6e8440443b89951f8c1d5e2d, type: 2}
     BilateralBlur: {fileID: 2100000, guid: b5d346c906c3a5749b8dd077c3933b40, type: 2}
@@ -44,6 +52,14 @@ MonoBehaviour:
     MoebiusPS: {fileID: 4800000, guid: 61d80f884168a384db6dd5e09a0ff54a, type: 3}
     EightColorPS: {fileID: 4800000, guid: 0096ffa10cc12e049befbc1edcd245b2, type: 3}
     bloomPS: {fileID: 4800000, guid: 330932ec21bc39e4badfc909765d7df2, type: 3}
+    ConvolutionBloomBrightMask: {fileID: 4800000, guid: 3985cb67ef742544fb95de3e69cf83cf,
+      type: 3}
+    ConvolutionBloomBlend: {fileID: 4800000, guid: 73412eeca3f8cff4b854e14ce6ea7eca,
+      type: 3}
+    ConvolutionBloomPsfRemap: {fileID: 4800000, guid: 69354f209bc80584c956bc3727e37b56,
+      type: 3}
+    ConvolutionBloomPsfGenerator: {fileID: 4800000, guid: dc78b3fd48a24baf89c5ab2a5773676f,
+      type: 3}
   textures:
     DitherTexture: {fileID: 2800000, guid: e3d24661c1e055f45a7560c033dbb837, type: 3}
     WorlyNoise128RGBA: {fileID: 11700000, guid: 1fe54a721d0e2504e89f121c723404a8,

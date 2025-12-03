@@ -36,6 +36,12 @@ namespace Game.Core.PostProcessing
             public Shader MoebiusPS;
             public Shader EightColorPS;
             public Shader bloomPS;
+            [Space(5)]
+            [Header("ConvolutionBloom")]
+            public Shader ConvolutionBloomBrightMask;
+            public Shader ConvolutionBloomBlend;
+            public Shader ConvolutionBloomPsfRemap;
+            public Shader ConvolutionBloomPsfGenerator;
         }
 
         [Serializable]
@@ -45,6 +51,16 @@ namespace Game.Core.PostProcessing
             public ComputeShader LogHistogramCS;
             public ComputeShader pyramidDepthGeneratorCS;
             public ComputeShader contractShadowCS;
+            [Space(5)]
+            [Header("SSGI")]
+            public ComputeShader screenSpaceGlobalIlluminationCS;
+            public ComputeShader diffuseDenoiserCS;
+            public ComputeShader bilateralUpsampleCS;
+            public ComputeShader temporalFilterCS;
+            [Space(5)]
+            [Header("ConvolutionBloom")]
+            public ComputeShader fastFourierTransformCS;
+            public ComputeShader fastFourierConvolveCS;
         }
 
         [Serializable]

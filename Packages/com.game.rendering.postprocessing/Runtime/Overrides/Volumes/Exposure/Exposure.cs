@@ -15,14 +15,76 @@ namespace Game.Core.PostProcessing
             displayName = "曝光 (Exposure)";
         }
 
-        public enum EyeAdaptation
+        public enum ExposureMode
         {
-            Progressive,
+            AutomaticHistogram,
             Fixed
         }
 
-        [InspectorName("Filtering (%)"), Tooltip("Filters the bright & dark part of the histogram when computing the average luminance to avoid very dark pixels & very bright pixels from contributing to the auto exposure. Unit is in percent.")]
-        public Vector2Parameter filtering = new Vector2Parameter(new Vector2(10f, 90f));//MinMax(1f, 99f), 
+        /// <summary>
+        /// Metering methods that URP uses the filter the luminance source
+        /// </summary>
+        /// <seealso cref="Exposure.meteringMode"/>
+        public enum MeteringMode
+        {
+            /// <summary>
+            /// The Camera uses the entire luminance buffer to measure exposure.
+            /// </summary>
+            Average,
+
+            /// <summary>
+            /// The Camera only uses the center of the buffer to measure exposure. This is useful if you
+            /// want to only expose light against what is in the center of your screen.
+            /// </summary>
+            Spot,
+
+            /// <summary>
+            /// The Camera applies a weight to every pixel in the buffer and then uses them to measure
+            /// the exposure. Pixels in the center have the maximum weight, pixels at the screen borders
+            /// have the minimum weight, and pixels in between have a progressively lower weight the
+            /// closer they are to the screen borders.
+            /// </summary>
+            CenterWeighted,
+
+            /// <summary>
+            /// The Camera applies a weight to every pixel in the buffer and then uses them to measure
+            /// the exposure. The weighting is specified by the texture provided by the user. Note that if
+            /// no texture is provided, then this metering mode is equivalent to Average.
+            /// </summary>
+            MaskWeighted,
+
+            /// <summary>
+            /// Create a weight mask centered around the specified UV and with the desired parameters.
+            /// </summary>
+            ProceduralMask,
+        }
+
+        /// <summary>
+        /// Methods that URP uses to change the exposure when the Camera moves from dark to light and vice versa.
+        /// </summary>
+        /// <seealso cref="Exposure.adaptationMode"/>
+        public enum AdaptationMode
+        {
+            /// <summary>
+            /// The exposure changes instantly.
+            /// </summary>
+            Fixed,
+
+            /// <summary>
+            /// The exposure changes over the period of time.
+            /// </summary>
+            /// <seealso cref="Exposure.adaptationSpeedDarkToLight"/>
+            /// <seealso cref="Exposure.adaptationSpeedLightToDark"/>
+            Progressive
+        }
+
+        [InspectorName("Type"), Tooltip("Use \"Progressive\" if you want auto exposure to be animated. Use \"Fixed\" otherwise.")]
+        public EnumParameter<ExposureMode> mode = new(ExposureMode.Fixed);
+
+        [InspectorName("Filtering (%)"),
+         Tooltip(
+             "Filters the bright & dark part of the histogram when computing the average luminance to avoid very dark pixels & very bright pixels from contributing to the auto exposure. Unit is in percent.")]
+        public Vector2Parameter filtering = new Vector2Parameter(new Vector2(10f, 90f)); //MinMax(1f, 99f), 
 
         [Range(LogHistogram.rangeMin, LogHistogram.rangeMax), InspectorName("Minimum (EV)"), Tooltip("Minimum average luminance to consider for auto exposure (in EV).")]
         public ClampedFloatParameter minEV = new ClampedFloatParameter(-10f, LogHistogram.rangeMin, LogHistogram.rangeMax);
@@ -34,8 +96,6 @@ namespace Game.Core.PostProcessing
         [InspectorName("曝光补偿 (Exposure Compensation)"), Tooltip("Use this to scale the global exposure of the scene.")]
         public MinFloatParameter compensation = new MinFloatParameter(2f, 0f);
 
-        [InspectorName("Type"), Tooltip("Use \"Progressive\" if you want auto exposure to be animated. Use \"Fixed\" otherwise.")]
-        public EnumParameter<EyeAdaptation> eyeAdaptation = new (EyeAdaptation.Fixed);
 
         [Min(0f), Tooltip("Adaptation speed from a dark to a light environment.")]
         public MinFloatParameter speedUp = new MinFloatParameter(2f, 0f);
@@ -46,19 +106,33 @@ namespace Game.Core.PostProcessing
         public override bool IsActive() => true;
     }
 
+    internal static class ExposureShaderIDs
+    {
+        public static readonly int _PreviousExposureTexture = Shader.PropertyToID("_PreviousExposureTexture");
+        public static readonly int _ExposureDebugTexture = Shader.PropertyToID("_ExposureDebugTexture");
+        public static readonly int _ExposureParams = Shader.PropertyToID("_ExposureParams");
+        public static readonly int _ExposureParams2 = Shader.PropertyToID("_ExposureParams2");
+        public static readonly int _HistogramExposureParams = Shader.PropertyToID("_HistogramExposureParams");
+        public static readonly int _HistogramBuffer = Shader.PropertyToID("_HistogramBuffer");
+        public static readonly int _AdaptationParams = Shader.PropertyToID("_AdaptationParams");
+        public static readonly int _ExposureCurveTexture = Shader.PropertyToID("_ExposureCurveTexture");
+        public static readonly int _ExposureWeightMask = Shader.PropertyToID("_ExposureWeightMask");
+        public static readonly int _ProceduralMaskParams = Shader.PropertyToID("_ProceduralMaskParams");
+        public static readonly int _ProceduralMaskParams2 = Shader.PropertyToID("_ProceduralMaskParams2");
+        public static readonly int _Variants = Shader.PropertyToID("_Variants");
+        public static readonly int _OutputTexture = Shader.PropertyToID("_OutputTexture");
+        public static readonly int _SourceTexture = Shader.PropertyToID("_SourceTexture");
+        // public static readonly int _InputTexture = Shader.PropertyToID("_InputTexture");
+        public static readonly int _MousePixelCoord = Shader.PropertyToID("_MousePixelCoord");
+        public static readonly int _DebugFullScreenTexture = Shader.PropertyToID("_DebugFullScreenTexture");
+        public static readonly int _ExposureDebugParams = Shader.PropertyToID("_ExposureDebugParams");
+        public static readonly int _FullImageHistogram = Shader.PropertyToID("_FullImageHistogram");
+        public static readonly int _DebugFont = Shader.PropertyToID("_DebugFont");
+    }
+
     [PostProcess("Exposure", PostProcessInjectionPoint.BeforeRenderingPostProcessing)]
     public class ExposureRenderer : PostProcessVolumeRenderer<Exposure>
     {
-        static class ShaderConstants
-        {
-            internal static readonly int HistogramBuffer = Shader.PropertyToID("_HistogramBuffer");
-            internal static readonly int Params1 = Shader.PropertyToID("_Params1");
-            internal static readonly int Params2 = Shader.PropertyToID("_Params2");
-            internal static readonly int ScaleOffsetRes = Shader.PropertyToID("_ScaleOffsetRes");
-            internal static readonly int Destination = Shader.PropertyToID("_Destination");
-            internal static readonly int Source = Shader.PropertyToID("_Source");
-        }
-
         public override bool renderToCamera => false;
 
         const int k_NumAutoExposureTextures = 2;
@@ -93,7 +167,6 @@ namespace Game.Core.PostProcessing
 
         public override void Render(CommandBuffer cmd, RTHandle source, RTHandle destination, ref RenderingData renderingData)
         {
-
             DoAutoExposure(cmd, source, destination, ref renderingData);
         }
 
@@ -143,7 +216,7 @@ namespace Game.Core.PostProcessing
             Vector4 scaleOffsetRes = m_LogHistogram.GetHistogramScaleOffsetRes(desc.width, desc.height);
 
 
-            bool isFixed = settings.eyeAdaptation.value == Exposure.EyeAdaptation.Fixed ? true : false;
+            bool isFixed = settings.mode.value == Exposure.ExposureMode.Fixed ? true : false;
             // CheckTexture(0);
             // CheckTexture(1);
             bool firstFrame = m_ResetHistory || !Application.isPlaying;
@@ -212,6 +285,5 @@ namespace Game.Core.PostProcessing
                 m_AutoExposurePool[i]?.Release();
             }
         }
-
     }
 }

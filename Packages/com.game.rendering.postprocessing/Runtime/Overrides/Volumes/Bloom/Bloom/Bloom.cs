@@ -78,10 +78,10 @@ namespace Game.Core.PostProcessing
     {
         static class ShaderConstants
         {
-            public static readonly int _Params = Shader.PropertyToID("_Params");
-            public static readonly int _SourceTexLowMip = Shader.PropertyToID("_SourceTexLowMip");
-            public static readonly int _Bloom_Params = Shader.PropertyToID("_Bloom_Params");
-            public static readonly int _Bloom_RGBM = Shader.PropertyToID("_Bloom_RGBM");
+            public static readonly int _Params = MemberNameHelpers.ShaderPropertyID();
+            public static readonly int _SourceTexLowMip = MemberNameHelpers.ShaderPropertyID();
+            public static readonly int _Bloom_Params = MemberNameHelpers.ShaderPropertyID();
+            public static readonly int _Bloom_RGBM = MemberNameHelpers.ShaderPropertyID();
 
             public static int[] _BloomMipUp;
             public static int[] _BloomMipDown;
