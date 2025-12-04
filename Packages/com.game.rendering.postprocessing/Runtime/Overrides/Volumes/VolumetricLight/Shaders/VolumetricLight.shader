@@ -8,8 +8,6 @@ Shader "Hidden/PostProcessing/VolumetricLight"
 
     #include "VolumetricLightInclude.cs.hlsl"
     
-
-    float4 _BlitTexture_TexelSize;
     TEXTURE2D(_DitherTexture);      SAMPLER(sampler_DitherTexture);
     TEXTURE3D(_NoiseTexture);       SAMPLER(sampler_NoiseTexture);
     
