@@ -48,8 +48,10 @@ namespace Game.Core.PostProcessing
             m_ProfilingSampler_Combine = new("Bloom Combine");
         }
 
-        public override void DoRenderGraph(RenderGraph renderGraph, TextureHandle source, TextureHandle destination, ref UniversalResourceData resourceData, ref UniversalCameraData cameraData)
+        public override void DoRenderGraph(RenderGraph renderGraph, TextureHandle source, TextureHandle destination, ContextContainer frameData)
         {
+            UniversalCameraData cameraData = frameData.Get<UniversalCameraData>();
+            
             SetupMaterials();
             
             if (_BloomMipUp == null) _BloomMipUp = new TextureHandle[k_MaxPyramidSize];

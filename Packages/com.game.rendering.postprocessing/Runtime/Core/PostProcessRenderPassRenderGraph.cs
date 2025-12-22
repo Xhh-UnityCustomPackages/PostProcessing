@@ -60,7 +60,7 @@ namespace Game.Core.PostProcessing
                 if (!postProcessRenderer.renderToCamera)
                 {
                     // 不需要渲染到最终摄像机 就无所谓RT切换 (注意: 最终输出完全取决于内部 如果在队列最后一个 可能会导致RT没能切回摄像机)
-                    postProcessRenderer.DoRenderGraph(renderGraph, source, TextureHandle.nullHandle, ref resourceData, ref cameraData);
+                    postProcessRenderer.DoRenderGraph(renderGraph, source, TextureHandle.nullHandle, frameData);
                 
                     continue;
                 }
@@ -109,7 +109,7 @@ namespace Game.Core.PostProcessing
                 m_PassData.destination = target;
                 m_PassData.sourceTexture = source;
                 
-                postProcessRenderer.DoRenderGraph(renderGraph, m_PassData.sourceTexture, m_PassData.destination, ref resourceData, ref cameraData);
+                postProcessRenderer.DoRenderGraph(renderGraph, m_PassData.sourceTexture, m_PassData.destination, frameData);
                 CoreUtils.Swap(ref source, ref target);
                 
             }

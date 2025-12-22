@@ -65,7 +65,6 @@ Shader "Hidden/PostProcessing/Common/BilateralBlur"
         // TEXTURE2D(_MainTex);                    SAMPLER(sampler_MainTex);
 
         float4 _CameraDepthTexture_TexelSize;
-        float4 _BlitTexture_TexelSize;
         float4 _QuarterResDepthBuffer_TexelSize;
         
         

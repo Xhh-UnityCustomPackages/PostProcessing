@@ -67,7 +67,7 @@ namespace Game.Core.PostProcessing
 
 
     [PostProcess("AtmosphericHeightFog", PostProcessInjectionPoint.AfterRenderingSkybox)]
-    public class AtmosphericHeightFogRenderer : PostProcessVolumeRenderer<AtmosphericHeightFog>
+    public partial class AtmosphericHeightFogRenderer : PostProcessVolumeRenderer<AtmosphericHeightFog>
     {
         static class ShaderConstants
         {

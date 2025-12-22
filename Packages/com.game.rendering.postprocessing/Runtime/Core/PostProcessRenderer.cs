@@ -47,7 +47,7 @@ namespace Game.Core.PostProcessing
         public virtual void Setup() { }
         public abstract void Render(CommandBuffer cmd, RTHandle source, RTHandle destination, ref RenderingData renderingData);
 
-        public virtual void DoRenderGraph(RenderGraph renderGraph, TextureHandle source, TextureHandle destination, ref UniversalResourceData resourceData, ref UniversalCameraData cameraData)
+        public virtual void DoRenderGraph(RenderGraph renderGraph, TextureHandle source, TextureHandle destination, ContextContainer frameData)
         {
         }
 

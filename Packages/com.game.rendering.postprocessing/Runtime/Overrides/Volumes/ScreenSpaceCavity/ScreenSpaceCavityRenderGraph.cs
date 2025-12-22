@@ -62,8 +62,11 @@ namespace Game.Core.PostProcessing
             m_Material.shaderKeywords = m_ShaderKeywords;
         }
 
-        public override void DoRenderGraph(RenderGraph renderGraph, TextureHandle source, TextureHandle destination, ref UniversalResourceData resourceData, ref UniversalCameraData cameraData)
+        public override void DoRenderGraph(RenderGraph renderGraph, TextureHandle source, TextureHandle destination, ContextContainer frameData)
         {
+            UniversalResourceData resourceData = frameData.Get<UniversalResourceData>();
+            UniversalCameraData cameraData = frameData.Get<UniversalCameraData>();
+            
             SetupMaterials(ref cameraData);
 
             RenderTextureDescriptor cameraTargetDescriptor = cameraData.cameraTargetDescriptor;

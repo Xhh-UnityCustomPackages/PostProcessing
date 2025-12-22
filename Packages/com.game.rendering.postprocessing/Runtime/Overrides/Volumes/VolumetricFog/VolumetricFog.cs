@@ -88,7 +88,7 @@ namespace Game.Core.PostProcessing
     }
 
     [PostProcess("体积雾 (Volumetric Fog)", PostProcessInjectionPoint.AfterRenderingSkybox)]
-    public class VolumetricFogRenderer : PostProcessVolumeRenderer<VolumetricFog>
+    public partial class VolumetricFogRenderer : PostProcessVolumeRenderer<VolumetricFog>
     {
 	    private const string DownsampledCameraDepthRTName = "_DownsampledCameraDepth";
 	    private const string VolumetricFogRenderRTName = "_VolumetricFog";

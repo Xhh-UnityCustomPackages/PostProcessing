@@ -9,7 +9,6 @@
 
 TEXTURE2D_HALF(_GBuffer2);
 
-float4 _BlitTexture_TexelSize;
 
 //Denoise is weighted based on worldspace distance and alignment of normals
 float3 edgeDenoise(float2 uv)
