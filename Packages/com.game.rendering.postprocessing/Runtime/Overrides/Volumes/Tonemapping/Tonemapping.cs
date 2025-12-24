@@ -125,7 +125,7 @@ namespace Game.Core.PostProcessing
             }
         }
 
-        static public void ExecutePass(CommandBuffer cmd, Material material, Tonemapping tonemapping)
+        static public void ExecutePass(Material material, Tonemapping tonemapping)
         {
             var mode = tonemapping.mode;
 

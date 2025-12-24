@@ -54,7 +54,7 @@ namespace Game.Core.PostProcessing
     }
 
     [PostProcess("Eight Color", PostProcessInjectionPoint.AfterRenderingPostProcessing)]
-    public class EightColorRenderer : PostProcessVolumeRenderer<EightColor>
+    public partial class EightColorRenderer : PostProcessVolumeRenderer<EightColor>
     {
         private Material m_Material;
 
@@ -63,7 +63,7 @@ namespace Game.Core.PostProcessing
             m_Material = GetMaterial(postProcessFeatureData.shaders.EightColorPS);
         }
 
-        private void SetupMaterials(ref RenderingData renderingData)
+        private void SetupMaterials()
         {
             if (m_Material == null)
                 return;
@@ -83,7 +83,7 @@ namespace Game.Core.PostProcessing
             if (m_Material == null)
                 return;
 
-            SetupMaterials(ref renderingData);
+            SetupMaterials();
 
             Blit(cmd, source, target, m_Material);
         }

@@ -33,7 +33,7 @@ namespace Game.Core.PostProcessing
     }
 
     [PostProcess("CRTScreen", PostProcessInjectionPoint.AfterRenderingPostProcessing)]
-    public class CRTScreenRenderer : PostProcessVolumeRenderer<CRTScreen>
+    public partial class CRTScreenRenderer : PostProcessVolumeRenderer<CRTScreen>
     {
         static class ShaderConstants
         {
@@ -51,7 +51,7 @@ namespace Game.Core.PostProcessing
             m_Material = GetMaterial(postProcessFeatureData.shaders.CRTScreenPS);
         }
 
-        private void SetupMaterials(ref RenderingData renderingData, Material material)
+        private void SetupMaterials(Material material)
         {
             if (material == null)
                 return;
@@ -68,7 +68,7 @@ namespace Game.Core.PostProcessing
             if (m_Material == null)
                 return;
 
-            SetupMaterials(ref renderingData, m_Material);
+            SetupMaterials(m_Material);
 
             Blit(cmd, source, destination, m_Material);
 

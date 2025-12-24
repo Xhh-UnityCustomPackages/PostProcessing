@@ -30,20 +30,18 @@ namespace Game.Core.PostProcessing
             X5 = 5,
         }
         
-
-
-        public BoolParameter enable = new BoolParameter(false);
+        public BoolParameter enable = new (false);
         public EnumParameter<Mode> mode = new(Mode.Occlusion);
         public EnumParameter<DownSample> downSample = new(DownSample.X2);
-        public ClampedFloatParameter density = new ClampedFloatParameter(0f, 0f, 2f);
-        public ClampedFloatParameter weight = new ClampedFloatParameter(0f, 0f, 2f);
-        public ClampedFloatParameter decay = new ClampedFloatParameter(0f, 0f, 2f);
-        public ClampedFloatParameter exposure = new ClampedFloatParameter(0f, 0f, 2f);
-        public ColorParameter bloomTintAndThreshold = new ColorParameter(Color.white);
+        public ClampedFloatParameter density = new (2f, 0f, 2f);
+        public ClampedFloatParameter weight = new (1f, 0f, 2f);
+        public ClampedFloatParameter decay = new (1f, 0f, 2f);
+        public ClampedFloatParameter exposure = new (0.5f, 0f, 2f);
+        public ColorParameter bloomTintAndThreshold = new (Color.white);
 
         [Header("Radial Blur")]
-        public ClampedFloatParameter radialBlurPower = new ClampedFloatParameter(0.6f, 0f, 1f);
-        public ClampedFloatParameter radialBlurVectorMin = new ClampedFloatParameter(0.17f, 0f, 0.3f);
+        public ClampedFloatParameter radialBlurPower = new (0.6f, 0f, 1f);
+        public ClampedFloatParameter radialBlurVectorMin = new (0.17f, 0f, 0.3f);
 
         public override bool IsActive()
         {
@@ -53,7 +51,7 @@ namespace Game.Core.PostProcessing
 
 
     [PostProcess("LightShaft", PostProcessInjectionPoint.AfterRenderingSkybox)]
-    public class LightShaftRenderer : PostProcessVolumeRenderer<LightShaft>
+    public partial class LightShaftRenderer : PostProcessVolumeRenderer<LightShaft>
     {
         static class ShaderConstants
         {
@@ -106,7 +104,8 @@ namespace Game.Core.PostProcessing
 
         public override void Render(CommandBuffer cmd, RTHandle source, RTHandle target, ref RenderingData renderingData)
         {
-            SetupMaterials(ref renderingData);
+            SetupDirectionLight(ref renderingData);
+            SetupMaterials();
 
             if (Mathf.Approximately(m_LightShaftInclude._ShaftsAtten, 0))
             {
@@ -128,9 +127,7 @@ namespace Game.Core.PostProcessing
             {
                 Blit(cmd, temp1, temp2, m_Material, (int)Pass.LightShaftsBlur);
 
-                var temp = temp2;
-                temp2 = temp1;
-                temp1 = temp;
+                (temp2, temp1) = (temp1, temp2);
             }
 
             m_Material.SetTexture(ShaderConstants.LightShafts1, m_LightShaftRT1);
@@ -141,10 +138,8 @@ namespace Game.Core.PostProcessing
         }
 
 
-        private void SetupMaterials(ref RenderingData renderingData)
+        private void SetupMaterials()
         {
-            SetupDirectionLight(ref renderingData);
-
             m_LightShaftInclude._LightShaftParameters = new Vector4(2.81f, 2.76f, 0, 0);
             m_LightShaftInclude._RadialBlurParameters = new Vector4(0f, settings.radialBlurPower.value, settings.radialBlurVectorMin.value, 0f);
             m_LightShaftInclude._ShaftsDensity = settings.density.value;

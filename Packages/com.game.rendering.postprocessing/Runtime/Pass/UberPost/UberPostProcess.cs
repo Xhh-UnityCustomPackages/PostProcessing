@@ -61,8 +61,8 @@ namespace Game.Core.PostProcessing
 
             RenderingUtils.ReAllocateHandleIfNeeded(ref m_CameraTargetHandle, GetCompatibleDescriptor(), FilterMode.Bilinear, TextureWrapMode.Clamp, name: "_TempTarget");
 
-            TonemappingRenderer.ExecutePass(cmd, m_Material, m_Tonemapping);
-            VignetteRenderer.ExecutePass(cmd, m_Descriptor, m_Material, m_Vignette);
+            TonemappingRenderer.ExecutePass(m_Material, m_Tonemapping);
+            VignetteRenderer.ExecutePass(m_Descriptor, m_Material, m_Vignette);
 
             Blitter.BlitCameraTexture(cmd, source, m_CameraTargetHandle, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store, m_Material, 0);
 

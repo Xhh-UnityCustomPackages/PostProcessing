@@ -67,7 +67,7 @@ namespace Game.Core.PostProcessing
             public static readonly int _Vignette_Params2 = Shader.PropertyToID("_Vignette_Params2");
         }
 
-        static public void ExecutePass(CommandBuffer cmd, RenderTextureDescriptor desc, Material material, Vignette settings)
+        static public void ExecutePass(RenderTextureDescriptor desc, Material material, Vignette settings)
         {
             var color = settings.color.value;
             var center = settings.center.value;
