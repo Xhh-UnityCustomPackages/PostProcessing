@@ -159,6 +159,16 @@ namespace Game.Core.PostProcessing
         int m_PingPong = 0;
 
         public override ScriptableRenderPassInput input => ScriptableRenderPassInput.Depth | ScriptableRenderPassInput.Normal;
+        public override PostProcessPassInput postProcessPassInput {
+            get
+            {
+                if (settings.mode.value == ScreenSpaceReflection.RaytraceModes.HiZTracing)
+                {
+                    return PostProcessPassInput.HiZ;
+                }
+                return PostProcessPassInput.None;
+            }
+        }
 
         public void GetHistoryPingPongRT(ref RTHandle rt1, ref RTHandle rt2)
         {

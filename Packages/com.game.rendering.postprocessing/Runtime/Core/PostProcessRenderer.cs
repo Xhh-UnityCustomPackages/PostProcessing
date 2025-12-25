@@ -24,6 +24,7 @@ namespace Game.Core.PostProcessing
 
 
         public virtual ScriptableRenderPassInput input => ScriptableRenderPassInput.None;
+        public virtual PostProcessPassInput postProcessPassInput => PostProcessPassInput.None;
         // 默认最后都需要渲染到Camera
         public virtual bool renderToCamera => true;
         // 如果明确知道该效果不会出现把source同时作为target的情况

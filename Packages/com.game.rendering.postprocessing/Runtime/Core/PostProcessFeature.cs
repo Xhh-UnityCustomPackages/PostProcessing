@@ -27,6 +27,15 @@ namespace Game.Core.PostProcessing
         Deferred = 1 << 1,
     }
 
+    //效果需求的管线特性
+    [Flags]
+    public enum PostProcessPassInput
+    {
+        None = 0,
+        HiZ = 1 << 0,//层次深度
+        //上一帧颜色
+    }
+
     [DisallowMultipleRendererFeature]
     public class PostProcessFeature : ScriptableRendererFeature
     {
@@ -35,8 +44,6 @@ namespace Game.Core.PostProcessing
         {
             [SerializeField]
             public PostProcessFeatureData m_PostProcessFeatureData;
-
-            public bool GeneratorPyramidDepth = false;
 
             //各个阶段
             [SerializeField] public List<string> m_RenderersBeforeRenderingOpaques;
@@ -69,7 +76,6 @@ namespace Game.Core.PostProcessing
         UberPostProcess m_UberPostProcessing;
         PyramidDepthGenerator m_HizDepthGenerator;
 
-        private bool m_CheckedRenderingMode = false;
         private RenderingMode m_RenderingMode;
         public RenderingMode RenderingMode => m_RenderingMode;
         
@@ -141,31 +147,33 @@ namespace Game.Core.PostProcessing
                 return;
             }
 
+            PostProcessPassInput postProcessPassInput = PostProcessPassInput.None; 
+            
             if (renderingData.cameraData.postProcessEnabled)
             {
                 if (m_RenderingMode == RenderingMode.Deferred)
                 {
                     //SupportRenderPath 为 Deferred|Both 才能加入这两个
-                    m_BeforeRenderingGBuffer.AddRenderPasses(ref renderingData);
-                    m_BeforeRenderingDeferredLights.AddRenderPasses(ref renderingData);
+                    m_BeforeRenderingGBuffer.AddRenderPasses(ref renderingData, ref postProcessPassInput);
+                    m_BeforeRenderingDeferredLights.AddRenderPasses(ref renderingData, ref postProcessPassInput);
                 }
                 else
                 {
                     //SupportRenderPath 为 Forward|Both 才能加入这两个
-                    m_BeforeRenderingOpaques.AddRenderPasses(ref renderingData);
-                    m_AfterRenderingOpaques.AddRenderPasses(ref renderingData);
+                    m_BeforeRenderingOpaques.AddRenderPasses(ref renderingData, ref postProcessPassInput);
+                    m_AfterRenderingOpaques.AddRenderPasses(ref renderingData, ref postProcessPassInput);
                 }
                 
-                m_AfterRenderingSkybox.AddRenderPasses(ref renderingData);
-                m_BeforeRenderingPostProcessing.AddRenderPasses(ref renderingData);
+                m_AfterRenderingSkybox.AddRenderPasses(ref renderingData, ref postProcessPassInput);
+                m_BeforeRenderingPostProcessing.AddRenderPasses(ref renderingData, ref postProcessPassInput);
                 // 暂时不考虑 Camera stack 的情况
-                m_AfterRenderingPostProcessing.AddRenderPasses(ref renderingData);
+                m_AfterRenderingPostProcessing.AddRenderPasses(ref renderingData, ref postProcessPassInput);
 
                 renderer.EnqueuePass(m_UberPostProcessing);
             }
 
-            //TODO 这里改为类似与CameraMode 那种请求模式
-            if (m_Settings.GeneratorPyramidDepth)
+            
+            if (postProcessPassInput.HasFlag(PostProcessPassInput.HiZ))
             {
                 if (m_HizDepthGenerator == null)
                     m_HizDepthGenerator = new PyramidDepthGenerator(m_Settings.m_PostProcessFeatureData.computeShaders.pyramidDepthGeneratorCS);
@@ -179,29 +187,7 @@ namespace Game.Core.PostProcessing
 
         private void CheckRenderingMode(ScriptableRenderer renderer)
         {
-            if (!m_CheckedRenderingMode)
-            {
-                if (renderer is UniversalRenderer universalRenderer)
-                {
-                    //必须使用反射才能拿到
-                    //RenderingMode m_RenderingMode;
-                    Type rendererType = typeof(UniversalRenderer);
-                    FieldInfo renderingModeField = rendererType.GetField("m_RenderingMode",
-                        BindingFlags.NonPublic | BindingFlags.Instance);
-                    if (renderingModeField != null)
-                    {
-                        object renderingModeValue = renderingModeField.GetValue(universalRenderer);
-                        
-                        if (renderingModeValue != null)
-                        {
-                            m_RenderingMode = (RenderingMode)((int)renderingModeValue);
-                            Debug.Log("Current RenderingMode" + m_RenderingMode);
-                        }
-                    }
-                }
-
-                m_CheckedRenderingMode = true;
-            }
+            m_RenderingMode = UniversalRenderingUtility.GetRenderingMode(renderer);
         }
 
         protected override void Dispose(bool disposing)
@@ -216,7 +202,6 @@ namespace Game.Core.PostProcessing
             m_UberPostProcessing.Dispose();
             PyramidBlur.Release();
 
-            m_CheckedRenderingMode = false;
 #if UNITY_EDITOR
             m_DebugHandler.Dispose();
 #endif

@@ -65,9 +65,9 @@ namespace Game.Core.PostProcessing
             }
         }
 
-        public void AddRenderPasses(ref RenderingData renderingData)
+        public void AddRenderPasses(ref RenderingData renderingData, ref PostProcessPassInput postProcessPassInput)
         {
-            if (!Setup(ref renderingData))
+            if (!Setup(ref renderingData, ref postProcessPassInput))
                 return;
 
             renderingData.cameraData.renderer.EnqueuePass(this);
@@ -76,6 +76,7 @@ namespace Game.Core.PostProcessing
         private bool RenderInit(bool isSceneView,
                                ref PostProcessRenderer postProcessRenderer,
                                ref ScriptableRenderPassInput passInput,
+                               ref PostProcessPassInput postProcessPassInput,
                                ref RenderingData renderingData)
         {
             if (isSceneView && !postProcessRenderer.visibleInSceneView) return false;
@@ -87,13 +88,14 @@ namespace Game.Core.PostProcessing
 
                 m_ActivePostProcessRenderers.Add(postProcessRenderer);
                 passInput |= postProcessRenderer.input;
+                postProcessPassInput |= postProcessRenderer.postProcessPassInput;
             }
             postProcessRenderer.ShowHideInternal(ref renderingData);
 
             return true;
         }
 
-        public bool Setup(ref RenderingData renderingData)
+        public bool Setup(ref RenderingData renderingData, ref PostProcessPassInput postProcessPassInput)
         {
             bool isSceneView = renderingData.cameraData.isSceneViewCamera;
             // TODO isPreviewCamera
@@ -106,7 +108,7 @@ namespace Game.Core.PostProcessing
             {
                 var postProcessRenderer = m_PostProcessRenderers[index];
                 //
-                if (!RenderInit(isSceneView, ref postProcessRenderer, ref passInput, ref renderingData))
+                if (!RenderInit(isSceneView, ref postProcessRenderer, ref passInput, ref postProcessPassInput, ref renderingData))
                     continue;
             }
 

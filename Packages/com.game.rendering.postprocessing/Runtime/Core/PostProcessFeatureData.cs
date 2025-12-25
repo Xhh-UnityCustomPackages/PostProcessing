@@ -11,12 +11,15 @@ namespace Game.Core.PostProcessing
 {
     public class PostProcessFeatureData : ScriptableObject
     {
-        [Space(10)] public ComputeShaderResources computeShaders;
+        [Space(10)] 
+        public ComputeShaderResources computeShaders;
 
-        [Space(10)] public MaterialResources materials;
+        [Space(10)] 
+        public MaterialResources materials;
         public ShaderResources shaders;
 
-        [Space(10)] public TextureResources textures;
+        [Space(10)] 
+        public TextureResources textures;
 
 
         [Serializable]
@@ -47,14 +50,22 @@ namespace Game.Core.PostProcessing
             [Header("VolumetricFog")]
             public Shader DownsampleDepth;
             public Shader VolumetricFog;
+
+            [Space(5)] 
+            [Header("Exposure")] 
+            public Shader DebugExposure;
         }
 
         [Serializable]
         public sealed class ComputeShaderResources
         {
-            public ComputeShader autoExposureCS;
-            public ComputeShader LogHistogramCS;
+            [Header("Exposure")]
+            public ComputeShader ExposureCS;
+            public ComputeShader debugImageHistogramCS;
+            public ComputeShader HistogramExposureCS;
+            [Space(5)]
             public ComputeShader pyramidDepthGeneratorCS;
+            [Space(5)]
             public ComputeShader contractShadowCS;
             [Space(5)]
             [Header("SSGI")]

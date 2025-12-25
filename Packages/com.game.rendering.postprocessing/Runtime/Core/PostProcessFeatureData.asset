@@ -13,8 +13,11 @@ MonoBehaviour:
   m_Name: PostProcessFeatureData
   m_EditorClassIdentifier: 
   computeShaders:
-    autoExposureCS: {fileID: 7200000, guid: ca7f94c1d44f4d245a58c851530cc5f1, type: 3}
-    LogHistogramCS: {fileID: 7200000, guid: f9f6bbb4769522f4ebd90601e2c570c1, type: 3}
+    ExposureCS: {fileID: 7200000, guid: ed9fcf0a808091d40914c660869ac07a, type: 3}
+    debugImageHistogramCS: {fileID: 7200000, guid: 88871c6508434b5eacce624ded7c1ba0,
+      type: 3}
+    HistogramExposureCS: {fileID: 7200000, guid: 7aacc3bb516354e45b576942fd27006e,
+      type: 3}
     pyramidDepthGeneratorCS: {fileID: 7200000, guid: 0470cac8a121da44f86629ec95f754bc,
       type: 3}
     contractShadowCS: {fileID: 7200000, guid: a1cf9f88135afee44964499279152289, type: 3}
@@ -26,6 +29,9 @@ MonoBehaviour:
       type: 3}
     fastFourierConvolveCS: {fileID: 7200000, guid: b98a6f3eaa1ad384b936476bf6375ae3,
       type: 3}
+    volumetricFogUpsampleCS: {fileID: 0}
+    volumetricFogRaymarchCS: {fileID: 0}
+    volumetricFogBlurCS: {fileID: 0}
   materials:
     UberPost: {fileID: 2100000, guid: de6e017e6e8440443b89951f8c1d5e2d, type: 2}
     BilateralBlur: {fileID: 2100000, guid: b5d346c906c3a5749b8dd077c3933b40, type: 2}
@@ -60,6 +66,9 @@ MonoBehaviour:
       type: 3}
     ConvolutionBloomPsfGenerator: {fileID: 4800000, guid: dc78b3fd48a24baf89c5ab2a5773676f,
       type: 3}
+    DownsampleDepth: {fileID: 0}
+    VolumetricFog: {fileID: 0}
+    DebugExposure: {fileID: 4800000, guid: 7746387bc7e49cd4fa068adfcb7b1fc6, type: 3}
   textures:
     DitherTexture: {fileID: 2800000, guid: e3d24661c1e055f45a7560c033dbb837, type: 3}
     WorlyNoise128RGBA: {fileID: 11700000, guid: 1fe54a721d0e2504e89f121c723404a8,

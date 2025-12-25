@@ -32,17 +32,20 @@ namespace Game.Core.PostProcessing
             /// <summary>
             /// When selected, ray tracing will fall back on reflection probes (if any).
             /// </summary>
-            [InspectorName("Reflection Probes")] ReflectionProbes = 0x02,
+            [InspectorName("Reflection Probes")] 
+            ReflectionProbes = 0x02,
 
             /// <summary>
             /// When selected, ray tracing will fall back on the sky.
             /// </summary>
-            [InspectorName("Sky")] Sky = 0x01,
+            [InspectorName("Sky")] 
+            Sky = 0x01,
 
             /// <summary>
             /// When selected, ray tracing will return a black color.
             /// </summary>
-            [InspectorName("None")] None = 0x00,
+            [InspectorName("None")] 
+            None = 0x00,
         }
 
         /// <summary>
@@ -108,6 +111,51 @@ namespace Game.Core.PostProcessing
     [PostProcess("Screen Space Global Illumination", PostProcessInjectionPoint.AfterRenderingSkybox, SupportRenderPath.Deferred)]
     public class ScreenSpaceGlobalIlluminationRenderer : PostProcessVolumeRenderer<ScreenSpaceGlobalIllumination>
     {
+        private static class Properties
+        {
+            public static readonly int ShaderVariablesSSGI = Shader.PropertyToID("UnityScreenSpaceGlobalIllumination");
+            public static readonly int IndirectDiffuseHitPointTextureRW = Shader.PropertyToID("_IndirectDiffuseHitPointTextureRW");
+            public static readonly int IndirectDiffuseHitPointTexture = Shader.PropertyToID("_IndirectDiffuseHitPointTexture");
+            public static readonly int IndirectDiffuseTextureRW = Shader.PropertyToID("_IndirectDiffuseTextureRW");
+            public static readonly int IndirectDiffuseTexture = Shader.PropertyToID("_IndirectDiffuseTexture");
+            public static readonly int HistoryDepthTexture = Shader.PropertyToID("_HistoryDepthTexture");
+
+            // Upsample shader properties
+            public static readonly int ShaderVariablesBilateralUpsample = Shader.PropertyToID("ShaderVariablesBilateralUpsample");
+            public static readonly int LowResolutionTexture = Shader.PropertyToID("_LowResolutionTexture");
+            public static readonly int HalfScreenSize = Shader.PropertyToID("_HalfScreenSize");
+            public static readonly int OutputUpscaledTexture = Shader.PropertyToID("_OutputUpscaledTexture");
+
+            // Bilateral denoiser shader properties
+            public static readonly int PointDistributionRW = Shader.PropertyToID("_PointDistributionRW");
+            public static readonly int PointDistribution = Shader.PropertyToID("_PointDistribution");
+            public static readonly int DenoiseInputTexture = Shader.PropertyToID("_DenoiseInputTexture");
+            public static readonly int DenoiseOutputTextureRW = Shader.PropertyToID("_DenoiseOutputTextureRW");
+            public static readonly int DenoiserFilterRadius = Shader.PropertyToID("_DenoiserFilterRadius");
+            public static readonly int PixelSpreadAngleTangent = Shader.PropertyToID("_PixelSpreadAngleTangent");
+            public static readonly int HalfResolutionFilter = Shader.PropertyToID("_HalfResolutionFilter");
+            public static readonly int JitterFramePeriod = Shader.PropertyToID("_JitterFramePeriod");
+            public static readonly int DepthTexture = Shader.PropertyToID("_DepthTexture");
+            public static readonly int NormalBufferTexture = Shader.PropertyToID("_NormalBufferTexture");
+
+            // Temporal filter shader properties
+            public static readonly int ValidationBufferRW = Shader.PropertyToID("_ValidationBufferRW");
+            public static readonly int ValidationBuffer = Shader.PropertyToID("_ValidationBuffer");
+            public static readonly int HistoryBuffer = Shader.PropertyToID("_HistoryBuffer");
+            public static readonly int VelocityBuffer = Shader.PropertyToID("_VelocityBuffer");
+            public static readonly int HistoryValidity = Shader.PropertyToID("_HistoryValidity");
+            public static readonly int ReceiverMotionRejection = Shader.PropertyToID("_ReceiverMotionRejection");
+            public static readonly int OccluderMotionRejection = Shader.PropertyToID("_OccluderMotionRejection");
+            public static readonly int DenoiserResolutionMultiplierVals = Shader.PropertyToID("_DenoiserResolutionMultiplierVals");
+            public static readonly int EnableExposureControl = Shader.PropertyToID("_EnableExposureControl");
+            public static readonly int AccumulationOutputTextureRW = Shader.PropertyToID("_AccumulationOutputTextureRW");
+            public static readonly int HistoryNormalTexture = Shader.PropertyToID("_HistoryNormalTexture");
+            // public static readonly int ObjectMotionStencilBit = Shader.PropertyToID("_ObjectMotionStencilBit");
+            public static readonly int HistorySizeAndScale = Shader.PropertyToID("_HistorySizeAndScale");
+            // public static readonly int StencilTexture = Shader.PropertyToID("_StencilTexture");
+        
+        }
+
         private ComputeShader _ssgiComputeShader;
         private ComputeShader _diffuseDenoiserCS;
         private ComputeShader _bilateralUpsampleCS;
@@ -320,9 +368,9 @@ namespace Game.Core.PostProcessing
             //     _ssgiComputeShader.EnableKeyword("_PROBE_VOLUME_ENABLE");
             // }
             // else
-            // {
-            //     _ssgiComputeShader.DisableKeyword("_PROBE_VOLUME_ENABLE");
-            // }
+            {
+                _ssgiComputeShader.DisableKeyword("_PROBE_VOLUME_ENABLE");
+            }
         }
 
         public override ScriptableRenderPassInput input => ScriptableRenderPassInput.Depth
@@ -358,9 +406,60 @@ namespace Game.Core.PostProcessing
         {
         }
 
+        private void ExecuteReproject(CommandBuffer cmd, ref CameraData cameraData)
+        {
+        }
+        
+        private void InitializeDiffuseDenoiser(CommandBuffer cmd)
+        {
+            // Generate point distribution (only needs to be done once)
+            if (!_denoiserInitialized)
+            {
+                cmd.SetComputeBufferParam(_diffuseDenoiserCS, _generatePointDistributionKernel,
+                    Properties.PointDistributionRW, _pointDistribution);
+                cmd.DispatchCompute(_diffuseDenoiserCS, _generatePointDistributionKernel, 1, 1, 1);
+                _denoiserInitialized = true;
+            }
+        }
+
+        private static float GetPixelSpreadTangent(float fov, int width, int height)
+        {
+            // Calculate the pixel spread angle tangent for the current FOV and resolution
+            return Mathf.Tan(fov * Mathf.Deg2Rad * 0.5f) / (height * 0.5f);
+        }
+
         public override void Render(CommandBuffer cmd, RTHandle source, RTHandle destination, ref RenderingData renderingData)
         {
+            ref var cameraData = ref renderingData.cameraData;
+            
+            // Prepare shader variables
+            PrepareVariables(ref cameraData);
+            
+            using (new ProfilingScope(cmd, TracingSampler))
+            {
+                ExecuteTrace(cmd, ref cameraData);
+            }
+            
+            using (new ProfilingScope(cmd, ReprojectSampler))
+            {
+                ExecuteReproject(cmd, ref cameraData);
+            }
+            
             Blit(cmd, source, destination, m_Material, 0);
+        }
+
+        public override void Dispose(bool disposing)
+        {
+            _hitPointRT?.Release();
+            _outputRT?.Release();
+            _denoisedRT?.Release();
+            _temporalRT?.Release();
+            _temporalRT2?.Release();
+            _denoisedRT2?.Release();
+            _upsampledRT?.Release();
+            _intermediateRT?.Release();
+            _validationBufferRT?.Release();
+            _pointDistribution?.Release();
         }
     }
 }
