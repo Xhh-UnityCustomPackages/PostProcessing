@@ -234,7 +234,7 @@ namespace Game.Core.PostProcessing
     }
 
 
-    [PostProcess("ScreenSpaceRaytracedReflection", PostProcessInjectionPoint.BeforeRenderingPostProcessing)]
+    [PostProcess("ScreenSpaceRaytracedReflection", PostProcessInjectionPoint.BeforeRenderingPostProcessing, SupportRenderPath.Deferred)]
     public class ScreenSpaceRaytracedReflectionRenderer : PostProcessVolumeRenderer<ScreenSpaceRaytracedReflection>
     {
         static class ShaderConstants

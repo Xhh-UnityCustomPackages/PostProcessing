@@ -11,19 +11,22 @@ namespace Game.Core.PostProcessing
         readonly string name;
 
         readonly PostProcessInjectionPoint injectionPoint;
+        readonly SupportRenderPath supportRenderPath;
 
         readonly bool shareInstance;
         //
         public string Name => name;
 
         public PostProcessInjectionPoint InjectionPoint => injectionPoint;
+        public SupportRenderPath SupportRenderPath => supportRenderPath;
 
         public bool ShareInstance => shareInstance;
 
-        public PostProcessAttribute(string name, PostProcessInjectionPoint injectionPoint, bool shareInstance = false)
+        public PostProcessAttribute(string name, PostProcessInjectionPoint injectionPoint, SupportRenderPath supportRenderPath = SupportRenderPath.Deferred | SupportRenderPath.Forward, bool shareInstance = false)
         {
             this.name = name;
             this.injectionPoint = injectionPoint;
+            this.supportRenderPath = supportRenderPath;
             this.shareInstance = shareInstance;
         }
 

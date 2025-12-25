@@ -191,21 +191,32 @@ namespace Game.Core.PostProcessing.UnityEditor
         {
             if (_availableRenderers != null) return;
             _availableRenderers = new Dictionary<PostProcessInjectionPoint, List<Type>>()
-        {
-            { PostProcessInjectionPoint.BeforeRenderingOpaques       , new List<Type>() },
-            { PostProcessInjectionPoint.AfterRenderingOpaques        , new List<Type>() },
-            { PostProcessInjectionPoint.BeforeRenderingGBuffer       , new List<Type>() },
-            { PostProcessInjectionPoint.BeforeRenderingDeferredLights, new List<Type>() },
-            { PostProcessInjectionPoint.AfterRenderingSkybox         , new List<Type>() },
-            { PostProcessInjectionPoint.BeforeRenderingPostProcessing, new List<Type>() },
-            { PostProcessInjectionPoint.AfterRenderingPostProcessing , new List<Type>() }
-        };
+            {
+                { PostProcessInjectionPoint.BeforeRenderingOpaques, new List<Type>() },
+                { PostProcessInjectionPoint.AfterRenderingOpaques, new List<Type>() },
+                { PostProcessInjectionPoint.BeforeRenderingGBuffer, new List<Type>() },
+                { PostProcessInjectionPoint.BeforeRenderingDeferredLights, new List<Type>() },
+                { PostProcessInjectionPoint.AfterRenderingSkybox, new List<Type>() },
+                { PostProcessInjectionPoint.BeforeRenderingPostProcessing, new List<Type>() },
+                { PostProcessInjectionPoint.AfterRenderingPostProcessing, new List<Type>() }
+            };
             foreach (var type in TypeCache.GetTypesDerivedFrom<PostProcessRenderer>())
             {
                 if (type.IsAbstract) continue;
                 var attributes = type.GetCustomAttributes(typeof(PostProcessAttribute), false);
                 if (attributes.Length != 1) continue;
                 PostProcessAttribute attribute = attributes[0] as PostProcessAttribute;
+                var supportRenderPath = attribute.SupportRenderPath;
+
+                //如果当前特性不支持延迟管线
+                if (m_RenderingMode == RenderingMode.Deferred)
+                    if (!supportRenderPath.HasFlag(SupportRenderPath.Deferred))
+                        continue;
+                //如果当前特性不支持前向管线
+                if (m_RenderingMode == RenderingMode.Forward || m_RenderingMode == RenderingMode.ForwardPlus)
+                    if (!supportRenderPath.HasFlag(SupportRenderPath.Forward))
+                        continue;
+
                 if (attribute.InjectionPoint.HasFlag(PostProcessInjectionPoint.BeforeRenderingOpaques))
                     _availableRenderers[PostProcessInjectionPoint.BeforeRenderingOpaques].Add(type);
                 if (attribute.InjectionPoint.HasFlag(PostProcessInjectionPoint.AfterRenderingOpaques))

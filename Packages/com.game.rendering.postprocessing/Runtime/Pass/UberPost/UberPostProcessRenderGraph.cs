@@ -16,7 +16,7 @@ namespace Game.Core.PostProcessing
 
         public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData) 
         {
-            UniversalResourceData resourceData = frameData.Get<UniversalResourceData>();
+            
             UniversalRenderingData renderingData = frameData.Get<UniversalRenderingData>();
             UniversalCameraData cameraData = frameData.Get<UniversalCameraData>();
             UniversalPostProcessingData postProcessingData = frameData.Get<UniversalPostProcessingData>();
@@ -26,28 +26,48 @@ namespace Game.Core.PostProcessing
             m_Tonemapping = stack.GetComponent<Tonemapping>();
             m_Vignette = stack.GetComponent<Vignette>();
 
-            Render(renderGraph);
+            m_Descriptor = cameraData.cameraTargetDescriptor;
+            m_Descriptor.useMipMap = false;
+            m_Descriptor.autoGenerateMips = false;
+            
+            Render(renderGraph, frameData);
         }
 
-        void Render(RenderGraph renderGraph)
+        void Render(RenderGraph renderGraph, ContextContainer frameData)
         {
             if (m_Material == null)
                 m_Material = Material.Instantiate(m_PostProcessFeatureData.materials.UberPost);
             
+            UniversalResourceData resourceData = frameData.Get<UniversalResourceData>();
+            
+            TextureHandle activeColor = resourceData.activeColorTexture;
+            
             TonemappingRenderer.ExecutePass(m_Material, m_Tonemapping);
             VignetteRenderer.ExecutePass(m_Descriptor, m_Material, m_Vignette);
 
-            using (var builder = renderGraph.AddRasterRenderPass<UberPostPassData>("Blit Post Processing", out var passData, m_ProfilingRenderPostProcessing))
-            {
-                passData.material = m_Material;
+           
+            var targetHdl = UniversalRenderer.CreateRenderGraphTexture(renderGraph,  GetCompatibleDescriptor(), "_TempTarget", false);
 
-                builder.SetRenderFunc(static (UberPostPassData data, RasterGraphContext context) =>
+            
+            using (var builder = renderGraph.AddUnsafePass<UberPostPassData>("Blit Post Processing", out var passData, m_ProfilingRenderPostProcessing))
+            {
+                builder.AllowPassCulling(false);
+                
+                passData.material = m_Material;
+                passData.sourceTexture = activeColor;
+                builder.UseTexture(activeColor, AccessFlags.Read);
+                //
+                passData.destinationTexture = targetHdl;
+                builder.UseTexture(targetHdl, AccessFlags.ReadWrite);
+
+                builder.SetRenderFunc(static (UberPostPassData data, UnsafeGraphContext context) =>
                 { 
-                    var cmd = context.cmd;
+                    var cmd = CommandBufferHelpers.GetNativeCommandBuffer(context.cmd);
                     
-                    // Vector4 scaleBias = RenderingUtils.GetFinalBlitScaleBias(sourceTextureHdl, dest, cameraData);
-                    // Blitter.BlitTexture(cmd, sourceTextureHdl, scaleBias, data.material, 0);
-                    // Blitter.BlitCameraTexture(cmd, tempTextureHdl, destination, data.material, 0);
+                    var sourceTextureHdl = data.sourceTexture;
+                    var tempHdl = data.destinationTexture;
+                    Blitter.BlitCameraTexture(cmd, sourceTextureHdl, tempHdl, data.material, 0);
+                    Blitter.BlitCameraTexture(cmd, tempHdl, sourceTextureHdl);
                 });
             }
         }

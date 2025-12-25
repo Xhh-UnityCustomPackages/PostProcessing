@@ -105,7 +105,7 @@ namespace Game.Core.PostProcessing
     }
 
 
-    [PostProcess("Screen Space Global Illumination", PostProcessInjectionPoint.AfterRenderingSkybox)]
+    [PostProcess("Screen Space Global Illumination", PostProcessInjectionPoint.AfterRenderingSkybox, SupportRenderPath.Deferred)]
     public class ScreenSpaceGlobalIlluminationRenderer : PostProcessVolumeRenderer<ScreenSpaceGlobalIllumination>
     {
         private ComputeShader _ssgiComputeShader;

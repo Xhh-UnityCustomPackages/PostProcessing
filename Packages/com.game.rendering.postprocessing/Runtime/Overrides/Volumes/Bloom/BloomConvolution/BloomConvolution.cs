@@ -66,7 +66,7 @@ namespace Game.Core.PostProcessing
     }
 
     [PostProcess("BloomConvolution", PostProcessInjectionPoint.AfterRenderingPostProcessing)]
-    public class BloomConvolutionRenderer : PostProcessVolumeRenderer<BloomConvolution>
+    public partial class BloomConvolutionRenderer : PostProcessVolumeRenderer<BloomConvolution>
     {
         private FFTKernel _fftKernel;
 

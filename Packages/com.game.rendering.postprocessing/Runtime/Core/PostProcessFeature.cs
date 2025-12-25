@@ -20,6 +20,13 @@ namespace Game.Core.PostProcessing
         AfterRenderingOpaques = 1 << 6,
     }
 
+    [Flags]
+    public enum SupportRenderPath
+    {
+        Forward = 1 << 0,
+        Deferred = 1 << 1,
+    }
+
     [DisallowMultipleRendererFeature]
     public class PostProcessFeature : ScriptableRendererFeature
     {
@@ -138,11 +145,13 @@ namespace Game.Core.PostProcessing
             {
                 if (m_RenderingMode == RenderingMode.Deferred)
                 {
+                    //SupportRenderPath 为 Deferred|Both 才能加入这两个
                     m_BeforeRenderingGBuffer.AddRenderPasses(ref renderingData);
                     m_BeforeRenderingDeferredLights.AddRenderPasses(ref renderingData);
                 }
                 else
                 {
+                    //SupportRenderPath 为 Forward|Both 才能加入这两个
                     m_BeforeRenderingOpaques.AddRenderPasses(ref renderingData);
                     m_AfterRenderingOpaques.AddRenderPasses(ref renderingData);
                 }

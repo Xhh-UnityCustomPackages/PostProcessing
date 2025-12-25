@@ -26,15 +26,15 @@ namespace Game.Core.PostProcessing
 
         private ScreenSpaceReflectionPassData m_PassData;
 
-        private void SetupMaterials(ref UniversalCameraData cameraData)
+        private void SetupMaterials(Camera camera, int width, int height)
         {
             if (m_ScreenSpaceReflectionMaterial == null)
                 m_ScreenSpaceReflectionMaterial = GetMaterial(postProcessFeatureData.shaders.screenSpaceReflectionPS);
             
-            var camera = cameraData.camera;
+            // var camera = cameraData.camera;
 
-            var width = cameraData.cameraTargetDescriptor.width;
-            var height = cameraData.cameraTargetDescriptor.height;
+            // var width = cameraData.cameraTargetDescriptor.width;
+            // var height = cameraData.cameraTargetDescriptor.height;
             var size = m_ScreenSpaceReflectionDescriptor.width;
             
             var projectionMatrix = GL.GetGPUProjectionMatrix(camera.projectionMatrix, false);
@@ -71,7 +71,7 @@ namespace Game.Core.PostProcessing
             UniversalResourceData resourceData = frameData.Get<UniversalResourceData>();
             UniversalCameraData cameraData = frameData.Get<UniversalCameraData>();
             
-            SetupMaterials(ref cameraData);
+            SetupMaterials(cameraData.camera, cameraData.cameraTargetDescriptor.width, cameraData.cameraTargetDescriptor.height);
             
             RenderTextureDescriptor cameraTargetDescriptor = cameraData.cameraTargetDescriptor;
             m_ScreenSpaceReflectionDescriptor = cameraTargetDescriptor;

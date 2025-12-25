@@ -83,7 +83,7 @@ namespace Game.Core.PostProcessing
     }
     
     
-    [PostProcess("ScreenSpaceReflection", PostProcessInjectionPoint.BeforeRenderingPostProcessing)]
+    [PostProcess("ScreenSpaceReflection", PostProcessInjectionPoint.BeforeRenderingPostProcessing, SupportRenderPath.Deferred)]
     public partial class ScreenSpaceReflectionRenderer : PostProcessVolumeRenderer<ScreenSpaceReflection>
     {
         static class ShaderConstants
@@ -207,7 +207,7 @@ namespace Game.Core.PostProcessing
 
         public override void Render(CommandBuffer cmd, RTHandle source, RTHandle target, ref RenderingData renderingData)
         {
-            SetupMaterials(ref renderingData);
+            SetupMaterials(renderingData.cameraData.camera, renderingData.cameraData.cameraTargetDescriptor.width, renderingData.cameraData.cameraTargetDescriptor.height);
 
             if (settings.mode.value == ScreenSpaceReflection.RaytraceModes.LinearTracing)
                 Blit(cmd, source, m_TestRT, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Test);
@@ -262,50 +262,6 @@ namespace Game.Core.PostProcessing
 
             for (int i = 0; i < m_HistoryPingPongRT.Length; i++)
                 m_HistoryPingPongRT[i]?.Release();
-        }
-
-
-        private void SetupMaterials(ref RenderingData renderingData)
-        {
-            if (m_ScreenSpaceReflectionMaterial == null)
-                m_ScreenSpaceReflectionMaterial = GetMaterial(postProcessFeatureData.shaders.screenSpaceReflectionPS);
-            
-            var cameraData = renderingData.cameraData;
-            var camera = cameraData.camera;
-
-            var width = cameraData.cameraTargetDescriptor.width;
-            var height = cameraData.cameraTargetDescriptor.height;
-            var size = m_ScreenSpaceReflectionDescriptor.width;
-            
-
-            var projectionMatrix = GL.GetGPUProjectionMatrix(camera.projectionMatrix, false);
-           
-
-            m_ScreenSpaceReflectionMaterial.SetMatrix(ShaderConstants.ViewMatrix, camera.worldToCameraMatrix);
-            m_ScreenSpaceReflectionMaterial.SetMatrix(ShaderConstants.InverseViewMatrix, camera.worldToCameraMatrix.inverse);
-            m_ScreenSpaceReflectionMaterial.SetMatrix(ShaderConstants.InverseProjectionMatrix, projectionMatrix.inverse);
-            m_ScreenSpaceReflectionMaterial.SetVector(ShaderConstants.Params1,
-                new Vector4(settings.vignette.value, settings.distanceFade.value, settings.maximumMarchDistance.value, settings.intensity.value));
-          
-            
-            if (settings.jitterMode.value == ScreenSpaceReflection.JitterMode.BlueNoise)
-            {
-                var noiseTex = postProcessFeatureData.textures.blueNoiseTex;
-                m_ScreenSpaceReflectionMaterial.SetTexture(ShaderConstants.NoiseTex, noiseTex);
-                m_ScreenSpaceReflectionMaterial.SetVector(ShaderConstants.Params2,
-                    new Vector4((float)width / height, size / (float)noiseTex.width, settings.thickness.value, settings.maximumIterationCount.value));
-            }
-            else
-            {
-                m_ScreenSpaceReflectionMaterial.SetVector(ShaderConstants.Params2,
-                    new Vector4(0, 0, settings.thickness.value, settings.maximumIterationCount.value));
-            }
-
-            // -------------------------------------------------------------------------------------------------
-            // local shader keywords
-            m_ShaderKeywords[0] = ShaderConstants.GetDebugKeyword(settings.debugMode.value);
-            m_ShaderKeywords[1] = ShaderConstants.GetJitterKeyword(settings.jitterMode.value);
-            m_ScreenSpaceReflectionMaterial.shaderKeywords = m_ShaderKeywords;
         }
     }
 }
