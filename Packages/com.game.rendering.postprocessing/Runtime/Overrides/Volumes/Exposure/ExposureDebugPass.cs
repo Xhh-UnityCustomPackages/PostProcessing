@@ -25,8 +25,9 @@ namespace Game.Core.PostProcessing
          private ComputeBuffer DebugImageHistogram;
          private RTHandle DebugExposureTexture;
 
-         public ExposureDebugPass(PostProcessFeatureData rendererData)
+         public ExposureDebugPass(PostProcessFeatureData rendererData, ExposureRenderer exposureRenderer)
          {
+             _exposure = exposureRenderer.settings;
              _debugImageHistogramCs = rendererData.computeShaders.debugImageHistogramCS;
              _debugImageHistogramKernel = _debugImageHistogramCs.FindKernel("KHistogramGen");
              profilingSampler = new ProfilingSampler("Exposure Debug");
@@ -36,7 +37,6 @@ namespace Game.Core.PostProcessing
 
          public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
          {
-             _exposure = VolumeManager.instance.stack.GetComponent<Exposure>();
              if (DebugImageHistogram == null)
              {
                  DebugImageHistogram = new(DebugImageHistogramBins, 4 * sizeof(uint));
@@ -58,8 +58,8 @@ namespace Game.Core.PostProcessing
 //                 var colorBeforePostProcess = _rendererData.GetPreviousFrameColorRT(renderingData.cameraData, out _);
 //                 DoGenerateDebugImageHistogram(cmd, ref renderingData, colorBeforePostProcess);
 //                 var colorAfterPostProcess = renderingData.cameraData.renderer.GetCameraColorBackBuffer(cmd);
-//                 DoDebugExposure(cmd, ref renderingData, colorAfterPostProcess);
-//                 IllusionRenderingUtils.FinalBlit(cmd, ref renderingData, _rendererData.DebugExposureTexture);
+                 // DoDebugExposure(cmd, ref renderingData, colorAfterPostProcess);
+                 // cmd.Blit(cmd, ref renderingData, DebugExposureTexture);
              }
              context.ExecuteCommandBuffer(cmd);
              CommandBufferPool.Release(cmd);
@@ -130,9 +130,9 @@ namespace Game.Core.PostProcessing
                  material.SetBuffer(ExposureShaderIDs._FullImageHistogram, _histogramBuffer);
                  passIndex = 3;
              }
-//             
-//             CoreUtils.SetRenderTarget(cmd, _rendererData.DebugExposureTexture);
-//             cmd.DrawProcedural(Matrix4x4.identity, material, passIndex, MeshTopology.Triangles, 3, 1);
+             
+             CoreUtils.SetRenderTarget(cmd, DebugExposureTexture);
+             cmd.DrawProcedural(Matrix4x4.identity, material, passIndex, MeshTopology.Triangles, 3, 1);
          }
 
          private void DoGenerateDebugImageHistogram(CommandBuffer cmd, ref RenderingData renderingData, RTHandle sourceTexture)
