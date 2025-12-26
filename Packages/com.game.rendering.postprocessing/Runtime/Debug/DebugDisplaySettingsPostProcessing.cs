@@ -36,14 +36,27 @@ namespace Game.Core.PostProcessing
         public float stencilDebugScale { get; set; } = 10;
         public float stencilDebugMargin { get; set; } = 0.25f;
 
+        public ExposureDebugSettings exposureDebugSettings = new();
+
         static class Strings
         {
             public static readonly NameAndTooltip MapOverlays = new() { name = "Map Overlays", tooltip = "Overlays render pipeline textures to validate the scene." };
             public static readonly NameAndTooltip MapSize = new() { name = "Map Size", tooltip = "Set the size of the render pipeline texture in the scene." };
             public static readonly NameAndTooltip HiZMipMapLevel = new() { name = "HiZ MipMap Level", tooltip = "Set the size of the render pipeline texture in the scene." };
+            
             public static readonly NameAndTooltip StencilDebug = new() { name = "Stencil Debug", tooltip = "Stencil Debug." };
             public static readonly NameAndTooltip StencilDebugScale = new() { name = "Stencil Debug Scale", tooltip = "Stencil Debug." };
             public static readonly NameAndTooltip StencilDebugMargin = new() { name = "Stencil Debug Margin", tooltip = "Stencil Debug." };
+            
+            public static readonly NameAndTooltip Exposure = new() { name = "Exposure", tooltip = "Allows the selection of an Exposure debug mode to use." };
+            public static readonly NameAndTooltip ExposureDebugMode = new() { name = "DebugMode", tooltip = "Use the drop-down to select a debug mode to validate the exposure." };
+            public static readonly NameAndTooltip ExposureDisplayMaskOnly = new() { name = "Display Mask Only", tooltip = "Display only the metering mask in the picture-in-picture. When disabled, the mask is visible after weighting the scene color instead." };
+            public static readonly NameAndTooltip ExposureShowTonemapCurve = new() { name = "Show Tonemap Curve", tooltip = "Overlay the tonemap curve to the histogram debug view." };
+            public static readonly NameAndTooltip DisplayHistogramSceneOverlay = new () { name = "Show Scene Overlay", tooltip = "Display the scene overlay showing pixels excluded by the exposure computation via histogram." };
+            public static readonly NameAndTooltip ExposureCenterAroundExposure = new() { name = "Center Around Exposure", tooltip = "Center the histogram around the current exposure value." };
+            public static readonly NameAndTooltip ExposureDisplayRGBHistogram = new() { name = "Display RGB Histogram", tooltip = "Display the Final Image Histogram as an RGB histogram instead of just luminance." };
+            public static readonly NameAndTooltip DebugExposureCompensation = new() { name = "Debug Exposure Compensation", tooltip = "Set an additional exposure on top of your current exposure for debug purposes." };
+
         }
 
         internal static class WidgetFactory
@@ -93,18 +106,16 @@ namespace Game.Core.PostProcessing
 
             };
             
-            internal static DebugUI.Widget CreateStencilDebug(SettingsPanel panel) => new DebugUI.BoolField
+            internal static DebugUI.Widget CreateStencilDebug(SettingsPanel panel) => new DebugUI.Container
             {
-                nameAndTooltip = Strings.StencilDebug,
-                getter = () => panel.data.enableStencilDebug,
-                setter = (value) => panel.data.enableStencilDebug = value
-            };
-            
-            internal static DebugUI.Widget CreateStencilDebugScale(SettingsPanel panel) => new DebugUI.Container
-            {
-                isHiddenCallback = () => !panel.data.enableStencilDebug,
                 children =
                 {
+                    new DebugUI.BoolField()
+                    {
+                        nameAndTooltip = Strings.StencilDebug,
+                        getter = () => panel.data.enableStencilDebug,
+                        setter = (value) => panel.data.enableStencilDebug = value
+                    },
                     new DebugUI.FloatField
                     {
                         nameAndTooltip = Strings.StencilDebugScale,
@@ -112,23 +123,79 @@ namespace Game.Core.PostProcessing
                         setter = value => panel.data.stencilDebugScale = value,
                         incStep = 1,
                         min = () => 0,
-                        max = () => 100
-                    }
-                }
-            };
-            
-            internal static DebugUI.Widget CreateStencilDebugMargin(SettingsPanel panel) => new DebugUI.Container
-            {
-                isHiddenCallback = () => !panel.data.enableStencilDebug,
-                children =
-                {
+                        max = () => 100,
+                        isHiddenCallback = () => !panel.data.enableStencilDebug,
+                    },
                     new DebugUI.FloatField
                     {
                         nameAndTooltip = Strings.StencilDebugMargin,
                         getter = () => panel.data.stencilDebugMargin,
                         setter = value => panel.data.stencilDebugMargin = value,
                         min = () => 0,
-                        max = () => 1
+                        max = () => 1,
+                        isHiddenCallback = () => !panel.data.enableStencilDebug,
+                    }
+                }
+            };
+
+            internal static DebugUI.Widget CreateExposureDebug(SettingsPanel panel) => new DebugUI.Container
+            {
+                isHiddenCallback = () => false,
+                children =
+                {
+                    new DebugUI.EnumField
+                    {
+                        nameAndTooltip = Strings.ExposureDebugMode,
+                        getter = () => (int)panel.data.exposureDebugSettings.exposureDebugMode,
+                        setter = value => panel.data.exposureDebugSettings.exposureDebugMode = (Exposure.ExposureDebugMode)value,
+                        autoEnum = typeof(Exposure.ExposureDebugMode),
+                        getIndex = () => (int)panel.data.exposureDebugSettings.exposureDebugMode,
+                        setIndex = value => panel.data.exposureDebugSettings.exposureDebugMode = (Exposure.ExposureDebugMode)value,
+                    },
+                    new DebugUI.BoolField()
+                    {
+                        nameAndTooltip = Strings.ExposureDisplayMaskOnly,
+                        getter = () => panel.data.exposureDebugSettings.displayMaskOnly,
+                        setter = value => panel.data.exposureDebugSettings.displayMaskOnly = value,
+                        isHiddenCallback = () => panel.data.exposureDebugSettings.exposureDebugMode != Exposure.ExposureDebugMode.MeteringWeighted
+                    },
+                    new DebugUI.Container()
+                    {
+                        isHiddenCallback = () => panel.data.exposureDebugSettings.exposureDebugMode != Exposure.ExposureDebugMode.HistogramView,
+                        children =
+                        {
+                            new DebugUI.BoolField()
+                            {
+                                nameAndTooltip = Strings.DisplayHistogramSceneOverlay,
+                                getter = () => panel.data.exposureDebugSettings.displayOnSceneOverlay,
+                                setter = value => panel.data.exposureDebugSettings.displayOnSceneOverlay = value
+                            },
+                            new DebugUI.BoolField()
+                            {
+                                nameAndTooltip = Strings.ExposureShowTonemapCurve,
+                                getter = () => panel.data.exposureDebugSettings.showTonemapCurveAlongHistogramView,
+                                setter = value => panel.data.exposureDebugSettings.showTonemapCurveAlongHistogramView = value
+                            },
+                            new DebugUI.BoolField()
+                            {
+                                nameAndTooltip = Strings.ExposureCenterAroundExposure,
+                                getter = () => panel.data.exposureDebugSettings.centerHistogramAroundMiddleGrey,
+                                setter = value => panel.data.exposureDebugSettings.centerHistogramAroundMiddleGrey = value
+                            }
+                        }
+                    },
+                    new DebugUI.BoolField()
+                    {
+                        nameAndTooltip = Strings.ExposureDisplayRGBHistogram,
+                        getter = () => panel.data.exposureDebugSettings.displayFinalImageHistogramAsRGB,
+                        setter = value => panel.data.exposureDebugSettings.displayFinalImageHistogramAsRGB = value,
+                        isHiddenCallback = () => panel.data.exposureDebugSettings.exposureDebugMode != Exposure.ExposureDebugMode.FinalImageHistogramView
+                    },
+                    new DebugUI.FloatField
+                    {
+                        nameAndTooltip = Strings.DebugExposureCompensation,
+                        getter = () => panel.data.exposureDebugSettings.debugExposure,
+                        setter = value => panel.data.exposureDebugSettings.debugExposure = value
                     }
                 }
             };
@@ -150,12 +217,32 @@ namespace Game.Core.PostProcessing
                         WidgetFactory.CreateMapOverlays(this),
                         WidgetFactory.CreateHiZMipmapLevel(this),
                         WidgetFactory.CreateMapOverlaySize(this),
-                        WidgetFactory.CreateStencilDebug(this),
-                        WidgetFactory.CreateStencilDebugScale(this),
-                        WidgetFactory.CreateStencilDebugMargin(this),
                     }
                 });
                 
+                AddWidget(new DebugUI.Foldout
+                {
+                    displayName = "Stencil Debug",
+                    flags = DebugUI.Flags.FrequentlyUsed,
+                    isHeader = true,
+                    opened = true,
+                    children =
+                    {
+                        WidgetFactory.CreateStencilDebug(this),
+                    }
+                });
+                
+                AddWidget(new DebugUI.Foldout
+                {
+                    displayName = "Expose",
+                    flags = DebugUI.Flags.FrequentlyUsed,
+                    isHeader = true,
+                    opened = true,
+                    children =
+                    {
+                        WidgetFactory.CreateExposureDebug(this),
+                    }
+                });
             }
         }
     }

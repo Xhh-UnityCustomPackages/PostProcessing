@@ -5,6 +5,7 @@ using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
+using static Game.Core.PostProcessing.GraphicsUtility;
 
 namespace Game.Core.PostProcessing
 {
@@ -31,63 +32,62 @@ namespace Game.Core.PostProcessing
         public static readonly int _FullImageHistogram = Shader.PropertyToID("_FullImageHistogram");
         public static readonly int _DebugFont = Shader.PropertyToID("_DebugFont");
     }
-    
-    internal class ExposureTexturesInfo
-    {
-        public CameraType ownerCamera;
-        public RTHandle current;
-        public RTHandle previous;
-
-        public void Clear()
-        {
-            if (current != null)
-            {
-                current.Release();   
-            }
-            current = null;
-
-            if (previous != null)
-            {
-                previous.Release();    
-            }
-                
-            previous = null;
-        }
-        
-        public bool CreateExposureRT(in CameraType cameraDataCameraType, in RenderTextureDescriptor desc)
-        {
-            string rtname = CoreUtils.GetTextureAutoName(1, 1, k_ExposureGraphicsFormat, TextureDimension.Tex2D, string.Format("Exposure_Main_{0}", cameraDataCameraType), false, 0);
-            string rtname2 = CoreUtils.GetTextureAutoName(1, 1, k_ExposureGraphicsFormat, TextureDimension.Tex2D, string.Format("Exposure_Second_{0}", cameraDataCameraType), false, 0);
-            var RTHandleSign = RenderingUtils.ReAllocateHandleIfNeeded(ref current, in desc, FilterMode.Point, TextureWrapMode.Clamp, name:rtname);
-            var RTHandleSign2 = RenderingUtils.ReAllocateHandleIfNeeded(ref previous, in desc, FilterMode.Point, TextureWrapMode.Clamp, name:rtname2);
-            return RTHandleSign & RTHandleSign2;
-        }
-        
-        static GraphicsFormat k_ExposureGraphicsFormat
-        {
-            get
-            {
-                if (SystemInfo.graphicsDeviceType == GraphicsDeviceType.OpenGLES3)
-                {
-                    return GraphicsFormat.R32G32B32A32_SFloat;
-                }
-                else
-                {
-                    return GraphicsFormat.R32G32_SFloat;
-                }
-            }
-        }
-    }
 
     [PostProcess("Exposure", PostProcessInjectionPoint.BeforeRenderingPostProcessing)]
     public class ExposureRenderer : PostProcessVolumeRenderer<Exposure>
     {
+        internal class ExposureTexturesInfo
+        {
+            public CameraType ownerCamera;
+            public RTHandle current;
+            public RTHandle previous;
+
+            public void Clear()
+            {
+                if (current != null)
+                {
+                    current.Release();   
+                }
+                current = null;
+
+                if (previous != null)
+                {
+                    previous.Release();    
+                }
+                
+                previous = null;
+            }
+        
+            public bool CreateExposureRT(in CameraType cameraDataCameraType, in RenderTextureDescriptor desc)
+            {
+                string rtname = CoreUtils.GetTextureAutoName(1, 1, k_ExposureGraphicsFormat, TextureDimension.Tex2D, string.Format("Exposure_Main_{0}", cameraDataCameraType), false, 0);
+                string rtname2 = CoreUtils.GetTextureAutoName(1, 1, k_ExposureGraphicsFormat, TextureDimension.Tex2D, string.Format("Exposure_Second_{0}", cameraDataCameraType), false, 0);
+                var RTHandleSign = RenderingUtils.ReAllocateHandleIfNeeded(ref current, in desc, FilterMode.Point, TextureWrapMode.Clamp, name:rtname);
+                var RTHandleSign2 = RenderingUtils.ReAllocateHandleIfNeeded(ref previous, in desc, FilterMode.Point, TextureWrapMode.Clamp, name:rtname2);
+                return RTHandleSign & RTHandleSign2;
+            }
+        
+            static GraphicsFormat k_ExposureGraphicsFormat
+            {
+                get
+                {
+                    if (SystemInfo.graphicsDeviceType == GraphicsDeviceType.OpenGLES3)
+                    {
+                        return GraphicsFormat.R32G32B32A32_SFloat;
+                    }
+                    else
+                    {
+                        return GraphicsFormat.R32G32_SFloat;
+                    }
+                }
+            }
+        }
+        
         public override bool renderToCamera => false;
         
         // Exposure data
         private const int k_ExposureCurvePrecision = 128;
         private const int k_HistogramBins = 128;   // Important! If this changes, need to change HistogramExposure.compute
-        private const int k_DebugImageHistogramBins = 256;   // Important! If this changes, need to change HistogramExposure.compute
         private readonly Color[] m_ExposureCurveColorArray = new Color[k_ExposureCurvePrecision];
         private readonly int[] m_ExposureVariants = new int[4];
         
@@ -97,7 +97,6 @@ namespace Game.Core.PostProcessing
         private ComputeBuffer m_HistogramBuffer;
         private ComputeBuffer m_DebugImageHistogramBuffer;
         private readonly int[] m_EmptyHistogram = new int[k_HistogramBins];
-        readonly int[] m_EmptyDebugImageHistogram = new int[k_DebugImageHistogramBins * 4];
         
         private Dictionary<CameraType, ExposureTexturesInfo> m_ExposureInfos = new ();
         private ExposureTexturesInfo m_ExposureTexturesInfo; 
@@ -138,7 +137,6 @@ namespace Game.Core.PostProcessing
             public RTHandle tmpTarget32;
         }
         
-        ExposureDebugPass m_DebugPass;
         DynamicExposureData m_DynamicExposureData;
         private RenderTextureDescriptor m_RenderDescriptor;
         
@@ -435,29 +433,6 @@ namespace Game.Core.PostProcessing
             foreach (var exposureInfo in m_ExposureInfos.Values)
             {
                 exposureInfo.Clear();
-            }
-        }
-
-        public override void AddRenderPasses(ref RenderingData renderingData)
-        {
-            if (settings.debugMode.value != Exposure.ExposureDebugMode.None)
-            {
-                if (m_DebugPass == null)
-                {
-                    m_DebugPass = new(postProcessFeatureData, this);
-                }
-
-                renderingData.cameraData.renderer.EnqueuePass(m_DebugPass);
-            }
-        }
-        
-        
-        static void ValidateComputeBuffer(ref ComputeBuffer cb, int size, int stride, ComputeBufferType type = ComputeBufferType.Default)
-        {
-            if (cb == null || cb.count < size)
-            {
-                CoreUtils.SafeRelease(cb);
-                cb = new ComputeBuffer(size, stride, type);
             }
         }
     }

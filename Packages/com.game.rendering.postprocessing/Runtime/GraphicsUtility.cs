@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 
 namespace Game.Core.PostProcessing
 {
@@ -41,6 +42,22 @@ namespace Game.Core.PostProcessing
         {
             buffer.SetRenderTarget(colorIdentifier, depthIdentifier);
             buffer.DrawMesh(mesh, Matrix4x4.identity, mat, 0, pass);
+        }
+        
+        public static void ValidateComputeBuffer(ref ComputeBuffer cb, int size, int stride, ComputeBufferType type = ComputeBufferType.Default)
+        {
+            if (cb == null || cb.count < size)
+            {
+                CoreUtils.SafeRelease(cb);
+                cb = new ComputeBuffer(size, stride, type);
+            }
+        }
+        
+        internal static Vector4 GetMouseCoordinates(ref CameraData camera)
+        {
+            // We request the mouse post based on the type of the camera
+            Vector2 mousePixelCoord = MousePositionDebug.instance.GetMousePosition(camera.pixelHeight, camera.cameraType == CameraType.SceneView);
+            return new Vector4(mousePixelCoord.x, mousePixelCoord.y, RTHandles.rtHandleProperties.rtHandleScale.x * mousePixelCoord.x / camera.pixelWidth, RTHandles.rtHandleProperties.rtHandleScale.y * mousePixelCoord.y / camera.pixelHeight);
         }
     }
 }

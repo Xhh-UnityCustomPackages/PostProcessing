@@ -15,6 +15,7 @@ namespace Game.Core.PostProcessing
         DebugDisplaySettingsPostProcessing m_PostProcessingSetting;
         private PostProcessingDebugPass m_DebugPass;
         private StencilDebugPass m_StencilDebugPass;
+        private ExposureDebugPass m_ExposureDebugPass;
 
         public DebugDisplaySettingsPostProcessing PostProcessingSetting => m_PostProcessingSetting;
         public bool AreAnySettingsActive => m_PostProcessingSetting.AreAnySettingsActive;
@@ -31,6 +32,7 @@ namespace Game.Core.PostProcessing
             cs = AssetDatabase.LoadAssetAtPath<ComputeShader>(shaderPath);
             #endif
             m_StencilDebugPass = new StencilDebugPass(cs);
+            // m_ExposureDebugPass = new ExposureDebugPass(null, m_PostProcessingSetting.exposureDebugSettings);
         }
 
         public void EnqueuePass(ScriptableRenderer renderer)
@@ -45,12 +47,18 @@ namespace Game.Core.PostProcessing
                 m_StencilDebugPass.Setup(m_PostProcessingSetting.stencilDebugScale, m_PostProcessingSetting.stencilDebugMargin);
                 renderer.EnqueuePass(m_StencilDebugPass);
             }
+
+            if (m_PostProcessingSetting.exposureDebugSettings.exposureDebugMode != Exposure.ExposureDebugMode.None)
+            {
+                // renderer.EnqueuePass(m_ExposureDebugPass);
+            }
         }
 
         public void Dispose()
         {
             m_DebugPass?.Dispose();
             m_StencilDebugPass?.Dispose();
+            m_ExposureDebugPass?.Dispose();
         }
 
         T AddPanel<T>(T data) where T : IDebugDisplaySettingsData
