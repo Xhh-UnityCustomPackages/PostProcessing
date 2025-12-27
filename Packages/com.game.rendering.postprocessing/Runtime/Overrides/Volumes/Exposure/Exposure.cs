@@ -165,10 +165,7 @@ namespace Game.Core.PostProcessing
         /// Sets the softness of the mask, the higher the value the less influence is given to pixels at the edge of the mask.
         /// </summary>
         public NoInterpMinFloatParameter proceduralSoftness = new(0.5f, 0.0f);
-
-
-        [Header("Debug")] 
-        public EnumParameter<ExposureDebugMode> debugMode = new(ExposureDebugMode.None);
+        
 
         public override bool IsActive() => true;
         

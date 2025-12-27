@@ -11,13 +11,16 @@ namespace Game.Core.PostProcessing
     {
          private const int k_DebugImageHistogramBins = 256;   // Important! If this changes, need to change HistogramExposure.compute
          private readonly int[] m_EmptyDebugImageHistogram = new int[k_DebugImageHistogramBins * 4];
+         internal const GraphicsFormat k_ExposureFormat = GraphicsFormat.R32G32_SFloat;
          
          private Exposure settings;
          private ComputeBuffer m_DebugImageHistogramBuffer;
-         
+         private RTHandle m_DebugExposureData;
          private RTHandle DebugExposureTexture;
-         private DebugExposureData m_DebugExposureData;
+         private DebugExposureData m_DebugExposure;
          private DebugImageHistogramData m_DebugImageHistogramData;
+         private Texture2D debugFontTex;
+         private ExposureDebugSettings m_DebugSettings;
          
          public class DebugExposureData
          {
@@ -48,22 +51,33 @@ namespace Game.Core.PostProcessing
              public RTHandle source;
          }
 
-         public ExposureDebugPass(PostProcessFeatureData rendererData, ExposureDebugSettings debugSettings)
+         public ExposureDebugPass(Shader DebugExposure, ComputeShader debugImageHistogramCS, ExposureDebugSettings debugSettings)
          {
              profilingSampler = new ProfilingSampler("Exposure Debug");
-             renderPassEvent = RenderPassEvent.AfterRendering + 2;
-             
-             m_DebugExposureData = new();
-             m_DebugExposureData.debugSettings = debugSettings;
-             m_DebugExposureData.debugExposureMaterial = CoreUtils.CreateEngineMaterial(rendererData.shaders.DebugExposure);
-             
+             renderPassEvent = RenderPassEvent.AfterRendering;
+
+             m_DebugSettings = debugSettings;
+             m_DebugExposure = new();
+             m_DebugExposure.debugSettings = m_DebugSettings;
+             m_DebugExposure.debugExposureMaterial = CoreUtils.CreateEngineMaterial(DebugExposure);
+
              m_DebugImageHistogramData = new();
-             m_DebugImageHistogramData.debugImageHistogramCS = rendererData.computeShaders.debugImageHistogramCS;
+             m_DebugImageHistogramData.debugImageHistogramCS = debugImageHistogramCS;
              m_DebugImageHistogramData.debugImageHistogramKernel = m_DebugImageHistogramData.debugImageHistogramCS.FindKernel("KHistogramGen");
+             
+             
+             m_DebugExposureData = RTHandles.Alloc(1, 1, colorFormat: k_ExposureFormat,
+                 enableRandomWrite: true, name: "Debug Exposure Info");
+            
+
+#if UNITY_EDITOR
+             debugFontTex = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>(PostProcessingUtils.packagePath + "/Textures/DebugFont.tga");
+#endif
          }
 
          public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
          {
+             settings = VolumeManager.instance.stack.GetComponent<Exposure>();
              var descriptor = renderingData.cameraData.cameraTargetDescriptor;
              descriptor.depthBufferBits = (int)DepthBits.None;
              descriptor.graphicsFormat = GraphicsFormat.R16G16B16A16_SFloat;
@@ -75,11 +89,12 @@ namespace Game.Core.PostProcessing
              var cmd = CommandBufferPool.Get();
              using (new ProfilingScope(cmd, profilingSampler))
              {
-                 var colorBeforePostProcess = renderingData.cameraData.renderer.GetCameraColorBackBuffer(cmd);
+                 ExposureRenderer.SetDebugSetting(m_DebugSettings, m_DebugExposureData);
+                 var colorBeforePostProcess = renderingData.cameraData.renderer.GetCameraColorFrontBuffer(cmd);
                  DoGenerateDebugImageHistogram(cmd, ref renderingData, colorBeforePostProcess, m_DebugImageHistogramData);
-//                 var colorAfterPostProcess = renderingData.cameraData.renderer.GetCameraColorBackBuffer(cmd);
-                 // DoDebugExposure(cmd, ref renderingData, colorAfterPostProcess);
-                 // cmd.Blit(cmd, ref renderingData, DebugExposureTexture);
+                 var colorAfterPostProcess = renderingData.cameraData.renderer.GetCameraColorBackBuffer(cmd);
+                 DoDebugExposure(cmd, ref renderingData, colorAfterPostProcess, m_DebugExposure);
+                 cmd.Blit(DebugExposureTexture, colorAfterPostProcess);
              }
              context.ExecuteCommandBuffer(cmd);
              CommandBufferPool.Release(cmd);
@@ -87,9 +102,12 @@ namespace Game.Core.PostProcessing
 
          private void DoDebugExposure(CommandBuffer cmd, ref RenderingData renderingData, RTHandle sourceTexture, DebugExposureData data)
          {
+             data.debugExposureData = m_DebugExposureData;
+             
              var camera = renderingData.cameraData.camera;
 
              data.camera = camera;
+             data.colorBuffer = sourceTexture;
              
              settings.ComputeProceduralMeteringParams(camera, out data.proceduralMeteringParams1, out data.proceduralMeteringParams2);
              Vector4 exposureParams = new Vector4(settings.compensation.value, settings.limitMin.value, settings.limitMax.value, 0f);
@@ -111,21 +129,26 @@ namespace Game.Core.PostProcessing
              data.debugExposureMaterial.SetVector(ExposureShaderIDs._MousePixelCoord, GetMouseCoordinates(ref renderingData.cameraData));
              data.debugExposureMaterial.SetTexture(ExposureShaderIDs._SourceTexture, data.colorBuffer);
              data.debugExposureMaterial.SetTexture(ExposureShaderIDs._DebugFullScreenTexture, data.colorBuffer);
-             data.debugExposureMaterial.SetTexture(ExposureShaderIDs._PreviousExposureTexture, data.previousExposure);
-             // data.debugExposureMaterial.SetTexture(ExposureShaderIDs._ExposureTexture, data.currentExposure);
+             var texturesInfo = ExposureRenderer.GetExposureTexturesInfo(camera.cameraType);
+             if (texturesInfo != null)
+             {
+                 data.debugExposureMaterial.SetTexture(ExposureShaderIDs._PreviousExposureTexture, texturesInfo.previous);
+                 data.debugExposureMaterial.SetTexture(ExposureShaderIDs._ExposureTexture, texturesInfo.current);
+             }
+
              data.debugExposureMaterial.SetTexture(ExposureShaderIDs._ExposureWeightMask, settings.weightTextureMask.value);
              data.debugExposureMaterial.SetBuffer(ExposureShaderIDs._HistogramBuffer, data.histogramBuffer);
-             // material.SetTexture(ExposureShaderIDs._DebugFont, _rendererData.RuntimeResources.debugFontTex);
+             data.debugExposureMaterial.SetTexture(ExposureShaderIDs._DebugFont, debugFontTex);
 
 
              int passIndex = 0;
-             if (settings.debugMode.value == Exposure.ExposureDebugMode.MeteringWeighted)
+             if (m_DebugSettings.exposureDebugMode == Exposure.ExposureDebugMode.MeteringWeighted)
              {
                  passIndex = 1;
                  data.debugExposureMaterial.SetVector(ExposureShaderIDs._ExposureDebugParams, new Vector4(data.debugSettings.displayMaskOnly ? 1 : 0, 0, 0, 0));
              }
 
-             if (settings.debugMode.value == Exposure.ExposureDebugMode.HistogramView)
+             if (m_DebugSettings.exposureDebugMode == Exposure.ExposureDebugMode.HistogramView)
              {
                  data.debugExposureMaterial.SetTexture(ExposureShaderIDs._ExposureDebugTexture, data.debugExposureData);
                  var tonemappingSettings = VolumeManager.instance.stack.GetComponent<Tonemapping>();
@@ -138,7 +161,7 @@ namespace Game.Core.PostProcessing
                  passIndex = 2;
              }
 
-             if (settings.debugMode.value == Exposure.ExposureDebugMode.FinalImageHistogramView)
+             if (m_DebugSettings.exposureDebugMode == Exposure.ExposureDebugMode.FinalImageHistogramView)
              {
                  bool finalImageRGBHistogram = data.debugSettings.displayFinalImageHistogramAsRGB;
                  data.debugExposureMaterial.SetVector(ExposureShaderIDs._ExposureDebugParams, new Vector4(0, 0, 0, finalImageRGBHistogram ? 1 : 0));
@@ -152,8 +175,8 @@ namespace Game.Core.PostProcessing
 
          private void DoGenerateDebugImageHistogram(CommandBuffer cmd, ref RenderingData renderingData, RTHandle sourceTexture, DebugImageHistogramData data)
          {
-             // if (m_CurrentDebugDisplaySettings.data.lightingDebugSettings.exposureDebugMode != Exposure.ExposureDebugMode.FinalImageHistogramView)
-             //     return;
+             if (m_DebugSettings.exposureDebugMode != Exposure.ExposureDebugMode.FinalImageHistogramView)
+                 return;
              
              
              ValidateComputeBuffer(ref m_DebugImageHistogramBuffer, k_DebugImageHistogramBins, 4 * sizeof(uint));
@@ -175,9 +198,12 @@ namespace Game.Core.PostProcessing
 
          public void Dispose()
          {
-             CoreUtils.Destroy(m_DebugExposureData.debugExposureMaterial);
-             m_DebugExposureData = null;
+             CoreUtils.Destroy(m_DebugExposure.debugExposureMaterial);
+             m_DebugExposure = null;
              m_DebugImageHistogramData = null;
+             
+             RTHandles.Release(m_DebugExposureData);
+             m_DebugExposureData = null;
          }
     }
 }

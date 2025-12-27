@@ -27,12 +27,20 @@ namespace Game.Core.PostProcessing
             m_DebugPass = new PostProcessingDebugPass(this);
 
             ComputeShader cs = null;
-            #if UNITY_EDITOR
+#if UNITY_EDITOR
             var shaderPath = AssetDatabase.GUIDToAssetPath("1f6212cbaa876c447b940eda42123a9b");
             cs = AssetDatabase.LoadAssetAtPath<ComputeShader>(shaderPath);
-            #endif
+#endif
             m_StencilDebugPass = new StencilDebugPass(cs);
-            // m_ExposureDebugPass = new ExposureDebugPass(null, m_PostProcessingSetting.exposureDebugSettings);
+
+            ComputeShader debugImageHistogramCS = null;
+            Shader debugExposure = null;
+
+#if UNITY_EDITOR
+            debugImageHistogramCS = AssetDatabase.LoadAssetAtPath<ComputeShader>(PostProcessingUtils.packagePath + "/Runtime/Overrides/Volumes/Exposure/Shaders/DebugHistogramImage.compute");
+            debugExposure = AssetDatabase.LoadAssetAtPath<Shader>(PostProcessingUtils.packagePath + "/Runtime/Overrides/Volumes/Exposure/Shaders/DebugExposure.shader");
+#endif
+            m_ExposureDebugPass = new ExposureDebugPass(debugExposure, debugImageHistogramCS, m_PostProcessingSetting.exposureDebugSettings);
         }
 
         public void EnqueuePass(ScriptableRenderer renderer)
@@ -50,7 +58,7 @@ namespace Game.Core.PostProcessing
 
             if (m_PostProcessingSetting.exposureDebugSettings.exposureDebugMode != Exposure.ExposureDebugMode.None)
             {
-                // renderer.EnqueuePass(m_ExposureDebugPass);
+                renderer.EnqueuePass(m_ExposureDebugPass);
             }
         }
 

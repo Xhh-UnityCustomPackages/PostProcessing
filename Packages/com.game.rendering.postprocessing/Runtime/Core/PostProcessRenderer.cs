@@ -46,12 +46,15 @@ namespace Game.Core.PostProcessing
 
         // 只会调用一次
         public virtual void Setup() { }
+        
+        [Obsolete]
         public abstract void Render(CommandBuffer cmd, RTHandle source, RTHandle destination, ref RenderingData renderingData);
 
         public virtual void DoRenderGraph(RenderGraph renderGraph, TextureHandle source, TextureHandle destination, ContextContainer frameData)
         {
         }
 
+        [Obsolete]
         public virtual void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData) { }
         public virtual void OnCameraCleanup(CommandBuffer cmd) { }
         public virtual void AddRenderPasses(ref RenderingData renderingData) { }

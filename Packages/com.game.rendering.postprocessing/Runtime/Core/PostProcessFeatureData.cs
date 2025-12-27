@@ -50,10 +50,6 @@ namespace Game.Core.PostProcessing
             [Header("VolumetricFog")]
             public Shader DownsampleDepth;
             public Shader VolumetricFog;
-
-            [Space(5)] 
-            [Header("Exposure")] 
-            public Shader DebugExposure;
         }
 
         [Serializable]
@@ -61,7 +57,6 @@ namespace Game.Core.PostProcessing
         {
             [Header("Exposure")]
             public ComputeShader ExposureCS;
-            public ComputeShader debugImageHistogramCS;
             public ComputeShader HistogramExposureCS;
             [Space(5)]
             public ComputeShader pyramidDepthGeneratorCS;

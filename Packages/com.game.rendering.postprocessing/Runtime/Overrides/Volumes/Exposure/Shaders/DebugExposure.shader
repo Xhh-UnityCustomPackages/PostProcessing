@@ -1,11 +1,11 @@
 Shader "Hidden/DebugExposure"
 {
     HLSLINCLUDE
-    
-    #include "Packages/com.kurisu.illusion-render-pipelines/ShaderLibrary/ShaderVariables.hlsl"
-    #include "Packages/com.kurisu.illusion-render-pipelines/Shaders/PostProcessing/HistogramExposureCommon.hlsl"
+    #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+    #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/ShaderVariablesFunctions.hlsl"
+    #include "Packages/com.game.rendering.postprocessing/Runtime/Overrides/Volumes/Exposure/Shaders/HistogramExposureCommon.hlsl"
     #define DEBUG_DISPLAY
-    #include "Packages/com.kurisu.illusion-render-pipelines/ShaderLibrary/Debug/DebugDisplay.hlsl"
+    #include "Packages/com.game.rendering.postprocessing/Runtime/Debug/DebugDisplay.hlsl"
     #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/ACES.hlsl"
     #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
     #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
@@ -15,6 +15,8 @@ Shader "Hidden/DebugExposure"
     #pragma only_renderers d3d11 playstation xboxone xboxseries vulkan metal switch
 
     #define PERCENTILE_AS_BARS 0
+    
+    TEXTURE2D_X(_ExposureTexture);
 
     // Contains the scene color post-processed (tonemapped etc.)
     TEXTURE2D_X(_DebugFullScreenTexture);
@@ -61,7 +63,7 @@ Shader "Hidden/DebugExposure"
         UNITY_SETUP_INSTANCE_ID(input);
         UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
         output.positionCS = GetFullScreenTriangleVertexPosition(input.vertexID);
-        output.texcoord = GetNormalizedFullScreenTriangleTexCoord(input.vertexID);
+        output.texcoord = GetFullScreenTriangleTexCoord(input.vertexID);
 
         return output;
     }

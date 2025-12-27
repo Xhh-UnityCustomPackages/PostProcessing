@@ -116,7 +116,7 @@ namespace Game.Core.PostProcessing
 
 
     [PostProcess("ScreenSpaceOcclusion", PostProcessInjectionPoint.BeforeRenderingDeferredLights | PostProcessInjectionPoint.BeforeRenderingOpaques)]
-    public class ScreenSpaceOcclusionRenderer : PostProcessVolumeRenderer<ScreenSpaceOcclusion>
+    public partial class ScreenSpaceOcclusionRenderer : PostProcessVolumeRenderer<ScreenSpaceOcclusion>
     {
         static class ShaderConstants
         {

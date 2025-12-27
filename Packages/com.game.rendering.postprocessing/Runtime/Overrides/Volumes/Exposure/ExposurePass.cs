@@ -19,6 +19,7 @@ namespace Game.Core.PostProcessing
         public static readonly int _HistogramBuffer = Shader.PropertyToID("_HistogramBuffer");
         public static readonly int _AdaptationParams = Shader.PropertyToID("_AdaptationParams");
         public static readonly int _ExposureCurveTexture = Shader.PropertyToID("_ExposureCurveTexture");
+        public static readonly int _ExposureTexture = Shader.PropertyToID("_ExposureTexture");
         public static readonly int _ExposureWeightMask = Shader.PropertyToID("_ExposureWeightMask");
         public static readonly int _ProceduralMaskParams = Shader.PropertyToID("_ProceduralMaskParams");
         public static readonly int _ProceduralMaskParams2 = Shader.PropertyToID("_ProceduralMaskParams2");
@@ -36,7 +37,7 @@ namespace Game.Core.PostProcessing
     [PostProcess("Exposure", PostProcessInjectionPoint.BeforeRenderingPostProcessing)]
     public class ExposureRenderer : PostProcessVolumeRenderer<Exposure>
     {
-        internal class ExposureTexturesInfo
+        public class ExposureTexturesInfo
         {
             public CameraType ownerCamera;
             public RTHandle current;
@@ -85,6 +86,7 @@ namespace Game.Core.PostProcessing
         
         public override bool renderToCamera => false;
         
+        internal const GraphicsFormat k_ExposureFormat = GraphicsFormat.R32G32_SFloat;
         // Exposure data
         private const int k_ExposureCurvePrecision = 128;
         private const int k_HistogramBins = 128;   // Important! If this changes, need to change HistogramExposure.compute
@@ -93,14 +95,24 @@ namespace Game.Core.PostProcessing
         
         private Texture2D m_ExposureCurveTexture;
         RTHandle m_EmptyExposureTexture; // RGHalf
-        RTHandle m_DebugExposureData;
         private ComputeBuffer m_HistogramBuffer;
         private ComputeBuffer m_DebugImageHistogramBuffer;
         private readonly int[] m_EmptyHistogram = new int[k_HistogramBins];
         
-        private Dictionary<CameraType, ExposureTexturesInfo> m_ExposureInfos = new ();
-        private ExposureTexturesInfo m_ExposureTexturesInfo; 
-        
+        private static readonly Dictionary<CameraType, ExposureTexturesInfo> m_ExposureInfos = new ();
+        private ExposureTexturesInfo m_ExposureTexturesInfo;
+
+#if UNITY_EDITOR
+        private static ExposureDebugSettings m_DebugSettings;
+        private static RTHandle m_DebugExposureData;
+#endif
+
+        public static ExposureTexturesInfo GetExposureTexturesInfo(CameraType cameraType)
+        {
+            m_ExposureInfos.TryGetValue(cameraType, out var info);
+            return info;
+        }
+
         class DynamicExposureData
         {
             public ComputeShader exposureCS;
@@ -143,6 +155,14 @@ namespace Game.Core.PostProcessing
         public override void Setup()
         {
             m_DynamicExposureData = new();
+            
+            // Setup a default exposure textures and clear it to neutral values so that the exposure
+            // multiplier is 1 and thus has no effect
+            // Beware that 0 in EV100 maps to a multiplier of 0.833 so the EV100 value in this
+            // neutral exposure texture isn't 0
+            m_EmptyExposureTexture = RTHandles.Alloc(1, 1, colorFormat: k_ExposureFormat,
+                enableRandomWrite: true, name: "Empty EV100 Exposure");
+
         }
 
         private ExposureTexturesInfo GetOrCreateExposureInfoFromCurCamera(in CameraType cameraDataCameraType)
@@ -156,7 +176,12 @@ namespace Game.Core.PostProcessing
 
             return m_ExposureInfos[cameraDataCameraType];
         }
-        
+
+        public static void SetDebugSetting(ExposureDebugSettings debugSettings, RTHandle debugExposureData)
+        {
+            m_DebugSettings = debugSettings;
+            m_DebugExposureData = debugExposureData;
+        }
 
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
         {
@@ -236,7 +261,13 @@ namespace Game.Core.PostProcessing
                 passData.histogramExposureParams = new Vector4(histScale, histBias, histogramFraction.x, histogramFraction.y);
                 
                 passData.histogramBuffer = m_HistogramBuffer;
-                passData.histogramOutputDebugData = settings.debugMode.value == Exposure.ExposureDebugMode.HistogramView;
+                passData.histogramOutputDebugData = false;
+#if UNITY_EDITOR
+                if (m_DebugSettings != null)
+                {
+                    passData.histogramOutputDebugData = m_DebugSettings.exposureDebugMode == Exposure.ExposureDebugMode.HistogramView;
+                }
+#endif
                 if (passData.histogramOutputDebugData)
                 {
                     passData.histogramExposureCS.EnableKeyword("OUTPUT_DEBUG_DATA");
@@ -373,6 +404,8 @@ namespace Game.Core.PostProcessing
         
         void DoHistogramBasedExposure(CommandBuffer cmd, DynamicExposureData data, RTHandle source, RTHandle destination, ref RenderingData renderingData)
         {
+            data.exposureDebugData = m_DebugExposureData;
+            
             var cs = data.histogramExposureCS;
             int kernel;
             
@@ -434,6 +467,9 @@ namespace Game.Core.PostProcessing
             {
                 exposureInfo.Clear();
             }
+            
+            RTHandles.Release(m_EmptyExposureTexture);
+            m_EmptyExposureTexture = null;
         }
     }
 }
