@@ -45,11 +45,6 @@ namespace Game.Core.PostProcessing
             public Shader ConvolutionBloomBlend;
             public Shader ConvolutionBloomPsfRemap;
             public Shader ConvolutionBloomPsfGenerator;
-            
-            [Space(5)]
-            [Header("VolumetricFog")]
-            public Shader DownsampleDepth;
-            public Shader VolumetricFog;
         }
 
         [Serializable]
@@ -72,12 +67,6 @@ namespace Game.Core.PostProcessing
             [Header("ConvolutionBloom")]
             public ComputeShader fastFourierTransformCS;
             public ComputeShader fastFourierConvolveCS;
-
-            [Space(5)]
-            [Header("VolumetricFog")]
-            public ComputeShader volumetricFogUpsampleCS;
-            public ComputeShader volumetricFogRaymarchCS;
-            public ComputeShader volumetricFogBlurCS;
         }
 
         [Serializable]

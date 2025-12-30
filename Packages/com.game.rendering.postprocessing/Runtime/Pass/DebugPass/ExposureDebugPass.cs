@@ -104,10 +104,14 @@ namespace Game.Core.PostProcessing
          {
              data.debugExposureData = m_DebugExposureData;
              
+             
              var camera = renderingData.cameraData.camera;
 
              data.camera = camera;
              data.colorBuffer = sourceTexture;
+             data.debugFullScreenTexture = sourceTexture;
+             data.histogramBuffer = data.debugSettings.exposureDebugMode == Exposure.ExposureDebugMode.FinalImageHistogramView ? m_DebugImageHistogramBuffer : ExposureRenderer.GetHistogramBuffer();
+             // data.customToneMapCurve = 
              
              settings.ComputeProceduralMeteringParams(camera, out data.proceduralMeteringParams1, out data.proceduralMeteringParams2);
              Vector4 exposureParams = new Vector4(settings.compensation.value, settings.limitMin.value, settings.limitMax.value, 0f);
@@ -128,12 +132,14 @@ namespace Game.Core.PostProcessing
              data.debugExposureMaterial.SetVector(ExposureShaderIDs._ExposureParams2, new Vector4(0.0f, 0.0f, ColorUtils.lensImperfectionExposureScale, ColorUtils.s_LightMeterCalibrationConstant));
              data.debugExposureMaterial.SetVector(ExposureShaderIDs._MousePixelCoord, GetMouseCoordinates(ref renderingData.cameraData));
              data.debugExposureMaterial.SetTexture(ExposureShaderIDs._SourceTexture, data.colorBuffer);
-             data.debugExposureMaterial.SetTexture(ExposureShaderIDs._DebugFullScreenTexture, data.colorBuffer);
+             data.debugExposureMaterial.SetTexture(ExposureShaderIDs._DebugFullScreenTexture, data.debugFullScreenTexture);
              var texturesInfo = ExposureRenderer.GetExposureTexturesInfo(camera.cameraType);
              if (texturesInfo != null)
              {
-                 data.debugExposureMaterial.SetTexture(ExposureShaderIDs._PreviousExposureTexture, texturesInfo.previous);
-                 data.debugExposureMaterial.SetTexture(ExposureShaderIDs._ExposureTexture, texturesInfo.current);
+                 data.previousExposure = texturesInfo.previous;
+                 data.currentExposure = texturesInfo.current;
+                 data.debugExposureMaterial.SetTexture(ExposureShaderIDs._PreviousExposureTexture, data.previousExposure);
+                 data.debugExposureMaterial.SetTexture(ExposureShaderIDs._ExposureTexture, data.currentExposure);
              }
 
              data.debugExposureMaterial.SetTexture(ExposureShaderIDs._ExposureWeightMask, settings.weightTextureMask.value);
@@ -204,6 +210,8 @@ namespace Game.Core.PostProcessing
              
              RTHandles.Release(m_DebugExposureData);
              m_DebugExposureData = null;
+             
+             m_DebugImageHistogramBuffer?.Release();
          }
     }
 }

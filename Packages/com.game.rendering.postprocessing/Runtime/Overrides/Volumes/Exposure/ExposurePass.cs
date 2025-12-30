@@ -35,7 +35,7 @@ namespace Game.Core.PostProcessing
     }
 
     [PostProcess("Exposure", PostProcessInjectionPoint.BeforeRenderingPostProcessing)]
-    public class ExposureRenderer : PostProcessVolumeRenderer<Exposure>
+    public partial class ExposureRenderer : PostProcessVolumeRenderer<Exposure>
     {
         public class ExposureTexturesInfo
         {
@@ -95,8 +95,7 @@ namespace Game.Core.PostProcessing
         
         private Texture2D m_ExposureCurveTexture;
         RTHandle m_EmptyExposureTexture; // RGHalf
-        private ComputeBuffer m_HistogramBuffer;
-        private ComputeBuffer m_DebugImageHistogramBuffer;
+        private static ComputeBuffer m_HistogramBuffer;
         private readonly int[] m_EmptyHistogram = new int[k_HistogramBins];
         
         private static readonly Dictionary<CameraType, ExposureTexturesInfo> m_ExposureInfos = new ();
@@ -105,6 +104,11 @@ namespace Game.Core.PostProcessing
 #if UNITY_EDITOR
         private static ExposureDebugSettings m_DebugSettings;
         private static RTHandle m_DebugExposureData;
+
+        public static ComputeBuffer GetHistogramBuffer()
+        {
+            return m_HistogramBuffer;
+        }
 #endif
 
         public static ExposureTexturesInfo GetExposureTexturesInfo(CameraType cameraType)
@@ -147,6 +151,9 @@ namespace Game.Core.PostProcessing
             public RTHandle exposureDebugData;
             public RTHandle tmpTarget1024;
             public RTHandle tmpTarget32;
+
+            public ProfilingSampler profilingSampler_FixedExposure;
+            public ProfilingSampler profilingSampler_DynamicExposure;
         }
         
         DynamicExposureData m_DynamicExposureData;
@@ -154,6 +161,9 @@ namespace Game.Core.PostProcessing
         
         public override void Setup()
         {
+            m_ProfilingSampler_FixedExposure = new ("Fixed Exposure");
+            m_ProfilingSampler_DynamicExposure = new("Dynamic Exposure");
+            
             m_DynamicExposureData = new();
             
             // Setup a default exposure textures and clear it to neutral values so that the exposure
@@ -198,14 +208,22 @@ namespace Game.Core.PostProcessing
 
         void PrepareExposurePassData(DynamicExposureData passData, Camera camera)
         {
-            passData.exposureCS = postProcessFeatureData.computeShaders.ExposureCS;
-            passData.histogramExposureCS = postProcessFeatureData.computeShaders.HistogramExposureCS;
+            var runtimeResources = GraphicsSettings.GetRenderPipelineSettings<ExposureResources>();
+            passData.exposureCS = runtimeResources.exposureCS;
+            passData.histogramExposureCS = runtimeResources.HistogramExposureCS;
             passData.histogramExposureCS.shaderKeywords = null;
             
             passData.camera = camera;
-            
+            passData.viewportSize = new Vector2Int(camera.pixelWidth, camera.pixelHeight);
+
             // Setup variants
             var adaptationMode = settings.adaptationMode.value;
+            
+            if (IsResetHistoryEnabled())
+            {
+                adaptationMode = Exposure.AdaptationMode.Fixed;
+            }
+            
             passData.exposureVariants = m_ExposureVariants;
             passData.exposureVariants[0] = 1; // (int)exposureSettings.luminanceSource.value;
             passData.exposureVariants[1] = (int)settings.meteringMode.value;
@@ -219,7 +237,7 @@ namespace Game.Core.PostProcessing
 
             bool isHistogramBased = settings.mode.value == Exposure.ExposureMode.AutomaticHistogram;
             // bool needsCurve = (isHistogramBased && settings.histogramUseCurveRemapping.value) || settings.mode.value == Exposure.ExposureMode.CurveMapping;
-            bool needsCurve = settings.histogramUseCurveRemapping.value;
+            bool needsCurve = (isHistogramBased && settings.histogramUseCurveRemapping.value);
 
             passData.histogramUsesCurve = settings.histogramUseCurveRemapping.value;
 
@@ -315,8 +333,23 @@ namespace Game.Core.PostProcessing
             }
             else
             {
-                DoHistogramBasedExposure(cmd, m_DynamicExposureData, source, destination, ref renderingData);
+                m_DynamicExposureData.source = source;
+                DoHistogramBasedExposure(cmd, m_DynamicExposureData);
             }
+            
+            cmd.SetGlobalTexture("_AutoExposureLUT", m_DynamicExposureData.nextExposure);
+            
+            UpdateCurFrameExposureRT(m_ExposureTexturesInfo);
+        }
+        
+        private void UpdateCurFrameExposureRT(ExposureTexturesInfo curCameraExposureTexturesInfo)
+        {
+            if (curCameraExposureTexturesInfo.current == null || curCameraExposureTexturesInfo.previous == null)
+            {
+                return;
+            }
+
+            (curCameraExposureTexturesInfo.current, curCameraExposureTexturesInfo.previous) = (curCameraExposureTexturesInfo.previous, curCameraExposureTexturesInfo.current);
         }
 
         public override void OnCameraCleanup(CommandBuffer cmd)
@@ -396,15 +429,14 @@ namespace Game.Core.PostProcessing
 
             cmd.SetComputeTextureParam(cs, kernel, ExposureShaderIDs._OutputTexture, exposureData.nextExposure);
             cmd.DispatchCompute(cs, kernel, 1, 1, 1);
-            
-            cmd.SetGlobalTexture("_AutoExposureLUT", exposureData.nextExposure);
         }
 
         public static int DivRoundUp(int x, int y) => (x + y - 1) / y;
         
-        void DoHistogramBasedExposure(CommandBuffer cmd, DynamicExposureData data, RTHandle source, RTHandle destination, ref RenderingData renderingData)
+        static void DoHistogramBasedExposure(CommandBuffer cmd, DynamicExposureData data)
         {
             data.exposureDebugData = m_DebugExposureData;
+           
             
             var cs = data.histogramExposureCS;
             int kernel;
@@ -417,7 +449,7 @@ namespace Game.Core.PostProcessing
             // Generate histogram.
             kernel = data.exposurePreparationKernel;
             cmd.SetComputeTextureParam(cs, kernel, ExposureShaderIDs._PreviousExposureTexture, data.prevExposure);
-            cmd.SetComputeTextureParam(cs, kernel, ExposureShaderIDs._SourceTexture, source);
+            cmd.SetComputeTextureParam(cs, kernel, ExposureShaderIDs._SourceTexture, data.source);
             cmd.SetComputeTextureParam(cs, kernel, ExposureShaderIDs._ExposureWeightMask, data.textureMeteringMask);
 
             cmd.SetComputeIntParams(cs, ExposureShaderIDs._Variants, data.exposureVariants);
@@ -426,10 +458,8 @@ namespace Game.Core.PostProcessing
             
             int threadGroupSizeX = 16;
             int threadGroupSizeY = 8;
-            int width = renderingData.cameraData.camera.pixelWidth;
-            int height = renderingData.cameraData.camera.pixelHeight;
-            int dispatchSizeX = DivRoundUp(width / 2, threadGroupSizeX);
-            int dispatchSizeY = DivRoundUp(height / 2, threadGroupSizeY);
+            int dispatchSizeX = DivRoundUp(data.viewportSize.x / 2, threadGroupSizeX);
+            int dispatchSizeY = DivRoundUp(data.viewportSize.y / 2, threadGroupSizeY);
             
             cmd.DispatchCompute(cs, kernel, dispatchSizeX, dispatchSizeY, 1);
             
@@ -456,8 +486,6 @@ namespace Game.Core.PostProcessing
             }
             
             cmd.DispatchCompute(cs, kernel, 1, 1, 1);
-            
-            cmd.SetGlobalTexture("_AutoExposureLUT", data.nextExposure);
         }
 
 
@@ -470,6 +498,9 @@ namespace Game.Core.PostProcessing
             
             RTHandles.Release(m_EmptyExposureTexture);
             m_EmptyExposureTexture = null;
+            
+            CoreUtils.SafeRelease(m_HistogramBuffer);
+            m_HistogramBuffer = null;
         }
     }
 }
