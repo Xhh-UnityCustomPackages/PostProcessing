@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
@@ -41,8 +42,8 @@ namespace Game.Core.PostProcessing
     }
 
 
-    [PostProcess("Moebius", PostProcessInjectionPoint.AfterRenderingPostProcessing)]
-    public class MoebiusRenderer : PostProcessVolumeRenderer<Moebius>
+    [PostProcess("Moebius", PostProcessInjectionPoint.AfterRenderingPostProcessing, SupportRenderPath.Forward)]
+    public partial class MoebiusRenderer : PostProcessVolumeRenderer<Moebius>
     {
         static class ShaderConstants
         {
@@ -60,13 +61,25 @@ namespace Game.Core.PostProcessing
             m_Material = GetMaterial(postProcessFeatureData.shaders.MoebiusPS);
         }
 
-        private void SetupMaterials(ref RenderingData renderingData, Material material)
+        public override ScriptableRenderPassInput input
+        {
+            get
+            {
+                if (settings.sobelSource.value == Moebius.SobelSource.Depth)
+                    return ScriptableRenderPassInput.Depth;
+                else
+                {
+                    return ScriptableRenderPassInput.Normal;
+                }
+            }
+        }
+
+        private void SetupMaterials(Camera camera, Material material)
         {
             if (material == null)
                 return;
-            var cameraData = renderingData.cameraData;
-            float invFocalLenX = 1.0f / cameraData.camera.projectionMatrix.m00;
-            float invFocalLenY = 1.0f / cameraData.camera.projectionMatrix.m11;
+            float invFocalLenX = 1.0f / camera.projectionMatrix.m00;
+            float invFocalLenY = 1.0f / camera.projectionMatrix.m11;
 
             material.SetVector(ShaderConstants.UVToView, new Vector4(2.0f * invFocalLenX, -2.0f * invFocalLenY, -1.0f * invFocalLenX, 1.0f * invFocalLenY));
 
@@ -77,8 +90,7 @@ namespace Game.Core.PostProcessing
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
         {
             var desc = renderingData.cameraData.cameraTargetDescriptor;
-            desc.colorFormat = RenderTextureFormat.ARGB32;
-            desc.depthBufferBits = 0;
+            GetCompatibleDescriptor(ref desc, GraphicsFormat.B10G11R11_UFloatPack32);
             RenderingUtils.ReAllocateHandleIfNeeded(ref m_SobelResultRT, desc, name: "_SobelResultRT");
         }
 
@@ -87,21 +99,22 @@ namespace Game.Core.PostProcessing
             if (m_Material == null)
                 return;
 
-            SetupMaterials(ref renderingData, m_Material);
+            var camera = renderingData.cameraData.camera;
+            SetupMaterials(camera, m_Material);
 
             // Step 1 Sobel Filter
+            RTHandle sobelSourceTexture;
             if (settings.sobelSource.value == Moebius.SobelSource.Depth)
             {
-                var depthRT = renderingData.cameraData.renderer.cameraDepthTargetHandle;
-                Blit(cmd, depthRT, m_SobelResultRT, m_Material, 0);
+                sobelSourceTexture = renderingData.cameraData.renderer.cameraDepthTargetHandle;
             }
             else
             {
                 // 从Depth创建出法线还是直接拿GBuffer的法线?
                 //利用深度重建法线, 可以消除原始法线带来的一些不必要的高频信息, 有额外消耗 参考SSAO
-                var depthRT = renderingData.cameraData.renderer.cameraDepthTargetHandle;
-                Blit(cmd, depthRT, m_SobelResultRT, m_Material, 0);
+                sobelSourceTexture = renderingData.cameraData.renderer.cameraDepthTargetHandle;
             }
+            Blit(cmd, sobelSourceTexture, m_SobelResultRT, m_Material, 0);
 
             #region Debug
             if (settings.debugMode.value == Moebius.DebugMode.Sobel)

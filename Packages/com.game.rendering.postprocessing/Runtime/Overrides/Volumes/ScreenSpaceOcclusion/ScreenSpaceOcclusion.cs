@@ -230,7 +230,7 @@ namespace Game.Core.PostProcessing
 
 
         Material m_AmbientOcclusionMaterial;
-        string[] m_ShaderKeywords = new string[5];
+        readonly string[] m_ShaderKeywords = new string[5];
 
         ScreenSpaceOcclusionDebug m_DebugPass;
 
@@ -309,8 +309,7 @@ namespace Game.Core.PostProcessing
         {
             if (settings.debugMode.value != ScreenSpaceOcclusion.DebugMode.Disabled)
             {
-                if (m_DebugPass == null)
-                    m_DebugPass = new ScreenSpaceOcclusionDebug();
+                m_DebugPass ??= new ScreenSpaceOcclusionDebug();
                 m_DebugPass.finalRT = m_OcclusionFinalRT;
                 renderingData.cameraData.renderer.EnqueuePass(m_DebugPass);
             }
@@ -324,7 +323,7 @@ namespace Game.Core.PostProcessing
             m_AmbientOcclusionDescriptor = renderingData.cameraData.cameraTargetDescriptor;
             m_AmbientOcclusionDescriptor.msaaSamples = 1;
             m_AmbientOcclusionDescriptor.depthBufferBits = 0;
-            m_AmbientOcclusionDescriptor.colorFormat = m_AmbientOcclusionColorFormat;
+          
 
             if (settings.resolution == ScreenSpaceOcclusion.Resolution.Half)
             {
@@ -335,7 +334,17 @@ namespace Game.Core.PostProcessing
                 DescriptorDownSample(ref m_AmbientOcclusionDescriptor, 4);
             }
 
+            if (settings.debugMode.value != ScreenSpaceOcclusion.DebugMode.Disabled)
+            {
+                m_AmbientOcclusionDescriptor.colorFormat = m_AmbientOcclusionColorFormat;
+            }
+            else
+            {
+                m_AmbientOcclusionDescriptor.colorFormat = RenderTextureFormat.R8;
+            }
             RenderingUtils.ReAllocateHandleIfNeeded(ref m_OcclusionFinalRT, m_AmbientOcclusionDescriptor, FilterMode.Bilinear, name: "OcclusionFinalRT");
+            
+            m_AmbientOcclusionDescriptor.colorFormat = m_AmbientOcclusionColorFormat;
             RenderingUtils.ReAllocateHandleIfNeeded(ref m_OcclusionDepthRT, m_AmbientOcclusionDescriptor, FilterMode.Bilinear, name: "OcclusionDepthRT");
             RenderingUtils.ReAllocateHandleIfNeeded(ref m_OcclusionTempRT, m_AmbientOcclusionDescriptor, FilterMode.Bilinear, name: "OcclusionTempRT");
 
@@ -359,6 +368,7 @@ namespace Game.Core.PostProcessing
 
             //Composite
             cmd.SetGlobalTexture("_ScreenSpaceOcclusionTexture", m_OcclusionFinalRT);
+            cmd.SetGlobalVector("_AmbientOcclusionParam", new Vector4(1, 0, 0, 0.25f));
             Blit(cmd, m_OcclusionDepthRT, m_OcclusionFinalRT, m_AmbientOcclusionMaterial, 3);
         }
 

@@ -91,7 +91,7 @@ namespace Game.Core.PostProcessing
     }
 
 
-    [PostProcess("StochasticScreenSpaceReflection", PostProcessInjectionPoint.BeforeRenderingPostProcessing, SupportRenderPath.Deferred)]
+    [PostProcess("StochasticScreenSpaceReflection", PostProcessInjectionPoint.BeforeRenderingDeferredLights, SupportRenderPath.Deferred)]
     public class StochasticScreenSpaceReflectionRenderer : PostProcessVolumeRenderer<StochasticScreenSpaceReflection>
     {
         static class ShaderConstants

@@ -234,7 +234,7 @@ namespace Game.Core.PostProcessing
     }
 
 
-    [PostProcess("ScreenSpaceRaytracedReflection", PostProcessInjectionPoint.BeforeRenderingPostProcessing, SupportRenderPath.Deferred)]
+    [PostProcess("ScreenSpaceRaytracedReflection", PostProcessInjectionPoint.BeforeRenderingDeferredLights, SupportRenderPath.Deferred)]
     public class ScreenSpaceRaytracedReflectionRenderer : PostProcessVolumeRenderer<ScreenSpaceRaytracedReflection>
     {
         static class ShaderConstants
@@ -249,29 +249,29 @@ namespace Game.Core.PostProcessing
             internal static readonly int Color = Shader.PropertyToID("_Color");
             internal static readonly int BaseColor = Shader.PropertyToID("_BaseColor");
             internal static readonly int Smoothness = Shader.PropertyToID("_Smoothness");
-            public static int Reflectivity = Shader.PropertyToID("_Metallic");
-            public static int SmoothnessMap = Shader.PropertyToID("_SmoothnessMap");
-            public static int MetallicGlossMap = Shader.PropertyToID("_MetallicGlossMap");
-            public static int MaterialData = Shader.PropertyToID("_MaterialData");
-            public static int DistortionData = Shader.PropertyToID("_DistortionData");
-            public static int SSRSettings = Shader.PropertyToID("_SSRSettings");
-            public static int SSRSettings2 = Shader.PropertyToID("_SSRSettings2");
-            public static int SSRSettings3 = Shader.PropertyToID("_SSRSettings3");
-            public static int SSRSettings4 = Shader.PropertyToID("_SSRSettings4");
-            public static int SSRSettings5 = Shader.PropertyToID("_SSRSettings5");
-            public static int SSRBlurStrength = Shader.PropertyToID("_SSRBlurStrength");
-            public static int WorldToViewMatrix = Shader.PropertyToID("_WorldToViewDir");
-            public static int MinimumBlur = Shader.PropertyToID("_MinimumBlur");
-            public static int StencilValue = Shader.PropertyToID("_StencilValue");
-            public static int StencilCompareFunction = Shader.PropertyToID("_StencilCompareFunction");
-            public static int TemporalResponseSpeed = Shader.PropertyToID("_TemporalResponseSpeed");
+            public static readonly int Reflectivity = Shader.PropertyToID("_Metallic");
+            public static readonly int SmoothnessMap = Shader.PropertyToID("_SmoothnessMap");
+            public static readonly int MetallicGlossMap = Shader.PropertyToID("_MetallicGlossMap");
+            public static readonly int MaterialData = Shader.PropertyToID("_MaterialData");
+            public static readonly int DistortionData = Shader.PropertyToID("_DistortionData");
+            public static readonly int SSRSettings = Shader.PropertyToID("_SSRSettings");
+            public static readonly int SSRSettings2 = Shader.PropertyToID("_SSRSettings2");
+            public static readonly int SSRSettings3 = Shader.PropertyToID("_SSRSettings3");
+            public static readonly int SSRSettings4 = Shader.PropertyToID("_SSRSettings4");
+            public static readonly int SSRSettings5 = Shader.PropertyToID("_SSRSettings5");
+            public static readonly int SSRBlurStrength = Shader.PropertyToID("_SSRBlurStrength");
+            public static readonly int WorldToViewMatrix = Shader.PropertyToID("_WorldToViewDir");
+            public static readonly int MinimumBlur = Shader.PropertyToID("_MinimumBlur");
+            public static readonly int StencilValue = Shader.PropertyToID("_StencilValue");
+            public static readonly int StencilCompareFunction = Shader.PropertyToID("_StencilCompareFunction");
+            public static readonly int TemporalResponseSpeed = Shader.PropertyToID("_TemporalResponseSpeed");
             internal static readonly int MinimumThickness = Shader.PropertyToID("_MinimumThickness");
             internal static readonly int InverseProjectionMatrix = Shader.PropertyToID("_InverseProjectionMatrix");
 
             //targets
-            public static int DownscaledDepthRT = Shader.PropertyToID("_DownscaledShinyDepthRT");
-            public static int RayCast = Shader.PropertyToID("_RayCastRT");
-            public static int PrevResolveNameId = Shader.PropertyToID("_PrevResolve");
+            public static readonly int DownscaledDepthRT = Shader.PropertyToID("_DownscaledShinyDepthRT");
+            public static readonly int RayCast = Shader.PropertyToID("_RayCastRT");
+            public static readonly int PrevResolveNameId = Shader.PropertyToID("_PrevResolve");
 
             // shader keywords
             internal static readonly string SKW_JITTER = "SSR_JITTER";

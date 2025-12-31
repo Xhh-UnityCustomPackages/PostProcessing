@@ -59,6 +59,12 @@ MonoBehaviour:
       - rid: 5115767482223689751
       - rid: 5115767482223689752
       - rid: 5115767482223689753
+      - rid: -2
+      - rid: 5115767701008547895
+      - rid: 5115767701008547896
+      - rid: 5115767728517414966
+      - rid: 5115767728517414967
+      - rid: 5115767730310742070
     m_RuntimeSettings:
       m_List: []
   m_AssetVersion: 8
@@ -91,6 +97,8 @@ MonoBehaviour:
   references:
     version: 2
     RefIds:
+    - rid: -2
+      type: {class: , ns: , asm: }
     - rid: 5115767482223689728
       type: {class: UniversalRendererResources, ns: UnityEngine.Rendering.Universal,
         asm: Unity.RenderPipelines.Universal.Runtime}
@@ -343,7 +351,7 @@ MonoBehaviour:
       type: {class: RenderGraphSettings, ns: UnityEngine.Rendering.Universal, asm: Unity.RenderPipelines.Universal.Runtime}
       data:
         m_Version: 0
-        m_EnableRenderCompatibilityMode: 1
+        m_EnableRenderCompatibilityMode: 0
     - rid: 5115767482223689744
       type: {class: GPUResidentDrawerResources, ns: UnityEngine.Rendering, asm: Unity.RenderPipelines.GPUDriven.Runtime}
       data:
@@ -451,3 +459,55 @@ MonoBehaviour:
         m_ExportShaderVariants: 1
         m_ShaderVariantLogLevel: 0
         m_StripRuntimeDebugShaders: 1
+    - rid: 5115767701008547895
+      type: {class: ExposureResources, ns: UnityEngine.Rendering, asm: Game.Rendering.PostProcessing.Runtime}
+      data:
+        m_ExposureCS: {fileID: 7200000, guid: ed9fcf0a808091d40914c660869ac07a, type: 3}
+        m_HistogramExposureCS: {fileID: 7200000, guid: 7aacc3bb516354e45b576942fd27006e,
+          type: 3}
+        m_DebugHistogramImageCS: {fileID: 7200000, guid: 88871c6508434b5eacce624ded7c1ba0,
+          type: 3}
+    - rid: 5115767701008547896
+      type: {class: VolumetricFogResources, ns: UnityEngine.Rendering, asm: Game.Rendering.PostProcessing.Runtime}
+      data:
+        m_DefaultFogVolumeShader: {fileID: 0}
+        m_AtmosphereScattering: {fileID: 0}
+        m_ComputeMaxDepth: {fileID: 0}
+        m_VolumetricFogLighting: {fileID: 0}
+        m_VolumetricLightingFilter: {fileID: 0}
+        m_VolumetricMaterial: {fileID: 0}
+        m_VolumeVoxelization: {fileID: 0}
+    - rid: 5115767728517414966
+      type: {class: ScreenSpaceGlobalIlluminationResources, ns: UnityEngine.Rendering,
+        asm: Game.Rendering.PostProcessing.Runtime}
+      data:
+        m_SSGIComputeShader: {fileID: 7200000, guid: d3267080bad65a54eb1a2da829ef08f1,
+          type: 3}
+        m_DiffuseDenoiserCS: {fileID: 7200000, guid: d6beb8ede1ec9f746adbbaa9e5814660,
+          type: 3}
+        m_BilateralUpsampleCS: {fileID: 7200000, guid: 6b6f6461fb14882439c89a085263733c,
+          type: 3}
+        m_TemporalFilterCS: {fileID: 7200000, guid: af087f3f9bb126842b3d9d3fc5eeae84,
+          type: 3}
+    - rid: 5115767728517414967
+      type: {class: ContactShadowResources, ns: UnityEngine.Rendering, asm: Game.Rendering.PostProcessing.Runtime}
+      data:
+        m_ContractShadowCS: {fileID: 7200000, guid: a1cf9f88135afee44964499279152289,
+          type: 3}
+        m_DiffuseShadowDenoiserCS: {fileID: 7200000, guid: 24334c26778cd4240b3448d0a289ad0e,
+          type: 3}
+    - rid: 5115767730310742070
+      type: {class: BloomConvolutionResources, ns: UnityEngine.Rendering, asm: Game.Rendering.PostProcessing.Runtime}
+      data:
+        m_FastFourierTransformCS: {fileID: 7200000, guid: 5ca31bf4cdfb89949abf61d2b11923a5,
+          type: 3}
+        m_FastFourierConvolveCS: {fileID: 7200000, guid: b98a6f3eaa1ad384b936476bf6375ae3,
+          type: 3}
+        m_ConvolutionBloomBrightMask: {fileID: 4800000, guid: 3985cb67ef742544fb95de3e69cf83cf,
+          type: 3}
+        m_ConvolutionBloomBlend: {fileID: 4800000, guid: 73412eeca3f8cff4b854e14ce6ea7eca,
+          type: 3}
+        m_ConvolutionBloomPsfRemap: {fileID: 4800000, guid: 69354f209bc80584c956bc3727e37b56,
+          type: 3}
+        m_ConvolutionBloomPsfGenerator: {fileID: 4800000, guid: dc78b3fd48a24baf89c5ab2a5773676f,
+          type: 3}

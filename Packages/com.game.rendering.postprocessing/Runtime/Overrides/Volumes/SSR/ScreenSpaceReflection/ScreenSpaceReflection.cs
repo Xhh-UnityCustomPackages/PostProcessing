@@ -83,7 +83,7 @@ namespace Game.Core.PostProcessing
     }
     
     
-    [PostProcess("ScreenSpaceReflection", PostProcessInjectionPoint.BeforeRenderingPostProcessing, SupportRenderPath.Deferred)]
+    [PostProcess("ScreenSpaceReflection", PostProcessInjectionPoint.BeforeRenderingDeferredLights, SupportRenderPath.Deferred)]
     public partial class ScreenSpaceReflectionRenderer : PostProcessVolumeRenderer<ScreenSpaceReflection>
     {
         static class ShaderConstants
@@ -144,7 +144,7 @@ namespace Game.Core.PostProcessing
         }
 
         RenderTextureDescriptor m_ScreenSpaceReflectionDescriptor;
-        string[] m_ShaderKeywords = new string[2];
+        readonly string[] m_ShaderKeywords = new string[2];
         Material m_ScreenSpaceReflectionMaterial;
 
         bool m_SupportARGBHalf = true;

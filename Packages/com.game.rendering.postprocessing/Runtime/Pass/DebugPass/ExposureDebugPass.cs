@@ -84,6 +84,7 @@ namespace Game.Core.PostProcessing
              RenderingUtils.ReAllocateHandleIfNeeded(ref DebugExposureTexture, descriptor, wrapMode: TextureWrapMode.Clamp, name: "ExposureDebug");
          }
 
+#if UNITY_EDITOR
          public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
          {
              var cmd = CommandBufferPool.Get();
@@ -99,6 +100,7 @@ namespace Game.Core.PostProcessing
              context.ExecuteCommandBuffer(cmd);
              CommandBufferPool.Release(cmd);
          }
+#endif
 
          private void DoDebugExposure(CommandBuffer cmd, ref RenderingData renderingData, RTHandle sourceTexture, DebugExposureData data)
          {

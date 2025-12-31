@@ -17,7 +17,7 @@ namespace Game.Core.PostProcessing.UnityEditor
         private RenderingMode m_RenderingMode;
         private SerializedProperty m_PostProcessFeatureData;
 
-        private List<SerializedObject> m_properties = new List<SerializedObject>();
+        private readonly List<SerializedObject> m_properties = new List<SerializedObject>();
 
         /// This will contain a list of all available renderers for each injection point.
         private Dictionary<PostProcessInjectionPoint, List<Type>> _availableRenderers;
@@ -25,7 +25,7 @@ namespace Game.Core.PostProcessing.UnityEditor
 
         private struct GUIContents
         {
-            public static GUIContent _GeneratorPyramidDepth = new GUIContent("Generator Pyramid Depth (_HizDepthTexture)");
+            // public static GUIContent _GeneratorPyramidDepth = new GUIContent("Generator Pyramid Depth (_HizDepthTexture)");
         }
 
 
@@ -38,7 +38,7 @@ namespace Game.Core.PostProcessing.UnityEditor
         }
 
         /// Since the drawer is shared for multiple properties, we need to store the reorderable lists for each property by path.
-        private Dictionary<string, DrawerState> propertyStates = new Dictionary<string, DrawerState>();
+        private readonly Dictionary<string, DrawerState> propertyStates = new Dictionary<string, DrawerState>();
 
         /// Get the renderer name from the attached custom post-process attribute.
         private string GetName(Type type)
@@ -100,7 +100,6 @@ namespace Game.Core.PostProcessing.UnityEditor
         private void Init(SerializedProperty property)
         {
             var feature = property.serializedObject.targetObject as PostProcessFeature;
-            m_RenderingMode = feature.RenderingMode;
             
             var path = property.propertyPath;
             if (!propertyStates.ContainsKey(path))
@@ -136,6 +135,9 @@ namespace Game.Core.PostProcessing.UnityEditor
                 m_properties.Add(property.serializedObject);
             }
 
+            var feature = property.serializedObject.targetObject as PostProcessFeature;
+            m_RenderingMode = feature.RenderingMode;
+            
             EditorGUI.PropertyField(position, m_PostProcessFeatureData);
 
             EditorGUILayout.Space();

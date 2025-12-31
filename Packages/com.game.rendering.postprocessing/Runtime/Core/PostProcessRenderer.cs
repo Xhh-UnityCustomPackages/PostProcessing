@@ -1,6 +1,4 @@
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
@@ -17,7 +15,7 @@ namespace Game.Core.PostProcessing
         //是否在SceneView可见
         public virtual bool visibleInSceneView => true;
 
-        public PostProcessRenderPass m_RenderPass;
+        protected PostProcessRenderPass m_RenderPass;
         public ProfilingSampler profilingSampler;
 
         protected PostProcessFeatureData postProcessFeatureData { get; private set; }
@@ -70,7 +68,7 @@ namespace Game.Core.PostProcessing
             }
         }
 
-        public virtual void ShowHide(bool showHide) { }
+        protected virtual void ShowHide(bool showHide) { }
 
 
         protected Material GetMaterial(Shader shader)

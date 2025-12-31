@@ -102,9 +102,8 @@ namespace Game.Core.PostProcessing
 
         public override void Setup()
         {
-            _fftKernel = new FFTKernel(postProcessFeatureData.computeShaders.fastFourierTransformCS,
-                postProcessFeatureData.computeShaders.fastFourierConvolveCS);
-            // renderPassEvent = IllusionRenderPassEvent.CustomPostProcessPass;
+            var runtimeResources = GraphicsSettings.GetRenderPipelineSettings<BloomConvolutionResources>();
+            _fftKernel = new FFTKernel(runtimeResources.fastFourierTransformCS, runtimeResources.fastFourierConvolveCS);
             profilingSampler = new ProfilingSampler("Convolution Bloom");
         }
 
@@ -121,10 +120,12 @@ namespace Game.Core.PostProcessing
         
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
         {
-            if (!_brightMaskMaterial) _brightMaskMaterial = CoreUtils.CreateEngineMaterial(postProcessFeatureData.shaders.ConvolutionBloomBrightMask);
-            if (!_bloomBlendMaterial) _bloomBlendMaterial = CoreUtils.CreateEngineMaterial(postProcessFeatureData.shaders.ConvolutionBloomBlend);
-            if (!_psfRemapMaterial) _psfRemapMaterial = CoreUtils.CreateEngineMaterial(postProcessFeatureData.shaders.ConvolutionBloomPsfRemap);
-            if (!_psfGeneratorMaterial) _psfGeneratorMaterial = CoreUtils.CreateEngineMaterial(postProcessFeatureData.shaders.ConvolutionBloomPsfGenerator);
+            var runtimeResources = GraphicsSettings.GetRenderPipelineSettings<BloomConvolutionResources>();
+            
+            if (!_brightMaskMaterial) _brightMaskMaterial = CoreUtils.CreateEngineMaterial(runtimeResources.ConvolutionBloomBrightMask);
+            if (!_bloomBlendMaterial) _bloomBlendMaterial = CoreUtils.CreateEngineMaterial(runtimeResources.ConvolutionBloomBlend);
+            if (!_psfRemapMaterial) _psfRemapMaterial = CoreUtils.CreateEngineMaterial(runtimeResources.ConvolutionBloomPsfRemap);
+            if (!_psfGeneratorMaterial) _psfGeneratorMaterial = CoreUtils.CreateEngineMaterial(runtimeResources.ConvolutionBloomPsfGenerator);
         }
 
         private void UpdateRenderTextureSize()
@@ -203,55 +204,55 @@ namespace Game.Core.PostProcessing
             float intensity = settings.intensity.value;
             var fftExtend = settings.fftExtend.value;
             bool highQuality = settings.quality.value == BloomConvolution.ConvolutionBloomQuality.High;
-            
+
             UpdateRenderTextureSize();
-            
+
             var targetX = renderingData.cameraData.camera.pixelWidth;
-                var targetY = renderingData.cameraData.camera.pixelHeight;
-                if (settings.IsParamUpdated())
-                {
-                    OpticalTransferFunctionUpdate(cmd, settings, new Vector2Int(targetX, targetY), highQuality);
-                }
+            var targetY = renderingData.cameraData.camera.pixelHeight;
+            if (settings.IsParamUpdated())
+            {
+                OpticalTransferFunctionUpdate(cmd, settings, new Vector2Int(targetX, targetY), highQuality);
+            }
 
-                var colorTargetHandle = renderingData.cameraData.renderer.cameraColorTargetHandle;
-                if (colorTargetHandle.rt == null) return;
+            var colorTargetHandle = renderingData.cameraData.renderer.cameraColorTargetHandle;
+            if (colorTargetHandle.rt == null) return;
 
-                if (!settings.disableReadWriteOptimization.value) fftExtend.y = 0;
-                _brightMaskMaterial.SetVector(ShaderProperties.FFTExtend, fftExtend);
-                _brightMaskMaterial.SetFloat(ShaderProperties.Threshold, threshold);
-                _brightMaskMaterial.SetFloat(ShaderProperties.ThresholdKnee, thresholdKnee);
-                _brightMaskMaterial.SetFloat(ShaderProperties.MaxClamp, clampMax);
-                _brightMaskMaterial.SetVector(ShaderProperties.TexelSize, new Vector4(1f / targetX, 1f / targetY, 0, 0));
-                cmd.Blit(colorTargetHandle, _fftTarget, _brightMaskMaterial);
+            if (!settings.disableReadWriteOptimization.value) fftExtend.y = 0;
+            _brightMaskMaterial.SetVector(ShaderProperties.FFTExtend, fftExtend);
+            _brightMaskMaterial.SetFloat(ShaderProperties.Threshold, threshold);
+            _brightMaskMaterial.SetFloat(ShaderProperties.ThresholdKnee, thresholdKnee);
+            _brightMaskMaterial.SetFloat(ShaderProperties.MaxClamp, clampMax);
+            _brightMaskMaterial.SetVector(ShaderProperties.TexelSize, new Vector4(1f / targetX, 1f / targetY, 0, 0));
+            cmd.Blit(colorTargetHandle, _fftTarget, _brightMaskMaterial);
 
-                Vector2Int size = new Vector2Int((int)_convolutionSizeX, (int)_convolutionSizeY);
-                Vector2Int horizontalRange = Vector2Int.zero;
-                Vector2Int verticalRange = Vector2Int.zero;
-                Vector2Int offset = Vector2Int.zero;
+            Vector2Int size = new Vector2Int((int)_convolutionSizeX, (int)_convolutionSizeY);
+            Vector2Int horizontalRange = Vector2Int.zero;
+            Vector2Int verticalRange = Vector2Int.zero;
+            Vector2Int offset = Vector2Int.zero;
 
-                if (!settings.disableReadWriteOptimization.value)
-                {
-                    int paddingY = (size.y - _fftTarget.height) / 2;
-                    verticalRange = new Vector2Int(0, _fftTarget.height);
-                    offset = new Vector2Int(0, -paddingY);
-                }
+            if (!settings.disableReadWriteOptimization.value)
+            {
+                int paddingY = (size.y - _fftTarget.height) / 2;
+                verticalRange = new Vector2Int(0, _fftTarget.height);
+                offset = new Vector2Int(0, -paddingY);
+            }
 
-                if (settings.disableDispatchMergeOptimization.value)
-                {
-                    _fftKernel.Convolve(cmd, _fftTarget, _otf, highQuality);
-                }
-                else
-                {
-                    _fftKernel.ConvolveOpt(cmd, _fftTarget, _otf,
-                        size,
-                        horizontalRange,
-                        verticalRange,
-                        offset);
-                }
+            if (settings.disableDispatchMergeOptimization.value)
+            {
+                _fftKernel.Convolve(cmd, _fftTarget, _otf, highQuality);
+            }
+            else
+            {
+                _fftKernel.ConvolveOpt(cmd, _fftTarget, _otf,
+                    size,
+                    horizontalRange,
+                    verticalRange,
+                    offset);
+            }
 
-                _bloomBlendMaterial.SetVector(ShaderProperties.FFTExtend, fftExtend);
-                _bloomBlendMaterial.SetFloat(ShaderProperties.Intensity, intensity);
-                cmd.Blit(_fftTarget, colorTargetHandle, _bloomBlendMaterial);
+            _bloomBlendMaterial.SetVector(ShaderProperties.FFTExtend, fftExtend);
+            _bloomBlendMaterial.SetFloat(ShaderProperties.Intensity, intensity);
+            cmd.Blit(_fftTarget, colorTargetHandle, _bloomBlendMaterial);
         }
         
         private void OpticalTransferFunctionUpdate(CommandBuffer cmd, BloomConvolution param, Vector2Int size, bool highQuality)

@@ -104,12 +104,11 @@ namespace Game.Core.PostProcessing
 #if UNITY_EDITOR
         private static ExposureDebugSettings m_DebugSettings;
         private static RTHandle m_DebugExposureData;
-
+#endif
         public static ComputeBuffer GetHistogramBuffer()
         {
             return m_HistogramBuffer;
         }
-#endif
 
         public static ExposureTexturesInfo GetExposureTexturesInfo(CameraType cameraType)
         {
@@ -187,11 +186,13 @@ namespace Game.Core.PostProcessing
             return m_ExposureInfos[cameraDataCameraType];
         }
 
+#if UNITY_EDITOR
         public static void SetDebugSetting(ExposureDebugSettings debugSettings, RTHandle debugExposureData)
         {
             m_DebugSettings = debugSettings;
             m_DebugExposureData = debugExposureData;
         }
+#endif
 
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
         {
@@ -435,8 +436,9 @@ namespace Game.Core.PostProcessing
         
         static void DoHistogramBasedExposure(CommandBuffer cmd, DynamicExposureData data)
         {
+#if UNITY_EDITOR
             data.exposureDebugData = m_DebugExposureData;
-           
+#endif
             
             var cs = data.histogramExposureCS;
             int kernel;

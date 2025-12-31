@@ -39,28 +39,24 @@ namespace Game.Core.PostProcessing
             var desc = GetCompatibleDescriptor(m_Descriptor, m_Descriptor.graphicsFormat);
             var tempRT0 = UniversalRenderer.CreateRenderGraphTexture(renderGraph, desc, "_TempRT0", true, FilterMode.Bilinear);
             var tempRT1 = UniversalRenderer.CreateRenderGraphTexture(renderGraph, desc, "_TempRT1", true, FilterMode.Bilinear);
-
-            ref ScriptableRenderer renderer = ref cameraData.renderer;
+            
             var cameraColorTarget = resourceData.activeColorTexture;
             var source = cameraColorTarget;
             var target = tempRT0;
 
-            if (m_PassData == null)
-            {
-                m_PassData = new();
-            }
+            m_PassData ??= new();
 
             m_PassData.sourceTexture = source;
             m_PassData.destination = target;
 
             for (int index = 0; index < m_ActivePostProcessRenderers.Count; ++index)
             {
-                var postProcessRenderer = m_ActivePostProcessRenderers[index];
+                var renderer = m_ActivePostProcessRenderers[index];
                 
-                if (!postProcessRenderer.renderToCamera)
+                if (!renderer.renderToCamera)
                 {
                     // 不需要渲染到最终摄像机 就无所谓RT切换 (注意: 最终输出完全取决于内部 如果在队列最后一个 可能会导致RT没能切回摄像机)
-                    postProcessRenderer.DoRenderGraph(renderGraph, source, TextureHandle.nullHandle, frameData);
+                    renderer.DoRenderGraph(renderGraph, source, TextureHandle.nullHandle, frameData);
                 
                     continue;
                 }
@@ -70,13 +66,13 @@ namespace Game.Core.PostProcessing
                 {
                     // 最后一个 target 正常必须是 m_CameraColorTarget
                     // 如果 source == m_CameraColorTarget 则需要把 m_CameraColorTarget copyto RT
-                    if (source.Equals(cameraColorTarget) && !postProcessRenderer.dontCareSourceTargetCopy)
+                    if (source.Equals(cameraColorTarget) && !renderer.dontCareSourceTargetCopy)
                     {
                         // blit source: m_CameraColorTarget target: m_TempRT
                         // copy
                         // swap source: m_TempRT target: m_CameraColorTarget
 
-                        using (var builder = renderGraph.AddUnsafePass<PassData>("PostProcess Swap", out var passData, profilingSampler))
+                        using (var builder = renderGraph.AddUnsafePass<PassData>("PostProcess Swap", out var passData, renderer.profilingSampler))
                         {
                             passData.sourceTexture = source;
                             builder.UseTexture(source);
@@ -89,7 +85,6 @@ namespace Game.Core.PostProcessing
                                 RTHandle sourceTextureHdl = data.sourceTexture;
                                 RTHandle dst = data.destination;
                                 Blitter.BlitCameraTexture(cmd, sourceTextureHdl, dst);
-                               
                             });
                         }
                     }
@@ -109,7 +104,7 @@ namespace Game.Core.PostProcessing
                 m_PassData.destination = target;
                 m_PassData.sourceTexture = source;
                 
-                postProcessRenderer.DoRenderGraph(renderGraph, m_PassData.sourceTexture, m_PassData.destination, frameData);
+                renderer.DoRenderGraph(renderGraph, m_PassData.sourceTexture, m_PassData.destination, frameData);
                 CoreUtils.Swap(ref source, ref target);
                 
             }
