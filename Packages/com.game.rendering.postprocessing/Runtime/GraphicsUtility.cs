@@ -59,5 +59,7 @@ namespace Game.Core.PostProcessing
             Vector2 mousePixelCoord = MousePositionDebug.instance.GetMousePosition(camera.pixelHeight, camera.cameraType == CameraType.SceneView);
             return new Vector4(mousePixelCoord.x, mousePixelCoord.y, RTHandles.rtHandleProperties.rtHandleScale.x * mousePixelCoord.x / camera.pixelWidth, RTHandles.rtHandleProperties.rtHandleScale.y * mousePixelCoord.y / camera.pixelHeight);
         }
+        
+        internal static int DivRoundUp(int x, int y) => (x + y - 1) / y;
     }
 }

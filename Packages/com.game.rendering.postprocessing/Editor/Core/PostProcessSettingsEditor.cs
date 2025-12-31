@@ -16,7 +16,6 @@ namespace Game.Core.PostProcessing.UnityEditor
     {
         private RenderingMode m_RenderingMode;
         private SerializedProperty m_PostProcessFeatureData;
-        private SerializedProperty m_GeneratorPyramidDepth;
 
         private List<SerializedObject> m_properties = new List<SerializedObject>();
 
@@ -134,15 +133,10 @@ namespace Game.Core.PostProcessing.UnityEditor
             if (!m_properties.Contains(property.serializedObject))
             {
                 m_PostProcessFeatureData = property.FindPropertyRelative("m_PostProcessFeatureData");
-                m_GeneratorPyramidDepth = property.FindPropertyRelative("GeneratorPyramidDepth");
                 m_properties.Add(property.serializedObject);
             }
 
             EditorGUI.PropertyField(position, m_PostProcessFeatureData);
-
-            EditorGUI.BeginProperty(position, label, property);
-            EditorGUILayout.PropertyField(m_GeneratorPyramidDepth, GUIContents._GeneratorPyramidDepth);
-            EditorGUI.EndProperty();
 
             EditorGUILayout.Space();
             EditorGUILayout.Space();

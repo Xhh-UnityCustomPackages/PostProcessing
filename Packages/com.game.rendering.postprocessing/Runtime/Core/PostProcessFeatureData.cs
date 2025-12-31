@@ -32,7 +32,6 @@ namespace Game.Core.PostProcessing
             public Shader screenSpaceReflectionPS;
             public Shader stochasticScreenSpaceReflectionPS;
             public Shader screenSpaceRaytracedReflectionPS;
-            public Shader ScreenSpaceGlobalIlluminationPS;
             public Shader atmosphericHeightFogPS;
             public Shader ScreenSpaceCavityPS;
             public Shader CRTScreenPS;
@@ -50,19 +49,8 @@ namespace Game.Core.PostProcessing
         [Serializable]
         public sealed class ComputeShaderResources
         {
-            [Header("Exposure")]
-            public ComputeShader ExposureCS;
-            public ComputeShader HistogramExposureCS;
             [Space(5)]
             public ComputeShader pyramidDepthGeneratorCS;
-            [Space(5)]
-            public ComputeShader contractShadowCS;
-            [Space(5)]
-            [Header("SSGI")]
-            public ComputeShader screenSpaceGlobalIlluminationCS;
-            public ComputeShader diffuseDenoiserCS;
-            public ComputeShader bilateralUpsampleCS;
-            public ComputeShader temporalFilterCS;
             [Space(5)]
             [Header("ConvolutionBloom")]
             public ComputeShader fastFourierTransformCS;

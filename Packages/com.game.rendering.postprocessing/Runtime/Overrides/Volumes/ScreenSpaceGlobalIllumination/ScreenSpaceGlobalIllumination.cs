@@ -207,7 +207,6 @@ namespace Game.Core.PostProcessing
         private bool _needDenoise;
 
 
-        private Material m_Material;
 
         private struct ScreenSpaceGlobalIlluminationVariables
         {
@@ -223,24 +222,23 @@ namespace Game.Core.PostProcessing
 
         public override void Setup()
         {
-            m_Material = GetMaterial(postProcessFeatureData.shaders.ScreenSpaceGlobalIlluminationPS);
-
             profilingSampler = new ProfilingSampler("Screen Space Global Illumination");
-            _ssgiComputeShader = postProcessFeatureData.computeShaders.screenSpaceGlobalIlluminationCS;
+            var runtimeShaders = GraphicsSettings.GetRenderPipelineSettings<ScreenSpaceGlobalIlluminationResources>();
+            _ssgiComputeShader = runtimeShaders.screenSpaceGlobalIlluminationCS;
             _traceKernel = _ssgiComputeShader.FindKernel("TraceGlobalIllumination");
             _traceHalfKernel = _ssgiComputeShader.FindKernel("TraceGlobalIlluminationHalf");
             _reprojectKernel = _ssgiComputeShader.FindKernel("ReprojectGlobalIllumination");
             _reprojectHalfKernel = _ssgiComputeShader.FindKernel("ReprojectGlobalIlluminationHalf");
-
-            _diffuseDenoiserCS = postProcessFeatureData.computeShaders.diffuseDenoiserCS;
+            
+            _diffuseDenoiserCS =runtimeShaders.diffuseDenoiserCS;
             _generatePointDistributionKernel = _diffuseDenoiserCS.FindKernel("GeneratePointDistribution");
             _bilateralFilterColorKernel = _diffuseDenoiserCS.FindKernel("BilateralFilterColor");
             _gatherColorKernel = _diffuseDenoiserCS.FindKernel("GatherColor");
 
-            _bilateralUpsampleCS = postProcessFeatureData.computeShaders.bilateralUpsampleCS;
+            _bilateralUpsampleCS = runtimeShaders.bilateralUpsampleCS;
             _bilateralUpsampleKernel = _bilateralUpsampleCS.FindKernel("BilateralUpSampleColor");
 
-            _temporalFilterCS = postProcessFeatureData.computeShaders.temporalFilterCS;
+            _temporalFilterCS = runtimeShaders.temporalFilterCS;
             _validateHistoryKernel = _temporalFilterCS.FindKernel("ValidateHistory");
             _temporalAccumulationColorKernel = _temporalFilterCS.FindKernel("TemporalAccumulationColor");
             _temporalFilterCopyHistoryKernel = _temporalFilterCS.FindKernel("CopyHistory");
@@ -434,18 +432,20 @@ namespace Game.Core.PostProcessing
             
             // Prepare shader variables
             PrepareVariables(ref cameraData);
-            
-            using (new ProfilingScope(cmd, TracingSampler))
+
+            using (new ProfilingScope(cmd, profilingSampler))
             {
-                ExecuteTrace(cmd, ref cameraData);
+                using (new ProfilingScope(cmd, TracingSampler))
+                {
+                    ExecuteTrace(cmd, ref cameraData);
+                }
+
+                using (new ProfilingScope(cmd, ReprojectSampler))
+                {
+                    ExecuteReproject(cmd, ref cameraData);
+                }
             }
-            
-            using (new ProfilingScope(cmd, ReprojectSampler))
-            {
-                ExecuteReproject(cmd, ref cameraData);
-            }
-            
-            Blit(cmd, source, destination, m_Material, 0);
+
         }
 
         public override void Dispose(bool disposing)

@@ -54,9 +54,29 @@ namespace Game.Core.PostProcessing
         /// Controls the thickness of the objects found along the ray, essentially thickening the contact shadows.
         /// </summary>
         public ClampedFloatParameter thicknessScale = new (0.15f, 0.02f, 1.0f);
-        public ClampedIntParameter sampleCount = new (8, 8, 64);
+        
+        public EnumParameter<ShadowDenoiser> shadowDenoiser = new(ShadowDenoiser.None);
+        
+        /// <summary>
+        /// Controls the numbers of samples taken during the ray-marching process for shadows. Increasing this might lead to higher quality at the expenses of performance.
+        /// </summary>
+        [Tooltip("Controls the numbers of samples taken during the ray-marching process for shadows. Increasing this might lead to higher quality at the expenses of performance.")]
+        public ClampedIntParameter sampleCount = new(10, 4, 64);
+        
+        /// <summary>
+        /// Control the size of the filter used for ray traced shadows
+        /// </summary>
+        [Tooltip("Control the size of the filter used for ray traced shadows")]
+        public ClampedIntParameter filterSizeTraced = new(16, 1, 32);
 
         public override bool IsActive() => enable.value;
+        
+        
+        public enum ShadowDenoiser
+        {
+            None,
+            Spatial
+        }
     }
 
     
@@ -89,12 +109,22 @@ namespace Game.Core.PostProcessing
             // public RTHandle depthTexture;
             public RTHandle contactShadowsTexture;
         }
-
+        
+        public RTHandle contactShadowsTexture;
         RenderContactShadowPassData m_PassData = new();
         int m_DeferredContactShadowKernel = -1;
         
+        private ComputeShader m_ContactShadowCS;
+        
         private ScreenSpaceShadowsPass m_SSShadowsPass = null;
         private ScreenSpaceShadowsPostPass m_SSShadowsPostPass = null;
+        private DiffuseShadowDenoisePass m_DiffuseShadowDenoisePass;
+
+        public override void Setup()
+        {
+            var runtimeShaders = GraphicsSettings.GetRenderPipelineSettings<ContactShadowResources>();
+            m_ContactShadowCS = runtimeShaders.contractShadowCS;
+        }
 
         public override void AddRenderPasses(ref RenderingData renderingData)
         {
@@ -105,6 +135,18 @@ namespace Game.Core.PostProcessing
 
             m_SSShadowsPass.renderPassEvent = RenderPassEvent.AfterRenderingGbuffer;
             m_SSShadowsPostPass.renderPassEvent = RenderPassEvent.BeforeRenderingTransparents;
+
+            if (m_DiffuseShadowDenoisePass == null)
+                m_DiffuseShadowDenoisePass = new();
+            
+            switch (settings.shadowDenoiser.value)
+            {
+                case ContactShadow.ShadowDenoiser.None:
+                    break;
+                case ContactShadow.ShadowDenoiser.Spatial:
+                    renderingData.cameraData.renderer.EnqueuePass(m_DiffuseShadowDenoisePass);
+                    break;
+            }
         }
 
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
@@ -118,15 +160,16 @@ namespace Game.Core.PostProcessing
             desc.enableRandomWrite = true;
             desc.useMipMap = false;
 
-            RenderingUtils.ReAllocateHandleIfNeeded(ref m_PassData.contactShadowsTexture, desc);
+            RenderingUtils.ReAllocateHandleIfNeeded(ref contactShadowsTexture, desc);
 
-            Shader.SetGlobalTexture("_ContactShadowMap", m_PassData.contactShadowsTexture);
+            Shader.SetGlobalTexture("_ContactShadowMap", contactShadowsTexture);
         }
 
         public override void Render(CommandBuffer cmd, RTHandle source, RTHandle destination, ref RenderingData renderingData)
         {
+            m_PassData.contactShadowsTexture = contactShadowsTexture;
             RenderContractShadows();
-            m_PassData.contactShadowsCS = postProcessFeatureData.computeShaders.contractShadowCS;
+            m_PassData.contactShadowsCS = m_ContactShadowCS;
             var computeShader = m_PassData.contactShadowsCS;
             m_DeferredContactShadowKernel = computeShader.FindKernel("ContactShadowMap");
 
@@ -138,9 +181,6 @@ namespace Game.Core.PostProcessing
             int width = renderingData.cameraData.cameraTargetDescriptor.width;
             int height = renderingData.cameraData.cameraTargetDescriptor.height;
             cmd.DispatchCompute(computeShader, m_DeferredContactShadowKernel, Mathf.CeilToInt(width / 8.0f), Mathf.CeilToInt(height / 8.0f), 1);
-
-
-            Blit(cmd, m_PassData.contactShadowsTexture, destination);
         }
 
 
@@ -160,7 +200,7 @@ namespace Game.Core.PostProcessing
 
         public override void Dispose(bool disposing)
         {
-            m_PassData.contactShadowsTexture?.Release();
+            contactShadowsTexture?.Release();
         }
     }
 }
