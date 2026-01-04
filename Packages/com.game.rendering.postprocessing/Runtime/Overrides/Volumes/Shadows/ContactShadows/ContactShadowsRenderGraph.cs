@@ -44,7 +44,7 @@ namespace Game.Core.PostProcessing
                 
                 var contactShadowsTexture = UniversalRenderer.CreateRenderGraphTexture(renderGraph, desc, "_ContactShadowMap", false);
                 passData.contactShadowsTexture = contactShadowsTexture;
-                builder.UseTexture(contactShadowsTexture, AccessFlags.ReadWrite);
+                builder.UseTexture(contactShadowsTexture, AccessFlags.Write);
                 builder.SetGlobalTextureAfterPass(contactShadowsTexture, ShaderConstants.ContactShadowsRT);
                 
                 passData.contactShadowsCS = m_ContactShadowCS;

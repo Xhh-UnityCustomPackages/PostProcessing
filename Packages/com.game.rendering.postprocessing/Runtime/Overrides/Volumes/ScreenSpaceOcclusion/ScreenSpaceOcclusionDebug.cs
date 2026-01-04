@@ -37,7 +37,7 @@ namespace Game.Core.PostProcessing
             }
         }
         
-        public class ScreenSpaceOcclusionDebugPassData
+        private class ScreenSpaceOcclusionDebugPassData
         {
             // Inputs
             internal TextureHandle occlusionFinalTexture;

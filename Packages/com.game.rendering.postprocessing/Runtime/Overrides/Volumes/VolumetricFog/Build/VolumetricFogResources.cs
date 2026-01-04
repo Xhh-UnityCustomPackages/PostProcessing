@@ -12,7 +12,7 @@ namespace UnityEngine.Rendering
 
         bool IRenderPipelineGraphicsSettings.isAvailableInPlayerBuild => true;
 
-        [SerializeField, ResourcePath("Runtime/Overrides/Volumes/VolumetricFog/Shaders/AtmosphereScattering.shader")]
+        // [SerializeField, ResourcePath("Runtime/Overrides/Volumes/VolumetricFog/Shaders/AtmosphereScattering.shader")]
         private Shader m_DefaultFogVolumeShader;
 
         public Shader defaultFogVolumeShader
@@ -21,7 +21,7 @@ namespace UnityEngine.Rendering
             set => this.SetValueAndNotify(ref m_DefaultFogVolumeShader, value);
         }
 
-        [SerializeField, ResourcePath("Runtime/Overrides/Volumes/VolumetricFog/Shaders/AtmosphereScattering.shader")]
+        // [SerializeField, ResourcePath("Runtime/Overrides/Volumes/VolumetricFog/Shaders/AtmosphereScattering.shader")]
         private Shader m_AtmosphereScattering;
 
         public Shader atmosphereScattering
@@ -30,7 +30,7 @@ namespace UnityEngine.Rendering
             set => this.SetValueAndNotify(ref m_AtmosphereScattering, value);
         }
 
-        [SerializeField, ResourcePath("Runtime/Overrides/Volumes/VolumetricFog/Shaders/GenerateMaxZ.compute")]
+        // [SerializeField, ResourcePath("Runtime/Overrides/Volumes/VolumetricFog/Shaders/GenerateMaxZ.compute")]
         private ComputeShader m_ComputeMaxDepth;
 
         public ComputeShader computeMaxDepth
@@ -39,7 +39,7 @@ namespace UnityEngine.Rendering
             set => this.SetValueAndNotify(ref m_ComputeMaxDepth, value);
         }
 
-        [SerializeField, ResourcePath("Runtime/Overrides/Volumes/VolumetricFog/Shaders/VolumetricLighting.compute")]
+        // [SerializeField, ResourcePath("Runtime/Overrides/Volumes/VolumetricFog/Shaders/VolumetricLighting.compute")]
         private ComputeShader m_VolumetricFogLighting;
 
         public ComputeShader volumetricFogLighting
@@ -48,7 +48,7 @@ namespace UnityEngine.Rendering
             set => this.SetValueAndNotify(ref m_VolumetricFogLighting, value);
         }
 
-        [SerializeField, ResourcePath("Runtime/Overrides/Volumes/VolumetricFog/Shaders/VolumetricLightingFiltering.compute")]
+        // [SerializeField, ResourcePath("Runtime/Overrides/Volumes/VolumetricFog/Shaders/VolumetricLightingFiltering.compute")]
         private ComputeShader m_VolumetricLightingFilter;
         public ComputeShader volumetricLightingFilter
         {
@@ -56,7 +56,7 @@ namespace UnityEngine.Rendering
             set => this.SetValueAndNotify(ref m_VolumetricLightingFilter, value);
         }
 
-        [SerializeField, ResourcePath("Runtime/Overrides/Volumes/VolumetricFog/Shaders/VolumetricMaterial.compute")]
+        // [SerializeField, ResourcePath("Runtime/Overrides/Volumes/VolumetricFog/Shaders/VolumetricMaterial.compute")]
         private ComputeShader m_VolumetricMaterial;
         public ComputeShader volumetricMaterial
         {
@@ -64,7 +64,7 @@ namespace UnityEngine.Rendering
             set => this.SetValueAndNotify(ref m_VolumetricMaterial, value);
         }
 
-        [SerializeField, ResourcePath("Runtime/Overrides/Volumes/VolumetricFog/Shaders/VolumeVoxelization.compute")]
+        // [SerializeField, ResourcePath("Runtime/Overrides/Volumes/VolumetricFog/Shaders/VolumeVoxelization.compute")]
         private ComputeShader m_VolumeVoxelization;
         public ComputeShader volumeVoxelization
         {

@@ -141,7 +141,7 @@
 //
 //             // Ensure we reflect presets in the pipeline asset, not the hardcoded defaults.
 //             // Warning: base.OnEnable must be called after VolumeComponentWithQuality has unpacked SerializedData.
-//             if (RenderPipelineManager.currentPipeline is HDRenderPipeline pipeline)
+//             if (RenderPipelineManager.currentPipeline is UniversalRenderPipeline pipeline)
 //             {
 //                 serializedObject.Update();
 //

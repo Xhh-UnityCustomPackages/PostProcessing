@@ -107,6 +107,7 @@ namespace Game.Core.PostProcessing
         private DiffuseShadowDenoisePass m_DiffuseShadowDenoisePass;
         
         public override PostProcessPassInput postProcessPassInput => PostProcessPassInput.ScreenSpaceShadow;
+        public override ScriptableRenderPassInput input => ScriptableRenderPassInput.Depth;
 
         public override void Setup()
         {
@@ -160,7 +161,6 @@ namespace Game.Core.PostProcessing
             int height = renderingData.cameraData.cameraTargetDescriptor.height;
             cmd.DispatchCompute(computeShader, m_PassData.deferredContactShadowKernel, Mathf.CeilToInt(width / 8.0f), Mathf.CeilToInt(height / 8.0f), 1);
         }
-
 
         void RenderContractShadows(RenderContactShadowPassData passData)
         {

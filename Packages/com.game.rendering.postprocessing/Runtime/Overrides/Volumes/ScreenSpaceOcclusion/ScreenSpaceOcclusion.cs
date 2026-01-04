@@ -236,6 +236,19 @@ namespace Game.Core.PostProcessing
         RTHandle m_OcclusionDepthRT;
         RTHandle m_OcclusionTempRT;
 
+        public override ScriptableRenderPassInput input
+        {
+            get
+            {
+                if (settings.quality.value == ScreenSpaceOcclusion.Quality.Highest)
+                {
+                    return ScriptableRenderPassInput.Depth | ScriptableRenderPassInput.Normal;
+                }
+
+                return ScriptableRenderPassInput.Depth;
+            }
+        }
+
         public override void Setup()
         {
 
