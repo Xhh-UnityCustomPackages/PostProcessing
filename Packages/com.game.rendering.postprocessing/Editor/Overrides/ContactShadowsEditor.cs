@@ -4,7 +4,7 @@ using UnityEditor.Rendering;
 namespace Game.Core.PostProcessing.UnityEditor
 {
     [CanEditMultipleObjects]
-    [CustomEditor(typeof(ContactShadow))]
+    [CustomEditor(typeof(ContactShadows))]
     public class ContactShadowsEditor : VolumeComponentEditor
     {
         SerializedDataParameter m_Enable;
@@ -21,7 +21,7 @@ namespace Game.Core.PostProcessing.UnityEditor
 
         public override void OnEnable()
         {
-            var o = new PropertyFetcher<ContactShadow>(serializedObject);
+            var o = new PropertyFetcher<ContactShadows>(serializedObject);
 
             m_Enable = Unpack(o.Find(x => x.enable));
             m_Length = Unpack(o.Find(x => x.length));

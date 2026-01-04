@@ -15,14 +15,16 @@ namespace Game.Core.PostProcessing
         string m_PassName;
 
         PostProcessFeatureData m_PostProcessFeatureData;
+        PostProcessFeatureContext m_Context;
 
         static RTHandle m_TempRT0;
         static RTHandle m_TempRT1;
 
-        public PostProcessRenderPass(PostProcessInjectionPoint injectionPoint, List<PostProcessRenderer> renderers, PostProcessFeatureData data)
+        public PostProcessRenderPass(PostProcessInjectionPoint injectionPoint, List<PostProcessRenderer> renderers, PostProcessFeatureData data, PostProcessFeatureContext context)
         {
             m_PostProcessRenderers = renderers;
             m_PostProcessFeatureData = data;
+            m_Context = context;
 
             foreach (var renderer in m_PostProcessRenderers)
             {
@@ -83,7 +85,7 @@ namespace Game.Core.PostProcessing
 
             if (postProcessRenderer.IsActive(ref renderingData))
             {
-                postProcessRenderer.SetupInternal(this, m_PostProcessFeatureData);
+                postProcessRenderer.SetupInternal(this, m_PostProcessFeatureData, m_Context);
                 postProcessRenderer.AddRenderPasses(ref renderingData);
 
                 m_ActivePostProcessRenderers.Add(postProcessRenderer);

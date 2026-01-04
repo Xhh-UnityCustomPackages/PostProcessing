@@ -75,6 +75,7 @@ namespace Game.Core.PostProcessing
         private PostProcessRenderPass m_BeforeRenderingOpaques, m_AfterRenderingOpaques;
         private PostProcessRenderPass m_AfterRenderingSkybox, m_BeforeRenderingPostProcessing, m_AfterRenderingPostProcessing;
         UberPostProcess m_UberPostProcessing;
+        private static PostProcessFeatureContext m_Context;
         
         
         PyramidDepthGenerator m_HizDepthGenerator;
@@ -91,39 +92,41 @@ namespace Game.Core.PostProcessing
         public override void Create()
         {
             var postProcessFeatureData = m_Settings.m_PostProcessFeatureData;
+            m_Context = new PostProcessFeatureContext();
             Dictionary<string, PostProcessRenderer> shared = new Dictionary<string, PostProcessRenderer>();
             m_BeforeRenderingGBuffer = new PostProcessRenderPass(PostProcessInjectionPoint.BeforeRenderingGBuffer,
                 InstantiateRenderers(m_Settings.m_RenderersBeforeRenderingGBuffer, shared),
-                postProcessFeatureData);
+                postProcessFeatureData, m_Context);
             m_BeforeRenderingDeferredLights = new PostProcessRenderPass(PostProcessInjectionPoint.BeforeRenderingDeferredLights,
                 InstantiateRenderers(m_Settings.m_RenderersBeforeRenderingDeferredLights, shared),
-                postProcessFeatureData);
+                postProcessFeatureData, m_Context);
 
             m_BeforeRenderingOpaques = new PostProcessRenderPass(PostProcessInjectionPoint.BeforeRenderingOpaques,
                 InstantiateRenderers(m_Settings.m_RenderersBeforeRenderingOpaques, shared),
-                postProcessFeatureData);
+                postProcessFeatureData, m_Context);
             m_AfterRenderingOpaques = new PostProcessRenderPass(PostProcessInjectionPoint.AfterRenderingOpaques,
                 InstantiateRenderers(m_Settings.m_RenderersAfterRenderingOpaques, shared),
-                postProcessFeatureData);
+                postProcessFeatureData, m_Context);
 
             m_AfterRenderingSkybox = new PostProcessRenderPass(PostProcessInjectionPoint.AfterRenderingSkybox,
                 InstantiateRenderers(m_Settings.m_RenderersAfterRenderingSkybox, shared),
-                postProcessFeatureData);
+                postProcessFeatureData, m_Context);
             // 外挂后处理目前只放在这个位置
             m_BeforeRenderingPostProcessing = new PostProcessRenderPass(PostProcessInjectionPoint.BeforeRenderingPostProcessing,
                 InstantiateRenderers(m_Settings.m_RenderersBeforeRenderingPostProcessing, shared),
-                postProcessFeatureData);
+                postProcessFeatureData, m_Context);
             m_AfterRenderingPostProcessing = new PostProcessRenderPass(PostProcessInjectionPoint.AfterRenderingPostProcessing,
                 InstantiateRenderers(m_Settings.m_RenderersAfterRenderingPostProcessing, shared),
-                postProcessFeatureData);
-
-
+                postProcessFeatureData, m_Context);
+            
             m_UberPostProcessing = new UberPostProcess(postProcessFeatureData)
             {
                 renderPassEvent = RenderPassEvent.AfterRenderingPostProcessing,
             };
 
             PyramidBlur.Initialize(postProcessFeatureData.materials.DualBlur);
+
+            
 
 #if UNITY_EDITOR
             m_DebugHandler = new DebugHandler();
@@ -145,6 +148,8 @@ namespace Game.Core.PostProcessing
             }
 
             CheckRenderingMode(renderer);
+            
+            m_Context.UpdateFrame();
 
             var camera = renderingData.cameraData.camera;
             if (camera.cameraType == CameraType.Preview || camera.cameraType == CameraType.Reflection || camera.cameraType == CameraType.VR)

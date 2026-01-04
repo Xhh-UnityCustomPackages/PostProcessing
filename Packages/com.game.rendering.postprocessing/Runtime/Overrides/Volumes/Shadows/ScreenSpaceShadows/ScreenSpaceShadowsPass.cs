@@ -135,7 +135,7 @@ namespace Game.Core.PostProcessing
          {
              // 处理屏幕空间阴影
              // Bind ContactShadow
-             var contactShadowParam = VolumeManager.instance.stack.GetComponent<ContactShadow>();
+             var contactShadowParam = VolumeManager.instance.stack.GetComponent<ContactShadows>();
              {
                  // var contactShadowRT = contactShadowParam.shadowDenoiser.value == ContactShadow.ShadowDenoiser.Spatial
                  //     ? _rendererData.ContactShadowsDenoisedRT

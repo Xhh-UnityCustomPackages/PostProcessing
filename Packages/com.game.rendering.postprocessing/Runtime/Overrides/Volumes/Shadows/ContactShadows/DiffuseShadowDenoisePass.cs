@@ -41,7 +41,7 @@ namespace Game.Core.PostProcessing
         private int _kernelSize;
         
         private RTHandle _depthStencilBuffer;
-        private RTHandle _normalBuffer;
+        // private RTHandle _normalBuffer;
         
         public DiffuseShadowDenoisePass()
         {
@@ -75,12 +75,12 @@ namespace Game.Core.PostProcessing
             var cameraData = renderingData.cameraData;
             var camera = cameraData.camera;
             var renderer = cameraData.renderer;
-            var contactShadows = VolumeManager.instance.stack.GetComponent<ContactShadow>();
+            var contactShadows = VolumeManager.instance.stack.GetComponent<ContactShadows>();
             
             _depthStencilBuffer = UniversalRenderingUtility.GetDepthTexture(renderer);
             if (_depthStencilBuffer == null) return;
             
-            _normalBuffer = UniversalRenderingUtility.GetNormalTexture(renderer);
+            // _normalBuffer = UniversalRenderingUtility.GetNormalTexture(renderer);
             // Debug.LogError(_normalBuffer);
             // if (_normalBuffer == null) return;
             

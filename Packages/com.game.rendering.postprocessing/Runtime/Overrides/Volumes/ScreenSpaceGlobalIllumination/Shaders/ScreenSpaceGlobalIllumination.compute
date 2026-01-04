@@ -1,18 +1,17 @@
 // URP generic includes
-#include "Packages/com.kurisu.illusion-render-pipelines/ShaderLibrary/Core.hlsl"
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Sampling/Sampling.hlsl"
 #include "Packages/com.kurisu.illusion-render-pipelines/ShaderLibrary/ShaderVariables.hlsl"
-#include "Packages/com.kurisu.illusion-render-pipelines/ShaderLibrary/DeclareDepthPyramid.hlsl"
+#include "Packages/com.game.rendering.postprocessing/ShaderLibrary/DeclarePyramidDepthTexture.hlsl"
 #include "Packages/com.kurisu.illusion-render-pipelines/ShaderLibrary/NormalBuffer.hlsl"
 #include "Packages/com.kurisu.illusion-render-pipelines/ShaderLibrary/DeclareMotionVectorTexture.hlsl"
 #include "Packages/com.kurisu.illusion-render-pipelines/ShaderLibrary/PrecomputeRadianceTransfer/EvaluateProbeVolume.hlsl"
 
 // Raytracing includes (should probably be in generic files)
 #include "Packages/com.kurisu.illusion-render-pipelines/ShaderLibrary/Raytracing/RaytracingSampling.hlsl"
-#include "Packages/com.kurisu.illusion-render-pipelines/ShaderLibrary/GlobalIlluminationFallback.hlsl"
+#include "Packages/com.game.rendering.postprocessing/Runtime/Overrides/Volumes/ScreenSpaceGlobalIllumination/Shaders/GlobalIlluminationFallback.hlsl"
 
 // #pragma enable_d3d11_debug_symbols
 
@@ -58,7 +57,7 @@ CBUFFER_END
 #define RAYMARCHINGFALLBACKHIERARCHY_NONE (0)
 
 // Output texture that holds the hit point NDC coordinates
-RW_TEXTURE2D_X(float2, _IndirectDiffuseHitPointTextureRW);
+RW_TEXTURE2D(float2, _IndirectDiffuseHitPointTextureRW);
 
 // Epslon value used for the computation
 #define RAY_TRACE_EPS 0.00024414
@@ -72,6 +71,16 @@ RW_TEXTURE2D_X(float2, _IndirectDiffuseHitPointTextureRW);
     #define SSGI_MATRIX_I_VP         _GlobalInvViewProjMatrix
     #define WORLD_TO_VIEW_MATRIX     _GlobalViewMatrix
 #endif
+
+
+TEXTURE2D_X_HALF(_GBuffer2);
+
+void GetNormal(uint2 positionSS, out float3 N)
+{
+    half4 gbuffer2 = LOAD_TEXTURE2D_X(_GBuffer2, positionSS);
+    N = normalize(UnpackNormal(gbuffer2));
+}
+
 
 bool RayMarch(float3 positionWS, float3 sampleDir, float3 normalWS, float2 positionSS, float deviceDepth, bool killRay, out float3 rayPos)
 {
@@ -229,7 +238,7 @@ void TRACE_GLOBAL_ILLUMINATION(uint3 dispatchThreadId : SV_DispatchThreadID, uin
     float deviceDepth = LOAD_TEXTURE2D_X(_DepthPyramid, inputCoord).x;
 
     // Initialize the hitpoint texture to a miss
-    _IndirectDiffuseHitPointTextureRW[COORD_TEXTURE2D_X(currentCoord.xy)] = float2(99.0, 0.0);
+    _IndirectDiffuseHitPointTextureRW[currentCoord.xy] = float2(99.0, 0.0);
 
     // Read the pixel normal
     float3 normalWS;
@@ -404,5 +413,5 @@ void REPROJECT_GLOBAL_ILLUMINATION(uint3 dispatchThreadId : SV_DispatchThreadID,
     color = HsvToRgb(color);
 
     // Write the output to the target pixel
-    _IndirectDiffuseTextureRW[COORD_TEXTURE2D_X(currentCoord)] = color;
+    _IndirectDiffuseTextureRW[currentCoord] = color;
 }

@@ -19,7 +19,7 @@ namespace Game.Core.PostProcessing
         public ProfilingSampler profilingSampler;
 
         protected PostProcessFeatureData postProcessFeatureData { get; private set; }
-
+        protected PostProcessFeatureContext context { get; private set; }
 
         public virtual ScriptableRenderPassInput input => ScriptableRenderPassInput.None;
         public virtual PostProcessPassInput postProcessPassInput => PostProcessPassInput.None;
@@ -31,7 +31,7 @@ namespace Game.Core.PostProcessing
 
         public abstract bool IsActive(ref RenderingData renderingData);
 
-        internal void SetupInternal(PostProcessRenderPass renderPass, PostProcessFeatureData data)
+        internal void SetupInternal(PostProcessRenderPass renderPass, PostProcessFeatureData data, PostProcessFeatureContext context)
         {
             if (m_Initialized)
                 return;
@@ -39,6 +39,7 @@ namespace Game.Core.PostProcessing
 
             m_RenderPass = renderPass;
             postProcessFeatureData = data;
+            this.context = context;
             Setup();
         }
 
