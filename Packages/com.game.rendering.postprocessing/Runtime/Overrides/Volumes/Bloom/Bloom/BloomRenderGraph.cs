@@ -61,7 +61,8 @@ namespace Game.Core.PostProcessing
                 m_UpsampleMaterials = new Material[k_MaxPyramidSize];
                 for (int i = 0; i < k_MaxPyramidSize; i++)
                 {
-                    m_UpsampleMaterials[i] = GetMaterial(postProcessFeatureData.shaders.bloomPS);
+                    var runtimeResources = GraphicsSettings.GetRenderPipelineSettings<BloomResources>();
+                    m_UpsampleMaterials[i] = GetMaterial(runtimeResources.bloomPS);
                 }
             }
 

@@ -151,7 +151,11 @@ namespace Game.Core.PostProcessing
         void SetupMaterials()
         {
             if (m_Material == null)
-                m_Material = GetMaterial(postProcessFeatureData.shaders.bloomPS);
+            {
+                var runtimeResources = GraphicsSettings.GetRenderPipelineSettings<BloomResources>();
+                m_Material = GetMaterial(runtimeResources.bloomPS);
+            }
+
 
             // Pre-filtering parameters
             float clamp = settings.clamp.value;

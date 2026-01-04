@@ -34,7 +34,7 @@ namespace Game.Core.PostProcessing
         None = 0,
         HiZ = 1 << 0, // 层次深度
         ScreenSpaceShadow = 1 << 1, // 走屏幕空间阴影 
-        //上一帧颜色
+        PreviousFrameColor = 1 << 2, //上一帧颜色
     }
 
     [DisallowMultipleRendererFeature]

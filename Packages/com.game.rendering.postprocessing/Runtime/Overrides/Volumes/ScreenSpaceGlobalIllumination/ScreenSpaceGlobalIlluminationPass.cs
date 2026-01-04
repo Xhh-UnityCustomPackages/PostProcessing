@@ -50,7 +50,10 @@ namespace Game.Core.PostProcessing
             // public static readonly int ObjectMotionStencilBit = Shader.PropertyToID("_ObjectMotionStencilBit");
             public static readonly int HistorySizeAndScale = Shader.PropertyToID("_HistorySizeAndScale");
             // public static readonly int StencilTexture = Shader.PropertyToID("_StencilTexture");
-        
+
+            public static readonly int _DepthPyramid = MemberNameHelpers.ShaderPropertyID();
+            public static readonly int _CameraNormalsTexture = MemberNameHelpers.ShaderPropertyID();
+            public static readonly int _MotionVectorTexture = MemberNameHelpers.ShaderPropertyID();
         }
 
         private ComputeShader _ssgiComputeShader;
@@ -121,7 +124,11 @@ namespace Game.Core.PostProcessing
             public int IndirectDiffuseFrameIndex;
         }
 
-        public override PostProcessPassInput postProcessPassInput => PostProcessPassInput.HiZ;
+        public override PostProcessPassInput postProcessPassInput => PostProcessPassInput.HiZ | PostProcessPassInput.PreviousFrameColor;
+        
+        public override ScriptableRenderPassInput input => ScriptableRenderPassInput.Depth
+                                                           | ScriptableRenderPassInput.Normal
+                                                           | ScriptableRenderPassInput.Motion;
 
         public override void Setup()
         {
@@ -153,9 +160,10 @@ namespace Game.Core.PostProcessing
 
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
         {
+            var cameraData = renderingData.cameraData;
             _needDenoise = settings.denoise.value;
-            _screenWidth = renderingData.cameraData.cameraTargetDescriptor.width;
-            _screenHeight = renderingData.cameraData.cameraTargetDescriptor.height;
+            _screenWidth = cameraData.cameraTargetDescriptor.width;
+            _screenHeight = cameraData.cameraTargetDescriptor.height;
             _halfResolution = settings.halfResolution.value;
 
             int resolutionDivider = _halfResolution ? 2 : 1;
@@ -163,7 +171,7 @@ namespace Game.Core.PostProcessing
             _rtHeight = _screenHeight / resolutionDivider;
 
             // Allocate hit point texture
-            _targetDescriptor = renderingData.cameraData.cameraTargetDescriptor;
+            _targetDescriptor = cameraData.cameraTargetDescriptor;
             _targetDescriptor.msaaSamples = 1;
             _targetDescriptor.graphicsFormat = GraphicsFormat.R16G16_SFloat;
             _targetDescriptor.depthBufferBits = 0;
@@ -265,10 +273,6 @@ namespace Game.Core.PostProcessing
             }
         }
 
-        public override ScriptableRenderPassInput input => ScriptableRenderPassInput.Depth
-                                                           | ScriptableRenderPassInput.Normal
-                                                           | ScriptableRenderPassInput.Motion;
-
         private void PrepareVariables(ref CameraData cameraData)
         {
             var camera = cameraData.camera;
@@ -296,15 +300,18 @@ namespace Game.Core.PostProcessing
 
         private void ExecuteTrace(CommandBuffer cmd, ref CameraData cameraData)
         {
-            var depthTexture = PyramidDepthGenerator.HiZDepthRT;
+            var normalTexture = UniversalRenderingUtility.GetNormalTexture(cameraData.renderer);
+
+            if (normalTexture == null) return;
+            
             int kernel = _halfResolution ? _traceHalfKernel : _traceKernel;
             
             // Set constant buffer
             ConstantBuffer.Push(cmd, _giVariables, _ssgiComputeShader, Properties.ShaderVariablesSSGI);
             
             // Bind input textures
-            // cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, Properties._DepthPyramid, depthTexture);
-            // cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, Properties._CameraNormalsTexture, normalTexture);
+            cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, Properties._DepthPyramid, PyramidDepthGenerator.HiZDepthRT);
+            cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, Properties._CameraNormalsTexture, normalTexture);
             // cmd.SetComputeBufferParam(_ssgiComputeShader, kernel, Properties._DepthPyramidMipLevelOffsets, offsetBuffer);
             
             // Bind output texture
@@ -319,6 +326,50 @@ namespace Game.Core.PostProcessing
 
         private void ExecuteReproject(CommandBuffer cmd, ref CameraData cameraData)
         {
+            var normalTexture = UniversalRenderingUtility.GetNormalTexture(cameraData.renderer);
+
+            if (normalTexture == null) return;
+            
+            var motionVectorTexture = UniversalRenderingUtility.GetMotionVectorColor(cameraData.renderer);
+            
+            // Get previous frame color pyramid
+            RTHandle previousColor = null;
+            RTHandle previousDepth = null;
+            if (cameraData.historyManager != null)
+            {
+                cameraData.historyManager.RequestAccess<RawColorHistory>();
+                cameraData.historyManager.RequestAccess<RawDepthHistory>();
+                
+                previousColor = cameraData.historyManager.GetHistoryForRead<RawColorHistory>()?.GetCurrentTexture();
+                previousDepth = cameraData.historyManager.GetHistoryForRead<RawDepthHistory>()?.GetCurrentTexture();
+            }
+            
+            int kernel = _halfResolution ? _reprojectHalfKernel : _reprojectKernel;
+            
+            // Set constant buffer
+            ConstantBuffer.Push(cmd, _giVariables, _ssgiComputeShader, Properties.ShaderVariablesSSGI);
+            
+            // Bind input textures
+            cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, Properties._DepthPyramid, PyramidDepthGenerator.HiZDepthRT);
+            cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, Properties._CameraNormalsTexture, normalTexture);
+            // cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, Properties._MotionVectorTexture, isNewFrame && motionVectorTexture.IsValid() ? motionVectorTexture : Texture2D.blackTexture);
+            // cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, IllusionShaderProperties._ColorPyramidTexture, previousColor);
+            // cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, Properties.HistoryDepthTexture, previousDepth);
+            // cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, Properties.IndirectDiffuseHitPointTexture, _hitPointRT);
+            // cmd.SetComputeBufferParam(_ssgiComputeShader, kernel, IllusionShaderProperties._DepthPyramidMipLevelOffsets, offsetBuffer);
+            //
+            // // Exposure texture may not be initialized in the first frame
+            // cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, IllusionShaderProperties._ExposureTexture, _rendererData.GetExposureTexture());
+            // cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, IllusionShaderProperties._PrevExposureTexture, _rendererData.GetPreviousExposureTexture());
+
+            // Bind output texture
+            cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, Properties.IndirectDiffuseTextureRW, _outputRT);
+
+            // Dispatch compute shader
+            int tileSize = 8;
+            int tilesX = GraphicsUtility.DivRoundUp((int)_rtWidth, tileSize);
+            int tilesY = GraphicsUtility.DivRoundUp((int)_rtHeight, tileSize);
+            cmd.DispatchCompute(_ssgiComputeShader, kernel, tilesX, tilesY, 1);
         }
         
         private void InitializeDiffuseDenoiser(CommandBuffer cmd)
@@ -341,8 +392,10 @@ namespace Game.Core.PostProcessing
 
         public override void Render(CommandBuffer cmd, RTHandle source, RTHandle destination, ref RenderingData renderingData)
         {
-            ref var cameraData = ref renderingData.cameraData;
-            
+             var cameraData =  renderingData.cameraData;
+
+           
+
             // Prepare shader variables
             PrepareVariables(ref cameraData);
 

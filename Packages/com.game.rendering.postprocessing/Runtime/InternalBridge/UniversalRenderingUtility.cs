@@ -7,6 +7,7 @@ namespace UnityEngine.Rendering.Universal
     public static class UniversalRenderingUtility
     {
         private static FieldInfo m_NormalsTextureFieldInfo;
+        private static FieldInfo m_MotionVectorColorFieldInfo;
         
         public static RenderingMode GetRenderingMode(ScriptableRenderer renderer)
         {
@@ -36,6 +37,40 @@ namespace UnityEngine.Rendering.Universal
             if (m_NormalsTextureFieldInfo!.GetValue(universalRenderer) is not RTHandle normalBuffer) 
                 return null;
             return normalBuffer;
+        }
+        
+        /// <summary>
+        /// Get UniversalRenderer motion vector color.
+        /// </summary>
+        /// <param name="sr"></param>
+        /// <returns></returns>
+        public static RTHandle GetMotionVectorColor(ScriptableRenderer sr)
+        {
+            if (sr is not UniversalRenderer universalRenderer) return null;
+            if (m_MotionVectorColorFieldInfo == null)
+            {
+                m_MotionVectorColorFieldInfo = typeof(UniversalRenderer).GetField("m_MotionVectorColor", BindingFlags.Instance | BindingFlags.NonPublic);
+            }
+            if (m_MotionVectorColorFieldInfo!.GetValue(universalRenderer) is not RTHandle motionVectorColor) 
+                return null;
+            return motionVectorColor;
+        }
+
+        /// <summary>
+        /// Get UniversalRenderer motion vector depth.
+        /// </summary>
+        /// <param name="sr"></param>
+        /// <returns></returns>
+        public static RTHandle GetMotionVectorDepth(ScriptableRenderer sr)
+        {
+            if (sr is not UniversalRenderer universalRenderer) return null;
+            if (m_MotionVectorColorFieldInfo == null)
+            {
+                m_MotionVectorColorFieldInfo = typeof(UniversalRenderer).GetField("m_MotionVectorDepth", BindingFlags.Instance | BindingFlags.NonPublic);
+            }
+            if (m_MotionVectorColorFieldInfo!.GetValue(universalRenderer) is not RTHandle motionVectorDepth) 
+                return null;
+            return motionVectorDepth;
         }
     }
 }

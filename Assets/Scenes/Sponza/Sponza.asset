@@ -256,6 +256,61 @@ MonoBehaviour:
   proceduralSoftness:
     m_OverrideState: 0
     m_Value: 0.5
+--- !u!114 &-5498483779157613583
+MonoBehaviour:
+  m_ObjectHideFlags: 3
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2dc570e108a4bd34e8bdf059f411145a, type: 3}
+  m_Name: ContactShadows
+  m_EditorClassIdentifier: 
+  active: 1
+  enabled:
+    m_OverrideState: 1
+    m_Value: 1
+  enable:
+    m_OverrideState: 1
+    m_Value: 1
+  length:
+    m_OverrideState: 0
+    m_Value: 0.15
+  opacity:
+    m_OverrideState: 0
+    m_Value: 1
+  distanceScaleFactor:
+    m_OverrideState: 0
+    m_Value: 0.5
+  maxDistance:
+    m_OverrideState: 1
+    m_Value: 20
+  minDistance:
+    m_OverrideState: 0
+    m_Value: 0
+  fadeDistance:
+    m_OverrideState: 0
+    m_Value: 5
+  fadeInDistance:
+    m_OverrideState: 0
+    m_Value: 0
+  rayBias:
+    m_OverrideState: 0
+    m_Value: 0.2
+  thicknessScale:
+    m_OverrideState: 0
+    m_Value: 0.15
+  shadowDenoiser:
+    m_OverrideState: 0
+    m_Value: 0
+  sampleCount:
+    m_OverrideState: 0
+    m_Value: 13
+  filterSizeTraced:
+    m_OverrideState: 0
+    m_Value: 6
 --- !u!114 &-2151959919949688263
 MonoBehaviour:
   m_ObjectHideFlags: 3
@@ -334,6 +389,8 @@ MonoBehaviour:
   - {fileID: 7402374894689823612}
   - {fileID: 3113460759975335049}
   - {fileID: 1381281844011770164}
+  - {fileID: 6814338713532929025}
+  - {fileID: -5498483779157613583}
 --- !u!114 &1381281844011770164
 MonoBehaviour:
   m_ObjectHideFlags: 3
@@ -354,11 +411,11 @@ MonoBehaviour:
     m_OverrideState: 0
     m_Value: 0
   resolution:
-    m_OverrideState: 0
-    m_Value: 1
+    m_OverrideState: 1
+    m_Value: 2
   intensity:
-    m_OverrideState: 0
-    m_Value: 1
+    m_OverrideState: 1
+    m_Value: 5
   thickness:
     m_OverrideState: 0
     m_Value: 8
@@ -372,19 +429,19 @@ MonoBehaviour:
     m_OverrideState: 0
     m_Value: 0.02
   jitterMode:
-    m_OverrideState: 0
-    m_Value: 1
+    m_OverrideState: 1
+    m_Value: 2
   blurIterations:
-    m_OverrideState: 0
+    m_OverrideState: 1
     m_Value: 3
   vignette:
-    m_OverrideState: 0
+    m_OverrideState: 1
     m_Value: 0
   antiFlicker:
     m_OverrideState: 0
     m_Value: 1
   debugMode:
-    m_OverrideState: 0
+    m_OverrideState: 1
     m_Value: 0
 --- !u!114 &3113460759975335049
 MonoBehaviour:
@@ -398,7 +455,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 248f9f557c88dd2458650e8fd02c535b, type: 3}
   m_Name: BloomConvolution
   m_EditorClassIdentifier: 
-  active: 1
+  active: 0
   enabled:
     m_OverrideState: 1
     m_Value: 1
@@ -448,6 +505,52 @@ MonoBehaviour:
   imagePSFPow:
     m_OverrideState: 0
     m_Value: 1
+--- !u!114 &6814338713532929025
+MonoBehaviour:
+  m_ObjectHideFlags: 3
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7c9a629af7c0f534994d9f3117411cf3, type: 3}
+  m_Name: ScreenSpaceGlobalIllumination
+  m_EditorClassIdentifier: 
+  active: 0
+  enabled:
+    m_OverrideState: 1
+    m_Value: 1
+  enable:
+    m_OverrideState: 1
+    m_Value: 1
+  halfResolution:
+    m_OverrideState: 0
+    m_Value: 0
+  depthBufferThickness:
+    m_OverrideState: 0
+    m_Value: 0.1
+  maxRaySteps:
+    m_OverrideState: 0
+    m_Value: 64
+  rayMiss:
+    m_OverrideState: 0
+    m_Value: 3
+  enableProbeVolumes:
+    m_OverrideState: 0
+    m_Value: 1
+  denoise:
+    m_OverrideState: 0
+    m_Value: 1
+  denoiserRadius:
+    m_OverrideState: 0
+    m_Value: 0.6
+  secondDenoiserPass:
+    m_OverrideState: 0
+    m_Value: 1
+  halfResolutionDenoiser:
+    m_OverrideState: 0
+    m_Value: 0
 --- !u!114 &7402374894689823612
 MonoBehaviour:
   m_ObjectHideFlags: 3
@@ -469,7 +572,7 @@ MonoBehaviour:
     m_Value: 0
   quality:
     m_OverrideState: 0
-    m_Value: 2
+    m_Value: 3
   resolution:
     m_OverrideState: 0
     m_Value: 0
@@ -507,5 +610,5 @@ MonoBehaviour:
     m_OverrideState: 0
     m_Value: 8
   debugMode:
-    m_OverrideState: 0
+    m_OverrideState: 1
     m_Value: 0
