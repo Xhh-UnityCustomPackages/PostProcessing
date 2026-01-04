@@ -31,7 +31,7 @@
 //--------------------------------------------------------------------------------------------------
 
 // Output texture for volumetric fog
-RW_TEXTURE2D_X(float4, _VolumetricFogOutput);
+RW_TEXTURE2D(float4, _VolumetricFogOutput);
 
 //--------------------------------------------------------------------------------------------------
 // Implementation
@@ -55,5 +55,5 @@ void VolumetricFogRaymarch(uint3 currentCoord : SV_DispatchThreadID,
     half4 fogResult = VolumetricFog(uv, currentCoord.xy);
     
     // Write to output texture
-    _VolumetricFogOutput[COORD_TEXTURE2D_X(currentCoord.xy)] = fogResult;
+    _VolumetricFogOutput[currentCoord.xy] = fogResult;
 }

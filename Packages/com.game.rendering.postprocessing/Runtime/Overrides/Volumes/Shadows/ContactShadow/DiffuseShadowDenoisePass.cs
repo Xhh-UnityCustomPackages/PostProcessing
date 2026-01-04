@@ -17,6 +17,8 @@ namespace Game.Core.PostProcessing
             public static readonly int DenoiserFilterRadius = Shader.PropertyToID("_DenoiserFilterRadius");
             public static readonly int DenoiseInputTexture = Shader.PropertyToID("_DenoiseInputTexture");
             public static readonly int NormalBufferTexture = Shader.PropertyToID("_NormalBufferTexture");
+            public static readonly int ContactShadowsRT = Shader.PropertyToID("_ContactShadowMap");
+            public static readonly int CameraNormalsTexture = Shader.PropertyToID("_CameraNormalsTexture");
         }
 
 
@@ -33,11 +35,13 @@ namespace Game.Core.PostProcessing
         // Camera parameters
         private int _texWidth;
         private int _texHeight;
-        private int _viewCount;
         // Evaluation parameters
         private float _lightAngle;
         private float _cameraFov;
         private int _kernelSize;
+        
+        private RTHandle _depthStencilBuffer;
+        private RTHandle _normalBuffer;
         
         public DiffuseShadowDenoisePass()
         {
@@ -58,9 +62,9 @@ namespace Game.Core.PostProcessing
             desc.graphicsFormat = GraphicsFormat.R16G16B16A16_SFloat;
             
             // Temporary buffers
-            RenderingUtils.ReAllocateIfNeeded(ref _intermediateBuffer, desc, name: "Intermediate buffer");
+            RenderingUtils.ReAllocateHandleIfNeeded(ref _intermediateBuffer, desc, name: "Intermediate buffer");
             // Output buffer
-            RenderingUtils.ReAllocateIfNeeded(ref _ContactShadowsDenoisedRT, desc, name: "Denoised Buffer");
+            RenderingUtils.ReAllocateHandleIfNeeded(ref _ContactShadowsDenoisedRT, desc, name: "Denoised Buffer");
             
             ConfigureInput(ScriptableRenderPassInput.Depth | ScriptableRenderPassInput.Normal);
         }
@@ -73,6 +77,13 @@ namespace Game.Core.PostProcessing
             var renderer = cameraData.renderer;
             var contactShadows = VolumeManager.instance.stack.GetComponent<ContactShadow>();
             
+            _depthStencilBuffer = UniversalRenderingUtility.GetDepthTexture(renderer);
+            if (_depthStencilBuffer == null) return;
+            
+            _normalBuffer = UniversalRenderingUtility.GetNormalTexture(renderer);
+            // Debug.LogError(_normalBuffer);
+            // if (_normalBuffer == null) return;
+            
             _cameraFov = camera.fieldOfView * Mathf.PI / 180.0f;
             // Convert the angular diameter of the directional light to radians (from degrees)
             const float angularDiameter = 2.5f;
@@ -83,8 +94,6 @@ namespace Game.Core.PostProcessing
             int actualHeight = cameraData.cameraTargetDescriptor.height;
             _texWidth = actualWidth;
             _texHeight = actualHeight;
-            _viewCount = 1;
-            
             var cmd = CommandBufferPool.Get();
             using (new ProfilingScope(cmd, _profilingSampler))
             {
@@ -104,9 +113,11 @@ namespace Game.Core.PostProcessing
 
                 kernel = _bilateralFilterHSingleDirectionalKernel;
                 // Bind Input Textures
-                // cmd.SetComputeTextureParam(_shadowDenoiser, kernel, RayTracingShaderProperties.DepthTexture, _depthStencilBuffer);
+                cmd.SetComputeTextureParam(_shadowDenoiser, kernel, RayTracingShaderProperties.DepthTexture, _depthStencilBuffer);
+                _shadowDenoiser.SetTextureFromGlobal(kernel, RayTracingShaderProperties.NormalBufferTexture, RayTracingShaderProperties.CameraNormalsTexture);
                 // cmd.SetComputeTextureParam(_shadowDenoiser, kernel, RayTracingShaderProperties.NormalBufferTexture, _normalBuffer);
                 // cmd.SetComputeTextureParam(_shadowDenoiser, kernel, RayTracingShaderProperties.DenoiseInputTexture, _rendererData.ContactShadowsRT);
+                _shadowDenoiser.SetTextureFromGlobal(kernel, RayTracingShaderProperties.DenoiseInputTexture, RayTracingShaderProperties.ContactShadowsRT);
 
                 // TODO: Add distance based denoise support
                 // cmd.SetComputeTextureParam(_shadowDenoiser, kernel, RayTracingShaderIds.DistanceTexture, _distanceBuffer);
@@ -115,11 +126,12 @@ namespace Game.Core.PostProcessing
                 cmd.SetComputeTextureParam(_shadowDenoiser, kernel, RayTracingShaderProperties.DenoiseOutputTextureRW, _intermediateBuffer);
                 
                 // Do the Horizontal pass
-                cmd.DispatchCompute(_shadowDenoiser, kernel, numTilesX, numTilesY, _viewCount);
+                cmd.DispatchCompute(_shadowDenoiser, kernel, numTilesX, numTilesY, 1);
 
                 kernel = _bilateralFilterVSingleDirectionalKernel;
                 // Bind Input Textures
-                // cmd.SetComputeTextureParam(_shadowDenoiser, kernel, RayTracingShaderProperties.DepthTexture, _depthStencilBuffer);
+                cmd.SetComputeTextureParam(_shadowDenoiser, kernel, RayTracingShaderProperties.DepthTexture, _depthStencilBuffer);
+                _shadowDenoiser.SetTextureFromGlobal(kernel, RayTracingShaderProperties.NormalBufferTexture, RayTracingShaderProperties.CameraNormalsTexture);
                 // cmd.SetComputeTextureParam(_shadowDenoiser, kernel, RayTracingShaderProperties.NormalBufferTexture, _normalBuffer);
                 cmd.SetComputeTextureParam(_shadowDenoiser, kernel, RayTracingShaderProperties.DenoiseInputTexture, _intermediateBuffer);
 
@@ -130,7 +142,10 @@ namespace Game.Core.PostProcessing
                 cmd.SetComputeTextureParam(_shadowDenoiser, kernel, RayTracingShaderProperties.DenoiseOutputTextureRW, _ContactShadowsDenoisedRT);
 
                 // Do the Vertical pass
-                cmd.DispatchCompute(_shadowDenoiser, kernel, numTilesX, numTilesY, _viewCount);
+                cmd.DispatchCompute(_shadowDenoiser, kernel, numTilesX, numTilesY, 1);
+                
+                
+                Shader.SetGlobalTexture(RayTracingShaderProperties.ContactShadowsRT, _ContactShadowsDenoisedRT);
             }
             context.ExecuteCommandBuffer(cmd);
             CommandBufferPool.Release(cmd);

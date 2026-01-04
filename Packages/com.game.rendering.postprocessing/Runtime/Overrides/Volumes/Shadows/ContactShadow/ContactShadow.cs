@@ -25,7 +25,10 @@ namespace Game.Core.PostProcessing
         /// and the depth of the point from where the contact shadow ray is traced.
         /// </summary>
         public ClampedFloatParameter length = new (0.15f, 0.0f, 1.0f);
-        
+        /// <summary>
+        /// Controls the opacity of the contact shadows.
+        /// </summary>
+        public ClampedFloatParameter opacity = new (1.0f, 0.0f, 1.0f);
         /// <summary>
         /// Scales the length of the contact shadow ray based on the linear depth value at the origin of the ray.
         /// </summary>
@@ -82,8 +85,8 @@ namespace Game.Core.PostProcessing
     
     //需要走屏幕空间阴影
     //https://github.com/himma-bit/empty/blob/main/Assets/Scripts/ContactShadow/ContactShadowMapGenerater.cs
-    [PostProcess("Contact Shadow", PostProcessInjectionPoint.BeforeRenderingGBuffer)]
-    public class ContactShadowRenderer : PostProcessVolumeRenderer<ContactShadow>
+    [PostProcess("Contact Shadow", PostProcessInjectionPoint.BeforeRenderingGBuffer, SupportRenderPath.Deferred)]
+    public partial class ContactShadowRenderer : PostProcessVolumeRenderer<ContactShadow>
     {
         static class ShaderConstants
         {
@@ -91,6 +94,7 @@ namespace Game.Core.PostProcessing
             public static readonly int Parameters2ID = Shader.PropertyToID("_ContactShadowParamsParameters2");
             public static readonly int Parameters3ID = Shader.PropertyToID("_ContactShadowParamsParameters3");
             public static readonly int TextureUAVID = Shader.PropertyToID("_ContactShadowTextureUAV");
+            public static readonly int ContactShadowsRT = Shader.PropertyToID("_ContactShadowMap");
         }
 
         class RenderContactShadowPassData
@@ -116,9 +120,10 @@ namespace Game.Core.PostProcessing
         
         private ComputeShader m_ContactShadowCS;
         
-        private ScreenSpaceShadowsPass m_SSShadowsPass = null;
-        private ScreenSpaceShadowsPostPass m_SSShadowsPostPass = null;
+   
         private DiffuseShadowDenoisePass m_DiffuseShadowDenoisePass;
+        
+        public override PostProcessPassInput postProcessPassInput => PostProcessPassInput.ScreenSpaceShadow;
 
         public override void Setup()
         {
@@ -128,22 +133,13 @@ namespace Game.Core.PostProcessing
 
         public override void AddRenderPasses(ref RenderingData renderingData)
         {
-            if (m_SSShadowsPass == null)
-                m_SSShadowsPass = new ScreenSpaceShadowsPass();
-            if (m_SSShadowsPostPass == null)
-                m_SSShadowsPostPass = new ScreenSpaceShadowsPostPass();
-
-            m_SSShadowsPass.renderPassEvent = RenderPassEvent.AfterRenderingGbuffer;
-            m_SSShadowsPostPass.renderPassEvent = RenderPassEvent.BeforeRenderingTransparents;
-
-            if (m_DiffuseShadowDenoisePass == null)
-                m_DiffuseShadowDenoisePass = new();
-            
             switch (settings.shadowDenoiser.value)
             {
                 case ContactShadow.ShadowDenoiser.None:
                     break;
                 case ContactShadow.ShadowDenoiser.Spatial:
+                    if (m_DiffuseShadowDenoisePass == null)
+                        m_DiffuseShadowDenoisePass = new();
                     renderingData.cameraData.renderer.EnqueuePass(m_DiffuseShadowDenoisePass);
                     break;
             }
@@ -162,7 +158,7 @@ namespace Game.Core.PostProcessing
 
             RenderingUtils.ReAllocateHandleIfNeeded(ref contactShadowsTexture, desc);
 
-            Shader.SetGlobalTexture("_ContactShadowMap", contactShadowsTexture);
+            Shader.SetGlobalTexture(ShaderConstants.ContactShadowsRT, contactShadowsTexture);
         }
 
         public override void Render(CommandBuffer cmd, RTHandle source, RTHandle destination, ref RenderingData renderingData)

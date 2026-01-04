@@ -270,7 +270,7 @@ void TRACE_GLOBAL_ILLUMINATION(uint3 dispatchThreadId : SV_DispatchThreadID, uin
         // recompute it using the last value of 't', which would result in an overshoot.
         // It also needs to be precisely at the center of the pixel to avoid artifacts.
         float2 hitPositionNDC = floor(rayPos.xy) * _ScreenSize.zw + (0.5 * _ScreenSize.zw); // Should we precompute the half-texel bias? We seem to use it a lot.
-        _IndirectDiffuseHitPointTextureRW[COORD_TEXTURE2D_X(currentCoord.xy)] = hitPositionNDC;
+        _IndirectDiffuseHitPointTextureRW[currentCoord.xy] = hitPositionNDC;
     }
 }
 
@@ -278,7 +278,7 @@ void TRACE_GLOBAL_ILLUMINATION(uint3 dispatchThreadId : SV_DispatchThreadID, uin
 TEXTURE2D_X(_IndirectDiffuseHitPointTexture);
 // Depth buffer of the previous frame (full resolution)
 TEXTURE2D_X(_HistoryDepthTexture);
-RW_TEXTURE2D_X(float3, _IndirectDiffuseTextureRW);
+RW_TEXTURE2D(float3, _IndirectDiffuseTextureRW);
 
 // The maximal difference in depth that is considered acceptable to read from the color pyramid
 #define DEPTH_DIFFERENCE_THRESHOLD 0.1

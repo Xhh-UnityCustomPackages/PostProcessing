@@ -35,9 +35,9 @@ RWStructuredBuffer<float2> _PointDistributionRW;
 StructuredBuffer<float2> _PointDistribution;
 // Filtered Output buffer (depends on the singel or color variant of the denoiser)
 #if SINGLE_CHANNEL
-RW_TEXTURE2D_X(float, _DenoiseOutputTextureRW);
+RW_TEXTURE2D(float, _DenoiseOutputTextureRW);
 #else
-RW_TEXTURE2D_X(float4, _DenoiseOutputTextureRW);
+RW_TEXTURE2D(float4, _DenoiseOutputTextureRW);
 #endif
 
 // Radius of the filter (world space)
@@ -84,9 +84,9 @@ void BILATERAL_FILTER(uint3 dispatchThreadId : SV_DispatchThreadID, uint2 groupT
     if (center.z01 == 1.0 || center.isUnlit)
     {
         #if SINGLE_CHANNEL
-        _DenoiseOutputTextureRW[COORD_TEXTURE2D_X(currentCoord)] = 0.0;
+        _DenoiseOutputTextureRW[currentCoord] = 0.0;
         #else
-        _DenoiseOutputTextureRW[COORD_TEXTURE2D_X(currentCoord)] = float4(0.0, 0.0, 0.0, 1.0);
+        _DenoiseOutputTextureRW[currentCoord] = float4(0.0, 0.0, 0.0, 1.0);
         #endif
         return;
     }
@@ -181,9 +181,9 @@ void BILATERAL_FILTER(uint3 dispatchThreadId : SV_DispatchThreadID, uint2 groupT
     
     // Normalize the result
 #if SINGLE_CHANNEL
-    _DenoiseOutputTextureRW[COORD_TEXTURE2D_X(currentCoord)] = colorSum / wSum;
+    _DenoiseOutputTextureRW[currentCoord] = colorSum / wSum;
 #else
-    _DenoiseOutputTextureRW[COORD_TEXTURE2D_X(currentCoord)] = float4(colorSum / wSum, 1.0);
+    _DenoiseOutputTextureRW[currentCoord] = float4(colorSum / wSum, 1.0);
 #endif
 }
 

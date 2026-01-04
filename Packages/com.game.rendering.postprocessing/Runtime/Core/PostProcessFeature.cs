@@ -32,12 +32,13 @@ namespace Game.Core.PostProcessing
     public enum PostProcessPassInput
     {
         None = 0,
-        HiZ = 1 << 0,//层次深度
+        HiZ = 1 << 0, // 层次深度
+        ScreenSpaceShadow = 1 << 1, // 走屏幕空间阴影 
         //上一帧颜色
     }
 
     [DisallowMultipleRendererFeature]
-    public class PostProcessFeature : ScriptableRendererFeature
+    public partial class PostProcessFeature : ScriptableRendererFeature
     {
         [System.Serializable]
         public class PostProcessSettings
@@ -74,7 +75,11 @@ namespace Game.Core.PostProcessing
         private PostProcessRenderPass m_BeforeRenderingOpaques, m_AfterRenderingOpaques;
         private PostProcessRenderPass m_AfterRenderingSkybox, m_BeforeRenderingPostProcessing, m_AfterRenderingPostProcessing;
         UberPostProcess m_UberPostProcessing;
+        
+        
         PyramidDepthGenerator m_HizDepthGenerator;
+        private ScreenSpaceShadowsPass m_SSShadowsPass = null;
+        private ScreenSpaceShadowsPostPass m_SSShadowsPostPass = null;
 
         private RenderingMode m_RenderingMode;
         public RenderingMode RenderingMode => m_RenderingMode;
@@ -179,6 +184,25 @@ namespace Game.Core.PostProcessing
                 renderer.EnqueuePass(m_HizDepthGenerator);
             }
 
+            if (postProcessPassInput.HasFlag(PostProcessPassInput.ScreenSpaceShadow))
+            {
+                if (m_SSShadowsPass == null)
+                    m_SSShadowsPass = new ScreenSpaceShadowsPass();
+                if (m_SSShadowsPostPass == null)
+                    m_SSShadowsPostPass = new ScreenSpaceShadowsPostPass();
+
+                m_SSShadowsPostPass.renderPassEvent = RenderPassEvent.BeforeRenderingTransparents;
+                
+                m_SSShadowsPass.renderPassEvent = m_RenderingMode == RenderingMode.Deferred
+                    ? RenderPassEvent.AfterRenderingGbuffer
+                    : RenderPassEvent.AfterRenderingPrePasses + 1; // We add 1 to ensure this happens after depth priming depth copy pass that might be scheduled
+                
+                m_SSShadowsPass.Setup();
+
+                renderer.EnqueuePass(m_SSShadowsPass);
+                renderer.EnqueuePass(m_SSShadowsPostPass);
+            }
+
 #if UNITY_EDITOR
             m_DebugHandler.EnqueuePass(renderer);
 #endif
@@ -200,6 +224,8 @@ namespace Game.Core.PostProcessing
             m_AfterRenderingPostProcessing.Dispose(disposing);
             m_UberPostProcessing.Dispose();
             PyramidBlur.Release();
+            
+            m_SSShadowsPass?.Dispose();
 
 #if UNITY_EDITOR
             m_DebugHandler.Dispose();

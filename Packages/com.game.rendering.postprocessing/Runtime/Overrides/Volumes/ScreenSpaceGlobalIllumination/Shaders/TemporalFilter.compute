@@ -20,7 +20,6 @@
 
 // URP includes
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
-#include "Packages/com.kurisu.illusion-render-pipelines/ShaderLibrary/Core.hlsl"
 #include "Packages/com.kurisu.illusion-render-pipelines/ShaderLibrary/DeclareMotionVectorTexture.hlsl"
 #include "Packages/com.kurisu.illusion-render-pipelines/ShaderLibrary/NormalBuffer.hlsl"
 #include "Packages/com.kurisu.illusion-render-pipelines/ShaderLibrary/Raytracing/DenoisingUtils.hlsl"
@@ -50,7 +49,7 @@ TEXTURE2D_X(_HistoryDepthTexture);
 // Normal buffer of the previous frame
 TEXTURE2D_X(_HistoryNormalTexture);
 // Buffer that stores the result of the validation pass of the history
-RW_TEXTURE2D_X(uint, _ValidationBufferRW);
+RW_TEXTURE2D(uint, _ValidationBufferRW);
 // Velocity buffer for history rejection // @IllusionRP not used now.
 TEXTURE2D_X(_VelocityBuffer);
 // This holds the fov angle of a pixel
@@ -92,7 +91,7 @@ void ValidateHistory(uint3 dispatchThreadId : SV_DispatchThreadID, uint2 groupTh
     // If the current point we are processing is a background point or the whole history should be discarded for an other reason, we invalidate the history
     if (depth == UNITY_RAW_FAR_CLIP_VALUE || _HistoryValidity == 0.0f)
     {
-        _ValidationBufferRW[COORD_TEXTURE2D_X(centerCoord)] = HISTORYREJECTIONFLAGS_COMBINED;
+        _ValidationBufferRW[centerCoord] = HISTORYREJECTIONFLAGS_COMBINED;
         return;
     }
 
@@ -108,7 +107,7 @@ void ValidateHistory(uint3 dispatchThreadId : SV_DispatchThreadID, uint2 groupTh
     // If the pixel was outside of the screen during the previous frame, invalidate the history
     if (any(historyTapCoord >= _HistorySizeAndScale.xy) || any(historyTapCoord < 0))
     {
-        _ValidationBufferRW[COORD_TEXTURE2D_X(centerCoord)] = HISTORYREJECTIONFLAGS_REPROJECTION | HISTORYREJECTIONFLAGS_PREVIOUS_DEPTH | HISTORYREJECTIONFLAGS_POSITION | HISTORYREJECTIONFLAGS_NORMAL | HISTORYREJECTIONFLAGS_MOTION;
+        _ValidationBufferRW[centerCoord] = HISTORYREJECTIONFLAGS_REPROJECTION | HISTORYREJECTIONFLAGS_PREVIOUS_DEPTH | HISTORYREJECTIONFLAGS_POSITION | HISTORYREJECTIONFLAGS_NORMAL | HISTORYREJECTIONFLAGS_MOTION;
         return;
     }
 
@@ -116,7 +115,7 @@ void ValidateHistory(uint3 dispatchThreadId : SV_DispatchThreadID, uint2 groupTh
     float historyDepth = SAMPLE_TEXTURE2D_X_LOD(_HistoryDepthTexture, sampler_LinearClamp, historyUV, 0).r;
     if (historyDepth == UNITY_RAW_FAR_CLIP_VALUE)
     {
-        _ValidationBufferRW[COORD_TEXTURE2D_X(centerCoord)] = HISTORYREJECTIONFLAGS_PREVIOUS_DEPTH | HISTORYREJECTIONFLAGS_POSITION | HISTORYREJECTIONFLAGS_NORMAL | HISTORYREJECTIONFLAGS_MOTION;
+        _ValidationBufferRW[centerCoord] = HISTORYREJECTIONFLAGS_PREVIOUS_DEPTH | HISTORYREJECTIONFLAGS_POSITION | HISTORYREJECTIONFLAGS_NORMAL | HISTORYREJECTIONFLAGS_MOTION;
         return;
     }
 
@@ -168,7 +167,7 @@ int _DenoisingHistorySlice;
 // This value tells us which channels hold the value
 float4 _DenoisingHistoryMask;
 // Generic output buffer for our kernels
-RW_TEXTURE2D_X(float4, _AccumulationOutputTextureRW);
+RW_TEXTURE2D(float4, _AccumulationOutputTextureRW);
 
 [numthreads(TEMPORAL_FILTER_TILE_SIZE, TEMPORAL_FILTER_TILE_SIZE, 1)]
 void TEMPORAL_ACCUMULATION(uint3 dispatchThreadId : SV_DispatchThreadID, uint2 groupThreadId : SV_GroupThreadID, uint2 groupId : SV_GroupID)
@@ -183,7 +182,7 @@ void TEMPORAL_ACCUMULATION(uint3 dispatchThreadId : SV_DispatchThreadID, uint2 g
     float depth = LOAD_TEXTURE2D_X(_DepthTexture, sourceCoord).r;
     if (depth == UNITY_RAW_FAR_CLIP_VALUE)
     {
-        _AccumulationOutputTextureRW[COORD_TEXTURE2D_X(currentCoord)] = float4(0.0, 0.0, 0.0, 0);
+        _AccumulationOutputTextureRW[currentCoord] = float4(0.0, 0.0, 0.0, 0);
         return;
     }
 
@@ -275,7 +274,7 @@ void TEMPORAL_ACCUMULATION(uint3 dispatchThreadId : SV_DispatchThreadID, uint2 g
 #endif
 }
 
-RW_TEXTURE2D_X(float4, _DenoiseOutputTextureRW);
+RW_TEXTURE2D(float4, _DenoiseOutputTextureRW);
 
 [numthreads(TEMPORAL_FILTER_TILE_SIZE, TEMPORAL_FILTER_TILE_SIZE, 1)]
 void CopyHistory(uint3 dispatchThreadId : SV_DispatchThreadID)
@@ -285,18 +284,18 @@ void CopyHistory(uint3 dispatchThreadId : SV_DispatchThreadID)
     if (any(dispatchThreadId.xy > (uint2)round((float2)_ScreenSize.xy * _DenoiserResolutionMultiplierVals.xx)))
         return;  // Out of bounds, discard
 
-    _DenoiseOutputTextureRW[COORD_TEXTURE2D_X(dispatchThreadId.xy)] = LOAD_TEXTURE2D_X(_DenoiseInputTexture, dispatchThreadId.xy);
+    _DenoiseOutputTextureRW[dispatchThreadId.xy] = LOAD_TEXTURE2D_X(_DenoiseInputTexture, dispatchThreadId.xy);
 }
 
 // Output is array textures
 TEXTURE2D_ARRAY(_DenoiseInputArrayTexture);
-RW_TEXTURE2D_X(float4, _IntermediateDenoiseOutputTextureRW);
+RW_TEXTURE2D(float4, _IntermediateDenoiseOutputTextureRW);
 TEXTURE2D_X(_IntermediateDenoiseOutputTexture);
 RW_TEXTURE2D_ARRAY(float4, _DenoiseOutputArrayTextureRW);
 
 #if !defined(NO_VALIDITY)
     TEXTURE2D_ARRAY(_ValidityInputArrayTexture);
-    RW_TEXTURE2D_X(float4, _IntermediateValidityOutputTextureRW);
+    RW_TEXTURE2D(float4, _IntermediateValidityOutputTextureRW);
     TEXTURE2D_X(_IntermediateValidityOutputTexture);
     RW_TEXTURE2D_ARRAY(float4, _ValidityOutputTextureRW);
 #endif
@@ -327,9 +326,9 @@ void BLEND_HISTORY_ARRAY(uint3 dispatchThreadId : SV_DispatchThreadID)
         #endif
     #else
         // If this is a color data, it means we need to override the first three channels
-        _IntermediateDenoiseOutputTextureRW[COORD_TEXTURE2D_X(dispatchThreadId.xy)] = float4(LOAD_TEXTURE2D_X(_DenoiseInputTexture, dispatchThreadId.xy).xyz, previousHistoryValues.w);
+        _IntermediateDenoiseOutputTextureRW[dispatchThreadId.xy] = float4(LOAD_TEXTURE2D_X(_DenoiseInputTexture, dispatchThreadId.xy).xyz, previousHistoryValues.w);
         #if !defined(NO_VALIDITY)
-        _IntermediateValidityOutputTextureRW[COORD_TEXTURE2D_X(dispatchThreadId.xy)] = float4(LOAD_TEXTURE2D_X(_DenoiseInputTexture, dispatchThreadId.xy).www, previousValidityValues.w);
+        _IntermediateValidityOutputTextureRW[dispatchThreadId.xy] = float4(LOAD_TEXTURE2D_X(_DenoiseInputTexture, dispatchThreadId.xy).www, previousValidityValues.w);
         #endif
     #endif
 }
