@@ -135,7 +135,8 @@ namespace Game.Core.PostProcessing
 
         public override void Setup()
         {
-            m_Material = GetMaterial(postProcessFeatureData.shaders.ScreenSpaceCavityPS);
+            var runtimeResources = GraphicsSettings.GetRenderPipelineSettings<ScreenSpaceCavityResources>();
+            m_Material = GetMaterial(runtimeResources.ScreenSpaceCavityPS);
         }
 
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)

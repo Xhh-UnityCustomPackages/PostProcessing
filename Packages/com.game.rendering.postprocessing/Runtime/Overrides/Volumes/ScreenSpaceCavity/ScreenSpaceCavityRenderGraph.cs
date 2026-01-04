@@ -24,7 +24,11 @@ namespace Game.Core.PostProcessing
         private void SetupMaterials(ref UniversalCameraData cameraData)
         {
             if (m_Material == null)
-                m_Material = GetMaterial(postProcessFeatureData.shaders.ScreenSpaceCavityPS);
+            {
+                var runtimeResources = GraphicsSettings.GetRenderPipelineSettings<ScreenSpaceCavityResources>();
+                m_Material = GetMaterial(runtimeResources.ScreenSpaceCavityPS);
+            }
+
             
             var sourceWidth = cameraData.cameraTargetDescriptor.width;
             var sourceHeight = cameraData.cameraTargetDescriptor.height;

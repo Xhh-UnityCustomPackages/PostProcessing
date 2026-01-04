@@ -120,9 +120,6 @@ namespace Game.Core.PostProcessing
     {
         static class ShaderConstants
         {
-            internal static readonly int OcclusionDepthTex = Shader.PropertyToID("_OcclusionDepthTex");
-            internal static readonly int OcclusionTempTex = Shader.PropertyToID("_OcclusionTempTex");
-            internal static readonly int OcclusionFinalTex = Shader.PropertyToID("_OcclusionFinalTex");
             internal static readonly int FullTexelSize = Shader.PropertyToID("_Full_TexelSize");
             internal static readonly int ScaledTexelSize = Shader.PropertyToID("_Scaled_TexelSize");
             internal static readonly int TargetScale = Shader.PropertyToID("_TargetScale");
@@ -140,7 +137,8 @@ namespace Game.Core.PostProcessing
             internal static readonly int DistanceFalloff = Shader.PropertyToID("_DistanceFalloff");
             internal static readonly int BlurSharpness = Shader.PropertyToID("_BlurSharpness");
             internal static readonly int CameraProjMatrix = Shader.PropertyToID("_CameraProjMatrix");
-
+            internal static readonly int ScreenSpaceOcclusionTexture = Shader.PropertyToID("_ScreenSpaceOcclusionTexture");
+            internal static readonly int AmbientOcclusionParam = Shader.PropertyToID("_AmbientOcclusionParam");
 
             public static string GetAOTypeKeyword(ScreenSpaceOcclusion.AOType type)
             {
@@ -248,7 +246,11 @@ namespace Game.Core.PostProcessing
         private void SetupMaterials(ref RenderingData renderingData)
         {
             if (m_AmbientOcclusionMaterial == null)
-                m_AmbientOcclusionMaterial = GetMaterial(postProcessFeatureData.shaders.screenSpaceOcclusionPS);
+            {
+                var runtimeResources = GraphicsSettings.GetRenderPipelineSettings<ScreenSpaceOcclusionResources>();
+                m_AmbientOcclusionMaterial = GetMaterial(runtimeResources.ScreenSpaceOcclusionPS);
+            }
+
 
             var cameraData = renderingData.cameraData;
 
@@ -367,8 +369,8 @@ namespace Game.Core.PostProcessing
             }
 
             //Composite
-            cmd.SetGlobalTexture("_ScreenSpaceOcclusionTexture", m_OcclusionFinalRT);
-            cmd.SetGlobalVector("_AmbientOcclusionParam", new Vector4(1, 0, 0, 0.25f));
+            cmd.SetGlobalTexture(ShaderConstants.ScreenSpaceOcclusionTexture, m_OcclusionFinalRT);
+            cmd.SetGlobalVector(ShaderConstants.AmbientOcclusionParam, new Vector4(1, 0, 0, 0.25f));
             Blit(cmd, m_OcclusionDepthRT, m_OcclusionFinalRT, m_AmbientOcclusionMaterial, 3);
         }
 

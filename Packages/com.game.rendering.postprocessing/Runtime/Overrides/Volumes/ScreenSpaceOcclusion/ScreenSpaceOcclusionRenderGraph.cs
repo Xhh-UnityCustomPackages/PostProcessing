@@ -7,10 +7,26 @@ namespace Game.Core.PostProcessing
 {
     public partial class ScreenSpaceOcclusionRenderer : PostProcessVolumeRenderer<ScreenSpaceOcclusion>
     {
+        private class ScreenSpaceOcclusionPassData
+        {
+            // Setup
+            public Material material;
+            
+            // Inputs
+            internal TextureHandle sourceTexture;
+            internal TextureHandle occlusionDepthTexture;
+            internal TextureHandle occlusionTempTexture;
+            internal TextureHandle occlusionFinalTexture;
+            public ScreenSpaceOcclusion.BlurType blurType;
+        }
+        
         private void SetupMaterials(ref UniversalCameraData cameraData)
         {
             if (m_AmbientOcclusionMaterial == null)
-                m_AmbientOcclusionMaterial = GetMaterial(postProcessFeatureData.shaders.screenSpaceOcclusionPS);
+            {
+                var runtimeResources = GraphicsSettings.GetRenderPipelineSettings<ScreenSpaceOcclusionResources>();
+                m_AmbientOcclusionMaterial = GetMaterial(runtimeResources.ScreenSpaceOcclusionPS);
+            }
 
             var width = cameraData.cameraTargetDescriptor.width;
             var height = cameraData.cameraTargetDescriptor.height;
@@ -70,6 +86,88 @@ namespace Game.Core.PostProcessing
             UniversalCameraData cameraData = frameData.Get<UniversalCameraData>();
             
             SetupMaterials(ref cameraData);
+
+            using (var builder = renderGraph.AddUnsafePass<ScreenSpaceOcclusionPassData>(profilingSampler.name, out var passData))
+            {
+                passData.material = m_AmbientOcclusionMaterial;
+                passData.blurType = settings.blurType.value;
+                
+                passData.sourceTexture = source;
+                builder.UseTexture(source, AccessFlags.Read);
+                
+                m_AmbientOcclusionDescriptor = cameraData.cameraTargetDescriptor;
+                m_AmbientOcclusionDescriptor.msaaSamples = 1;
+                m_AmbientOcclusionDescriptor.depthBufferBits = 0;
+                
+                if (settings.resolution == ScreenSpaceOcclusion.Resolution.Half)
+                {
+                    DescriptorDownSample(ref m_AmbientOcclusionDescriptor, 2);
+                }
+                else if (settings.resolution == ScreenSpaceOcclusion.Resolution.Quarter)
+                {
+                    DescriptorDownSample(ref m_AmbientOcclusionDescriptor, 4);
+                }
+                
+                if (settings.debugMode.value != ScreenSpaceOcclusion.DebugMode.Disabled)
+                {
+                    m_AmbientOcclusionDescriptor.colorFormat = m_AmbientOcclusionColorFormat;
+                }
+                else
+                {
+                    m_AmbientOcclusionDescriptor.colorFormat = RenderTextureFormat.R8;
+                }
+                
+                var occlusionFinalRT = UniversalRenderer.CreateRenderGraphTexture(renderGraph, m_AmbientOcclusionDescriptor, "OcclusionFinalRT", false);
+                passData.occlusionFinalTexture = occlusionFinalRT;
+                builder.UseTexture(occlusionFinalRT, AccessFlags.Write);
+                builder.SetGlobalTextureAfterPass(occlusionFinalRT, ShaderConstants.ScreenSpaceOcclusionTexture);
+                
+                m_AmbientOcclusionDescriptor.colorFormat = m_AmbientOcclusionColorFormat;
+                if (settings.blurType != ScreenSpaceOcclusion.BlurType.None)
+                {
+                    var occlusionTempRT = UniversalRenderer.CreateRenderGraphTexture(renderGraph, m_AmbientOcclusionDescriptor, "OcclusionTempRT", false);
+                    passData.occlusionTempTexture = occlusionTempRT;
+                    builder.UseTexture(occlusionTempRT, AccessFlags.ReadWrite);
+                }
+
+                var occlusionDepthRT = UniversalRenderer.CreateRenderGraphTexture(renderGraph, m_AmbientOcclusionDescriptor, "OcclusionDepthRT", false);
+                passData.occlusionDepthTexture = occlusionDepthRT;
+                builder.UseTexture(occlusionDepthRT, AccessFlags.ReadWrite);
+
+                //在RenderPass之间传递数据
+                if (settings.debugMode.value != ScreenSpaceOcclusion.DebugMode.Disabled)
+                {
+                    var customData = frameData.Create<ScreenSpaceOcclusionDebug.ScreenSpaceOcclusionDebugData>();
+                    customData.occlusionFinalTexture = occlusionFinalRT;
+                }
+
+                builder.SetRenderFunc(static (ScreenSpaceOcclusionPassData data, UnsafeGraphContext context) => ExecutePass(data, context));
+            }
+        }
+
+        static void ExecutePass(ScreenSpaceOcclusionPassData data, UnsafeGraphContext context)
+        {
+            var cmd = CommandBufferHelpers.GetNativeCommandBuffer(context.cmd);
+            CoreUtils.SetKeyword(cmd, ShaderKeywordStrings.ScreenSpaceOcclusion, true);
+                    
+            // AO
+            RTHandle sourceTextureHdl = data.sourceTexture;
+            RTHandle occlusionDepthHdl = data.occlusionDepthTexture;
+            Blitter.BlitCameraTexture(cmd, sourceTextureHdl, occlusionDepthHdl, data.material, 0);
+
+            // Blur
+            if (data.blurType != ScreenSpaceOcclusion.BlurType.None)
+            {
+                RTHandle blurTempTextureHdl = data.occlusionTempTexture;
+                Blitter.BlitCameraTexture(cmd, occlusionDepthHdl, blurTempTextureHdl, data.material, 1);
+                Blitter.BlitCameraTexture(cmd, blurTempTextureHdl, occlusionDepthHdl, data.material, 2);
+            } 
+                    
+            RTHandle finalTextureHdl = data.occlusionFinalTexture;
+            // Composite
+            // cmd.SetGlobalTexture(ShaderConstants.ScreenSpaceOcclusionTexture, finalTextureHdl);
+            cmd.SetGlobalVector(ShaderConstants.AmbientOcclusionParam, new Vector4(1, 0, 0, 0.25f));
+            Blitter.BlitCameraTexture(cmd, occlusionDepthHdl, finalTextureHdl, data.material, 3);
         }
     }
 }

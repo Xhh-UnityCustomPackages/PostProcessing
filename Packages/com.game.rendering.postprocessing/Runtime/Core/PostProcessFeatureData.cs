@@ -25,7 +25,6 @@ namespace Game.Core.PostProcessing
         [Serializable]
         public sealed class ShaderResources
         {
-            public Shader screenSpaceOcclusionPS;
             public Shader volumetricLightPS;
             public Shader volumetricCloudPS;
             public Shader lightShaftPS;
@@ -33,7 +32,6 @@ namespace Game.Core.PostProcessing
             public Shader stochasticScreenSpaceReflectionPS;
             public Shader screenSpaceRaytracedReflectionPS;
             public Shader atmosphericHeightFogPS;
-            public Shader ScreenSpaceCavityPS;
             public Shader CRTScreenPS;
             public Shader MoebiusPS;
             public Shader EightColorPS;
