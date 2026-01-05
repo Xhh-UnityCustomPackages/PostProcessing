@@ -93,6 +93,9 @@ namespace Game.Core.PostProcessing
         {
             var postProcessFeatureData = m_Settings.m_PostProcessFeatureData;
             m_Context = new PostProcessFeatureContext();
+            
+            PyramidBlur.Initialize(postProcessFeatureData.materials.DualBlur);
+            
             Dictionary<string, PostProcessRenderer> shared = new Dictionary<string, PostProcessRenderer>();
             m_BeforeRenderingGBuffer = new PostProcessRenderPass(PostProcessInjectionPoint.BeforeRenderingGBuffer,
                 InstantiateRenderers(m_Settings.m_RenderersBeforeRenderingGBuffer, shared),
@@ -123,11 +126,7 @@ namespace Game.Core.PostProcessing
             {
                 renderPassEvent = RenderPassEvent.AfterRenderingPostProcessing,
             };
-
-            PyramidBlur.Initialize(postProcessFeatureData.materials.DualBlur);
-
             
-
 #if UNITY_EDITOR
             m_DebugHandler = new DebugHandler();
             m_DebugHandler.Init();

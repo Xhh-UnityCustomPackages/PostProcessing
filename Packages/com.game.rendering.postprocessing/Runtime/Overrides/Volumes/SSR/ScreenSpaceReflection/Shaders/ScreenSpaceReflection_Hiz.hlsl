@@ -198,7 +198,7 @@ float4 FragTestHiZ(Varyings input) : SV_Target
     UNITY_BRANCH
     if (ray.origin.z < - _MaximumMarchDistance)
         return 0.0;
-    float3 normalWS = GetNormalWS(uv);
+    float3 normalWS = SampleSceneNormals(uv);
     float3 normalVS = mul((float3x3)_ViewMatrixSSR, normalWS);
     float3 reflectionDirectionVS = normalize(reflect(normalize(ray.origin), normalVS));
     ray.direction = reflectionDirectionVS;

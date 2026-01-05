@@ -14,34 +14,7 @@ namespace Game.Core.PostProcessing
         }
 
         public static int MAX_BLUR_ITERATIONS = 4;
-
-        public enum RaytraceModes
-        {
-            LinearTracing = 0,
-            HiZTracing = 1
-        }
         
-        public enum Resolution
-        {
-            Half,
-            Full,
-            Double
-        }
-
-        public enum DebugMode
-        {
-            Disabled,
-            SSROnly,
-            IndirectSpecular,
-        }
-
-        public enum JitterMode
-        {
-            Disabled,
-            BlueNoise,
-            Dither,
-        }
-
         public override bool IsActive() => intensity.value > 0;
         
         [Tooltip("模式")] 
@@ -80,6 +53,34 @@ namespace Game.Core.PostProcessing
 
         [Space(20)]
         public EnumParameter<DebugMode> debugMode = new(DebugMode.Disabled);
+        
+        
+        public enum RaytraceModes
+        {
+            LinearTracing = 0,
+            HiZTracing = 1
+        }
+        
+        public enum Resolution
+        {
+            Half,
+            Full,
+            Double
+        }
+
+        public enum DebugMode
+        {
+            Disabled,
+            SSROnly,
+            IndirectSpecular,
+        }
+
+        public enum JitterMode
+        {
+            Disabled,
+            BlueNoise,
+            Dither,
+        }
     }
     
     
@@ -143,7 +144,14 @@ namespace Game.Core.PostProcessing
             HizTest = 6,
         }
 
+        private ProfilingSampler m_ProfilingSampler_Test;
+        private ProfilingSampler m_ProfilingSampler_Seslove;
+        private ProfilingSampler m_ProfilingSampler_AntiFlicker;
+        private ProfilingSampler m_ProfilingSampler_Blur;
+        private ProfilingSampler m_ProfilingSampler_Compose;
+        
         RenderTextureDescriptor m_ScreenSpaceReflectionDescriptor;
+        private RenderTextureFormat m_SSRTextureFormat;
         readonly string[] m_ShaderKeywords = new string[2];
         Material m_ScreenSpaceReflectionMaterial;
 
@@ -159,19 +167,7 @@ namespace Game.Core.PostProcessing
         int m_PingPong = 0;
 
         public override ScriptableRenderPassInput input => ScriptableRenderPassInput.Depth | ScriptableRenderPassInput.Normal;
-
-        public override PostProcessPassInput postProcessPassInput
-        {
-            get
-            {
-                if (settings.mode.value == ScreenSpaceReflection.RaytraceModes.HiZTracing)
-                {
-                    return PostProcessPassInput.HiZ;
-                }
-
-                return PostProcessPassInput.None;
-            }
-        }
+        public override PostProcessPassInput postProcessPassInput => settings.mode.value == ScreenSpaceReflection.RaytraceModes.HiZTracing ? PostProcessPassInput.HiZ : PostProcessPassInput.None;
 
         public void GetHistoryPingPongRT(ref RTHandle rt1, ref RTHandle rt2)
         {
@@ -185,6 +181,12 @@ namespace Game.Core.PostProcessing
         public override void Setup()
         {
             m_SupportARGBHalf = SystemInfo.SupportsRenderTextureFormat(RenderTextureFormat.ARGBHalf);
+            m_SSRTextureFormat = m_SupportARGBHalf ? RenderTextureFormat.ARGBHalf : RenderTextureFormat.ARGB32;
+
+            m_ProfilingSampler_Test = new ProfilingSampler("SSR Test");
+            m_ProfilingSampler_AntiFlicker = new ProfilingSampler("SSR Anti Flicker");
+            m_ProfilingSampler_Blur = new ProfilingSampler("SSR Blur");
+            m_ProfilingSampler_Compose = new ProfilingSampler("SSR Compose");
         }
         
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
@@ -200,20 +202,9 @@ namespace Game.Core.PostProcessing
 
 
             // SSR 移动端用B10G11R11 见MakeRenderTextureGraphicsFormat 就算不管Alpha通道问题 精度也非常难受
-            var testDesc = m_ScreenSpaceReflectionDescriptor;
-            if (m_SupportARGBHalf)
-            {
-                testDesc.colorFormat = RenderTextureFormat.ARGBHalf;
-                m_ScreenSpaceReflectionDescriptor.colorFormat = RenderTextureFormat.ARGBHalf;
-            }
-            else
-            {
-                // resolve需要一个渐变模糊后参与最终混合, 必须要Alpha通道
-                // 移动端没办法 就只能降到LDR了
-                m_ScreenSpaceReflectionDescriptor.colorFormat = RenderTextureFormat.ARGB32;
-            }
+            m_ScreenSpaceReflectionDescriptor.colorFormat = m_SSRTextureFormat;
 
-            RenderingUtils.ReAllocateHandleIfNeeded(ref m_TestRT, testDesc, FilterMode.Point, name: "_SSR_TestTex");
+            RenderingUtils.ReAllocateHandleIfNeeded(ref m_TestRT, m_ScreenSpaceReflectionDescriptor, FilterMode.Point, name: "_SSR_TestTex");
             RenderingUtils.ReAllocateHandleIfNeeded(ref m_ResloveRT, m_ScreenSpaceReflectionDescriptor, FilterMode.Bilinear, name: "_SSR_ResolveTex");
             RenderingUtils.ReAllocateHandleIfNeeded(ref m_ResloveBlurRT, m_ScreenSpaceReflectionDescriptor, FilterMode.Bilinear, name: "_SSR_ResolveBlurTex");
         }
@@ -222,30 +213,35 @@ namespace Game.Core.PostProcessing
         {
             SetupMaterials(renderingData.cameraData.camera, renderingData.cameraData.cameraTargetDescriptor.width, renderingData.cameraData.cameraTargetDescriptor.height);
 
-            if (settings.mode.value == ScreenSpaceReflection.RaytraceModes.LinearTracing)
-                Blit(cmd, source, m_TestRT, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Test);
-            else
-                Blit(cmd, source, m_TestRT, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.HizTest);
-            
+            using (new ProfilingScope(cmd, m_ProfilingSampler_Test))
+            {
+                if (settings.mode.value == ScreenSpaceReflection.RaytraceModes.LinearTracing)
+                    Blit(cmd, source, m_TestRT, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Test);
+                else
+                    Blit(cmd, source, m_TestRT, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.HizTest);
+            }
+
             m_ScreenSpaceReflectionMaterial.SetTexture(ShaderConstants.TestTex, m_TestRT);
             Blit(cmd, source, m_ResloveRT, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Resolve);
 
-
             RTHandle lastDownId = m_ResloveRT;
-            // ----------------------------------------------------------------------------------
-            // 简化版本没有用Jitter所以sceneview部分就不处理了
-            if (!renderingData.cameraData.isSceneViewCamera && settings.antiFlicker.value)
+            using (new ProfilingScope(cmd, m_ProfilingSampler_AntiFlicker))
             {
-                RenderingUtils.ReAllocateHandleIfNeeded(ref m_HistoryPingPongRT[0], m_ScreenSpaceReflectionDescriptor);
-                RenderingUtils.ReAllocateHandleIfNeeded(ref m_HistoryPingPongRT[1], m_ScreenSpaceReflectionDescriptor);
+                // ----------------------------------------------------------------------------------
+                // 简化版本没有用Jitter所以sceneview部分就不处理了
+                if (!renderingData.cameraData.isSceneViewCamera && settings.antiFlicker.value)
+                {
+                    RenderingUtils.ReAllocateHandleIfNeeded(ref m_HistoryPingPongRT[0], m_ScreenSpaceReflectionDescriptor);
+                    RenderingUtils.ReAllocateHandleIfNeeded(ref m_HistoryPingPongRT[1], m_ScreenSpaceReflectionDescriptor);
 
-                // 不确定移动端CopyTexture的支持，所以先用这种方法
-                RTHandle rt1 = null, rt2 = null;
-                GetHistoryPingPongRT(ref rt1, ref rt2);
+                    // 不确定移动端CopyTexture的支持，所以先用这种方法
+                    RTHandle rt1 = null, rt2 = null;
+                    GetHistoryPingPongRT(ref rt1, ref rt2);
 
-                m_ScreenSpaceReflectionMaterial.SetTexture(ShaderConstants.HistoryTex, rt1);
-                Blit(cmd, m_ResloveRT, rt2, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.MobileAntiFlicker);
-                lastDownId = rt2;
+                    m_ScreenSpaceReflectionMaterial.SetTexture(ShaderConstants.HistoryTex, rt1);
+                    Blit(cmd, m_ResloveRT, rt2, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.MobileAntiFlicker);
+                    lastDownId = rt2;
+                }
             }
             // ----------------------------------------------------------------------------------
 
@@ -253,15 +249,22 @@ namespace Game.Core.PostProcessing
             // ------------------------------------------------------------------------------------------------
             // 简化版本 DualBlur替代 放弃不同粗糙度mipmap的采样
             var finalRT = m_ResloveRT;
-            var iter = settings.blurIterations.value;
-            if (iter > 0)
+            using (new ProfilingScope(cmd, m_ProfilingSampler_Blur))
             {
-                PyramidBlur.ComputeBlurPyramid(cmd, lastDownId, m_ResloveBlurRT, 0.1f, iter);
-                finalRT = m_ResloveBlurRT;
+                var iter = settings.blurIterations.value;
+                if (iter > 0)
+                {
+                    PyramidBlur.ComputeBlurPyramid(cmd, lastDownId, m_ResloveBlurRT, 0.1f, iter);
+                    finalRT = m_ResloveBlurRT;
+                }
             }
             
-            m_ScreenSpaceReflectionMaterial.SetTexture(ShaderConstants.ResolveTex, finalRT);
-            Blit(cmd, source, target, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Composite);
+            //合成
+            using (new ProfilingScope(cmd, m_ProfilingSampler_Compose))
+            {
+                m_ScreenSpaceReflectionMaterial.SetTexture(ShaderConstants.ResolveTex, finalRT);
+                Blit(cmd, source, target, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Composite);
+            }
         }
 
         

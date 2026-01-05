@@ -3,6 +3,7 @@
 
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareNormalsTexture.hlsl"
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/UnityGBuffer.hlsl"
 #include "Packages/com.unity.render-pipelines.universal/Shaders/PostProcessing/Common.hlsl"
 
@@ -46,13 +47,6 @@ TEXTURE2D_FLOAT(_MotionVectorTexture);
 TEXTURE2D_HALF(_GBuffer0);
 TEXTURE2D_HALF(_GBuffer1);
 TEXTURE2D_HALF(_GBuffer2);
-TEXTURE2D_HALF(_CameraNormalsTexture);
-
-// copy depth of gbuffer
-TEXTURE2D_FLOAT(_MaskDepthRT);              SAMPLER(sampler_MaskDepthRT);
-
-// minimapReflection
-TEXTURE2D(_MinimapPlanarReflectTex);        SAMPLER(sampler_MinimapPlanarReflectTex);
 
 
 float4 _SSR_TestTex_TexelSize;
@@ -88,14 +82,6 @@ half4 _Inutan_GlossyEnvironmentCubeMap_HDR;
 // 外面的thickness被当作了步长在用, 实际的thickness写死了
 #define Thickness              0.05
 
-float3 GetNormalWS(float2 uv)
-{
-    //Deferred
-    half4 gbuffer2 = SAMPLE_TEXTURE2D_LOD(_CameraNormalsTexture, sampler_PointClamp, uv, 0);
-    float3 normalWS = normalize(UnpackNormal(gbuffer2.xyz));
-    //forward
-    return normalWS;
-}
 
 float3 GetViewSpacePosition(float rawDepth, float2 uv)
 {

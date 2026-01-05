@@ -9,7 +9,7 @@ using UnityEngine.Experimental.Rendering;
 
 namespace Game.Core.PostProcessing
 {
-    public class PyramidDepthGenerator : ScriptableRenderPass
+    public partial class PyramidDepthGenerator : ScriptableRenderPass
     {
 
         public static class CopyTextureKernelProperties
@@ -40,8 +40,7 @@ namespace Game.Core.PostProcessing
             m_ComputeShader = shader;
 
         }
-
-
+        
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
         {
             int width = renderingData.cameraData.cameraTargetDescriptor.width;
@@ -106,9 +105,6 @@ namespace Game.Core.PostProcessing
 
         public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
         {
-            if (renderingData.cameraData.isPreviewCamera)
-                return;
-
             var cmd = CommandBufferPool.Get();
             using (new ProfilingScope(cmd, this.profilingSampler))
             {

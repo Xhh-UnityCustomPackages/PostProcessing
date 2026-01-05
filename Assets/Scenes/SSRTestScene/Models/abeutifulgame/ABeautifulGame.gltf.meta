@@ -1,0 +1,134 @@
+fileFormatVersion: 2
+guid: 94aa64b338942490984ad73a1b6e0970
+ScriptedImporter:
+  internalIDToNameTable: []
+  externalObjects: {}
+  serializedVersion: 2
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+  script: {fileID: 11500000, guid: 715df9372183c47e389bb6e19fbc3b52, type: 3}
+  editorImportSettings:
+    generateSecondaryUVSet: 0
+  importSettings:
+    nodeNameMethod: 1
+    animationMethod: 2
+    generateMipMaps: 1
+    texturesReadable: 0
+    defaultMinFilterMode: 9729
+    defaultMagFilterMode: 9729
+    anisotropicFilterLevel: 1
+  instantiationSettings:
+    mask: -1
+    layer: 0
+    skinUpdateWhenOffscreen: 1
+    lightIntensityFactor: 1
+    sceneObjectCreation: 2
+  assetDependencies:
+  - type: 0
+    originalUri: Assets/Demo/Models/abeutifulgame/ABeautifulGame.bin
+    assetPath: Assets/Demo/Models/abeutifulgame/ABeautifulGame.bin
+  - type: 1
+    originalUri: Assets/Demo/Models/abeutifulgame/King_black_normal.jpg
+    assetPath: Assets/Demo/Models/abeutifulgame/King_black_normal.jpg
+  - type: 1
+    originalUri: Assets/Demo/Models/abeutifulgame/King_black_ORM.jpg
+    assetPath: Assets/Demo/Models/abeutifulgame/King_black_ORM.jpg
+  - type: 1
+    originalUri: Assets/Demo/Models/abeutifulgame/king_black_base_color.jpg
+    assetPath: Assets/Demo/Models/abeutifulgame/king_black_base_color.jpg
+  - type: 1
+    originalUri: Assets/Demo/Models/abeutifulgame/King_white_normal.jpg
+    assetPath: Assets/Demo/Models/abeutifulgame/King_white_normal.jpg
+  - type: 1
+    originalUri: Assets/Demo/Models/abeutifulgame/King_white_ORM.jpg
+    assetPath: Assets/Demo/Models/abeutifulgame/King_white_ORM.jpg
+  - type: 1
+    originalUri: Assets/Demo/Models/abeutifulgame/king_white_base_color.jpg
+    assetPath: Assets/Demo/Models/abeutifulgame/king_white_base_color.jpg
+  - type: 1
+    originalUri: Assets/Demo/Models/abeutifulgame/Queen_black_normal.jpg
+    assetPath: Assets/Demo/Models/abeutifulgame/Queen_black_normal.jpg
+  - type: 1
+    originalUri: Assets/Demo/Models/abeutifulgame/Queen_black_ORM.jpg
+    assetPath: Assets/Demo/Models/abeutifulgame/Queen_black_ORM.jpg
+  - type: 1
+    originalUri: Assets/Demo/Models/abeutifulgame/queen_black_base_color.jpg
+    assetPath: Assets/Demo/Models/abeutifulgame/queen_black_base_color.jpg
+  - type: 1
+    originalUri: Assets/Demo/Models/abeutifulgame/Queen_white_normal.jpg
+    assetPath: Assets/Demo/Models/abeutifulgame/Queen_white_normal.jpg
+  - type: 1
+    originalUri: Assets/Demo/Models/abeutifulgame/Queen_white_ORM.jpg
+    assetPath: Assets/Demo/Models/abeutifulgame/Queen_white_ORM.jpg
+  - type: 1
+    originalUri: Assets/Demo/Models/abeutifulgame/queen_white_base_color.jpg
+    assetPath: Assets/Demo/Models/abeutifulgame/queen_white_base_color.jpg
+  - type: 1
+    originalUri: Assets/Demo/Models/abeutifulgame/chessboard_normal.jpg
+    assetPath: Assets/Demo/Models/abeutifulgame/chessboard_normal.jpg
+  - type: 1
+    originalUri: Assets/Demo/Models/abeutifulgame/Chessboard_ORM.jpg
+    assetPath: Assets/Demo/Models/abeutifulgame/Chessboard_ORM.jpg
+  - type: 1
+    originalUri: Assets/Demo/Models/abeutifulgame/chessboard_base_color.jpg
+    assetPath: Assets/Demo/Models/abeutifulgame/chessboard_base_color.jpg
+  - type: 1
+    originalUri: Assets/Demo/Models/abeutifulgame/Pawn_normal.jpg
+    assetPath: Assets/Demo/Models/abeutifulgame/Pawn_normal.jpg
+  - type: 1
+    originalUri: Assets/Demo/Models/abeutifulgame/Pawn_ORM.jpg
+    assetPath: Assets/Demo/Models/abeutifulgame/Pawn_ORM.jpg
+  - type: 1
+    originalUri: Assets/Demo/Models/abeutifulgame/pawn_white_base_color.jpg
+    assetPath: Assets/Demo/Models/abeutifulgame/pawn_white_base_color.jpg
+  - type: 1
+    originalUri: Assets/Demo/Models/abeutifulgame/pawn_black_base_color.jpg
+    assetPath: Assets/Demo/Models/abeutifulgame/pawn_black_base_color.jpg
+  - type: 1
+    originalUri: Assets/Demo/Models/abeutifulgame/Castle_normal.jpg
+    assetPath: Assets/Demo/Models/abeutifulgame/Castle_normal.jpg
+  - type: 1
+    originalUri: Assets/Demo/Models/abeutifulgame/Castle_ORM.jpg
+    assetPath: Assets/Demo/Models/abeutifulgame/Castle_ORM.jpg
+  - type: 1
+    originalUri: Assets/Demo/Models/abeutifulgame/castle_black_base_color.jpg
+    assetPath: Assets/Demo/Models/abeutifulgame/castle_black_base_color.jpg
+  - type: 1
+    originalUri: Assets/Demo/Models/abeutifulgame/castle_white_base_color.jpg
+    assetPath: Assets/Demo/Models/abeutifulgame/castle_white_base_color.jpg
+  - type: 1
+    originalUri: Assets/Demo/Models/abeutifulgame/Knight_normal.jpg
+    assetPath: Assets/Demo/Models/abeutifulgame/Knight_normal.jpg
+  - type: 1
+    originalUri: Assets/Demo/Models/abeutifulgame/Knight_ORM.jpg
+    assetPath: Assets/Demo/Models/abeutifulgame/Knight_ORM.jpg
+  - type: 1
+    originalUri: Assets/Demo/Models/abeutifulgame/knight_black_base_color.jpg
+    assetPath: Assets/Demo/Models/abeutifulgame/knight_black_base_color.jpg
+  - type: 1
+    originalUri: Assets/Demo/Models/abeutifulgame/knight_white_base_color.jpg
+    assetPath: Assets/Demo/Models/abeutifulgame/knight_white_base_color.jpg
+  - type: 1
+    originalUri: Assets/Demo/Models/abeutifulgame/bishop_black_normal.jpg
+    assetPath: Assets/Demo/Models/abeutifulgame/bishop_black_normal.jpg
+  - type: 1
+    originalUri: Assets/Demo/Models/abeutifulgame/Bishop_black_ORM.jpg
+    assetPath: Assets/Demo/Models/abeutifulgame/Bishop_black_ORM.jpg
+  - type: 1
+    originalUri: Assets/Demo/Models/abeutifulgame/bishop_black_base_color.jpg
+    assetPath: Assets/Demo/Models/abeutifulgame/bishop_black_base_color.jpg
+  - type: 1
+    originalUri: Assets/Demo/Models/abeutifulgame/bishop_white_normal.jpg
+    assetPath: Assets/Demo/Models/abeutifulgame/bishop_white_normal.jpg
+  - type: 1
+    originalUri: Assets/Demo/Models/abeutifulgame/Bishop_white_ORM.jpg
+    assetPath: Assets/Demo/Models/abeutifulgame/Bishop_white_ORM.jpg
+  - type: 1
+    originalUri: Assets/Demo/Models/abeutifulgame/bishop_white_base_color.jpg
+    assetPath: Assets/Demo/Models/abeutifulgame/bishop_white_base_color.jpg
+  reportItems:
+  - type: 2
+    code: 20
+    messages:
+    - KHR_materials_volume

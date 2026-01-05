@@ -3,7 +3,10 @@ Shader "Hidden/PostProcessing/ScreenSpaceReflection"
     SubShader
     {
         Tags { "RenderType" = "Opaque" "RenderPipeline" = "UniversalPipeline" }
-        ZTest Always ZWrite Off Cull Off
+        
+        ZTest Always
+        ZWrite Off
+        Cull Off
 
         Pass
         {
@@ -15,7 +18,9 @@ Shader "Hidden/PostProcessing/ScreenSpaceReflection"
             
             #include "ScreenSpaceReflection.hlsl"
             #include "ScreenSpaceReflection_Linear.hlsl"
+            
             #pragma multi_compile_local _ JITTER_BLURNOISE JITTER_DITHER
+            #pragma multi_compile_fragment _ _GBUFFER_NORMALS_OCT
             
             #pragma vertex Vert
             #pragma fragment FragTestLinear
@@ -105,7 +110,8 @@ Shader "Hidden/PostProcessing/ScreenSpaceReflection"
             #include "ScreenSpaceReflection_Hiz.hlsl"
             
             #pragma multi_compile_local _ JITTER_BLURNOISE JITTER_DITHER
-
+            #pragma multi_compile_fragment _ _GBUFFER_NORMALS_OCT
+            
             #pragma vertex Vert
             #pragma fragment FragTestHiZ
             ENDHLSL
