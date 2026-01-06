@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
@@ -30,6 +32,9 @@ namespace Game.Core.PostProcessing
         [Tooltip("实际上是追踪步长, 越大精度越低, 追踪范围越大, 越节省追踪次数")]
         public ClampedFloatParameter thickness = new(8f, 1f, 64f);
         
+        public ClampedFloatParameter minSmoothness = new (0.9f, 0.0f, 1.0f);
+        public ClampedFloatParameter smoothnessFadeStart = new (0.9f, 0.0f, 1.0f);
+        
         [Tooltip("最大追踪次数, 移动端会被固定到10次")]
         public ClampedIntParameter maximumIterationCount = new(256, 1, 256);
 
@@ -46,12 +51,15 @@ namespace Game.Core.PostProcessing
         public ClampedIntParameter blurIterations = new(3, 0, MAX_BLUR_ITERATIONS);
         
         [Tooltip("边缘渐变")]
+        [InspectorName("Screen Edge Fade Distance")]
         public ClampedFloatParameter vignette = new(0f, 0f, 1f);
 
         [Tooltip("减少闪烁问题, 需要MotionVector, SceneView未处理")]
         public BoolParameter antiFlicker = new(true);
 
+        
         [Space(20)]
+        [Header("Debug")]
         public EnumParameter<DebugMode> debugMode = new(DebugMode.Disabled);
         
         
@@ -89,7 +97,6 @@ namespace Game.Core.PostProcessing
     {
         static class ShaderConstants
         {
-            internal static readonly int s_CameraNormalsTextureID = Shader.PropertyToID("_CameraNormalsTexture");
             internal static readonly int ResolveTex = Shader.PropertyToID("_SSR_ResolveTex");
             internal static readonly int NoiseTex = Shader.PropertyToID("_NoiseTex");
             internal static readonly int TestTex = Shader.PropertyToID("_SSR_TestTex");
@@ -136,36 +143,54 @@ namespace Game.Core.PostProcessing
         internal enum ShaderPasses
         {
             Test = 0,
-            Resolve = 1,
-            Reproject = 2,
-            Composite = 3,
-            MobilePlanarReflection = 4,
-            MobileAntiFlicker = 5,
-            HizTest = 6,
+            HizTest = 1,
+            Resolve = 2,
+            Reproject = 3,
+            Composite = 4,
         }
 
-        private ProfilingSampler m_ProfilingSampler_Test;
-        private ProfilingSampler m_ProfilingSampler_Seslove;
-        private ProfilingSampler m_ProfilingSampler_AntiFlicker;
+        public class SSRTexturesInfo
+        {
+            public RTHandle current;
+            public RTHandle previous;
+
+            public void Clear()
+            {
+                current?.Release();
+                current = null;
+
+                previous?.Release();
+                previous = null;
+            }
+
+            public bool CreateExposureRT(in CameraType cameraDataCameraType, in RenderTextureDescriptor desc)
+            {
+                string rtname = CoreUtils.GetTextureAutoName(desc.width, desc.height, desc.graphicsFormat, TextureDimension.Tex2D, string.Format("_SSR_Main_{0}", cameraDataCameraType));
+                string rtname2 = CoreUtils.GetTextureAutoName(desc.width, desc.height, desc.graphicsFormat, TextureDimension.Tex2D, string.Format("_SSR_Second_{0}", cameraDataCameraType));
+                var RTHandleSign = RenderingUtils.ReAllocateHandleIfNeeded(ref current, in desc, FilterMode.Point, TextureWrapMode.Clamp, name: rtname);
+                var RTHandleSign2 = RenderingUtils.ReAllocateHandleIfNeeded(ref previous, in desc, FilterMode.Point, TextureWrapMode.Clamp, name: rtname2);
+                return RTHandleSign & RTHandleSign2;
+            }
+        }
+
+        private ProfilingSampler m_ProfilingSampler_Reproject;
         private ProfilingSampler m_ProfilingSampler_Blur;
         private ProfilingSampler m_ProfilingSampler_Compose;
         
         RenderTextureDescriptor m_ScreenSpaceReflectionDescriptor;
-        private RenderTextureFormat m_SSRTextureFormat;
         readonly string[] m_ShaderKeywords = new string[2];
         Material m_ScreenSpaceReflectionMaterial;
-
-        bool m_SupportARGBHalf = true;
 
         RTHandle m_TestRT;
         RTHandle m_ResloveRT;
         RTHandle m_ResloveBlurRT;
         
-
-        const int k_NumHistoryTextures = 2;
-        RTHandle[] m_HistoryPingPongRT = new RTHandle[k_NumHistoryTextures];
+        
+        RTHandle[] m_HistoryPingPongRT;
         int m_PingPong = 0;
-
+        private static readonly Dictionary<CameraType, SSRTexturesInfo> m_TextureInfos = new ();
+        private SSRTexturesInfo m_CurrentTexturesInfo;
+        
         public override ScriptableRenderPassInput input => ScriptableRenderPassInput.Depth | ScriptableRenderPassInput.Normal;
         public override PostProcessPassInput postProcessPassInput => settings.mode.value == ScreenSpaceReflection.RaytraceModes.HiZTracing ? PostProcessPassInput.HiZ : PostProcessPassInput.None;
 
@@ -173,20 +198,29 @@ namespace Game.Core.PostProcessing
         {
             int index = m_PingPong;
             m_PingPong = ++m_PingPong % 2;
-
+            
             rt1 = m_HistoryPingPongRT[index];
             rt2 = m_HistoryPingPongRT[m_PingPong];
         }
 
         public override void Setup()
         {
-            m_SupportARGBHalf = SystemInfo.SupportsRenderTextureFormat(RenderTextureFormat.ARGBHalf);
-            m_SSRTextureFormat = m_SupportARGBHalf ? RenderTextureFormat.ARGBHalf : RenderTextureFormat.ARGB32;
 
-            m_ProfilingSampler_Test = new ProfilingSampler("SSR Test");
-            m_ProfilingSampler_AntiFlicker = new ProfilingSampler("SSR Anti Flicker");
+            m_ProfilingSampler_Reproject = new ProfilingSampler("SSR Reproject");
             m_ProfilingSampler_Blur = new ProfilingSampler("SSR Blur");
             m_ProfilingSampler_Compose = new ProfilingSampler("SSR Compose");
+        }
+        
+        private SSRTexturesInfo GetOrCreateTextureInfoFromCurCamera(in CameraType cameraDataCameraType)
+        {
+            if (!m_TextureInfos.ContainsKey(cameraDataCameraType))
+            {
+                var info = new SSRTexturesInfo();
+                bool isSuccess = info.CreateExposureRT(in cameraDataCameraType, m_ScreenSpaceReflectionDescriptor);
+                m_TextureInfos.Add(cameraDataCameraType, info);
+            }
+
+            return m_TextureInfos[cameraDataCameraType];
         }
         
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
@@ -202,48 +236,51 @@ namespace Game.Core.PostProcessing
 
 
             // SSR 移动端用B10G11R11 见MakeRenderTextureGraphicsFormat 就算不管Alpha通道问题 精度也非常难受
-            m_ScreenSpaceReflectionDescriptor.colorFormat = m_SSRTextureFormat;
+            m_ScreenSpaceReflectionDescriptor.graphicsFormat = GraphicsFormat.R16G16B16A16_SFloat;
 
             RenderingUtils.ReAllocateHandleIfNeeded(ref m_TestRT, m_ScreenSpaceReflectionDescriptor, FilterMode.Point, name: "_SSR_TestTex");
             RenderingUtils.ReAllocateHandleIfNeeded(ref m_ResloveRT, m_ScreenSpaceReflectionDescriptor, FilterMode.Bilinear, name: "_SSR_ResolveTex");
             RenderingUtils.ReAllocateHandleIfNeeded(ref m_ResloveBlurRT, m_ScreenSpaceReflectionDescriptor, FilterMode.Bilinear, name: "_SSR_ResolveBlurTex");
+            
+            m_CurrentTexturesInfo = GetOrCreateTextureInfoFromCurCamera(renderingData.cameraData.cameraType);
         }
 
         public override void Render(CommandBuffer cmd, RTHandle source, RTHandle target, ref RenderingData renderingData)
         {
-            SetupMaterials(renderingData.cameraData.camera, renderingData.cameraData.cameraTargetDescriptor.width, renderingData.cameraData.cameraTargetDescriptor.height);
-
-            using (new ProfilingScope(cmd, m_ProfilingSampler_Test))
-            {
-                if (settings.mode.value == ScreenSpaceReflection.RaytraceModes.LinearTracing)
-                    Blit(cmd, source, m_TestRT, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Test);
-                else
-                    Blit(cmd, source, m_TestRT, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.HizTest);
-            }
-
+            var desc = renderingData.cameraData.cameraTargetDescriptor;
+            SetupMaterials(renderingData.cameraData.camera, desc.width, desc.height);
+            
+            if (settings.mode.value == ScreenSpaceReflection.RaytraceModes.LinearTracing)
+                Blit(cmd, source, m_TestRT, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Test);
+            else
+                Blit(cmd, source, m_TestRT, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.HizTest);
+            
             m_ScreenSpaceReflectionMaterial.SetTexture(ShaderConstants.TestTex, m_TestRT);
             Blit(cmd, source, m_ResloveRT, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Resolve);
 
             RTHandle lastDownId = m_ResloveRT;
-            using (new ProfilingScope(cmd, m_ProfilingSampler_AntiFlicker))
+            using (new ProfilingScope(cmd, m_ProfilingSampler_Reproject))
             {
                 // ----------------------------------------------------------------------------------
                 // 简化版本没有用Jitter所以sceneview部分就不处理了
                 if (!renderingData.cameraData.isSceneViewCamera && settings.antiFlicker.value)
                 {
-                    RenderingUtils.ReAllocateHandleIfNeeded(ref m_HistoryPingPongRT[0], m_ScreenSpaceReflectionDescriptor);
-                    RenderingUtils.ReAllocateHandleIfNeeded(ref m_HistoryPingPongRT[1], m_ScreenSpaceReflectionDescriptor);
+                    if (m_HistoryPingPongRT == null) m_HistoryPingPongRT = new RTHandle[2];
+                    RenderingUtils.ReAllocateHandleIfNeeded(ref m_HistoryPingPongRT[0], m_ScreenSpaceReflectionDescriptor, name:"_SSR_History_0");
+                    RenderingUtils.ReAllocateHandleIfNeeded(ref m_HistoryPingPongRT[1], m_ScreenSpaceReflectionDescriptor, name:"_SSR_History_1");
 
-                    // 不确定移动端CopyTexture的支持，所以先用这种方法
                     RTHandle rt1 = null, rt2 = null;
                     GetHistoryPingPongRT(ref rt1, ref rt2);
+                    
+                    var camera = renderingData.cameraData.camera;
+                    // GrabExposureRequiredTextures(camera, out var rt1, out var rt2);
 
                     m_ScreenSpaceReflectionMaterial.SetTexture(ShaderConstants.HistoryTex, rt1);
-                    Blit(cmd, m_ResloveRT, rt2, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.MobileAntiFlicker);
+                    Blit(cmd, m_ResloveRT, rt2, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Reproject);
                     lastDownId = rt2;
                 }
             }
-            // ----------------------------------------------------------------------------------
+           
 
 
             // ------------------------------------------------------------------------------------------------
@@ -265,6 +302,26 @@ namespace Game.Core.PostProcessing
                 m_ScreenSpaceReflectionMaterial.SetTexture(ShaderConstants.ResolveTex, finalRT);
                 Blit(cmd, source, target, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Composite);
             }
+            
+            UpdateCurFrameSSRRT(m_CurrentTexturesInfo);
+        }
+        
+        void GrabExposureRequiredTextures(Camera camera, out RTHandle prevExposure, out RTHandle nextExposure)
+        {
+            prevExposure = m_CurrentTexturesInfo.current;
+            nextExposure = m_CurrentTexturesInfo.previous;
+
+            // Debug.LogError($"Prev:{prevExposure.name}- Next:{nextExposure.name}");
+        }
+        
+        private void UpdateCurFrameSSRRT(SSRTexturesInfo curCameraExposureTexturesInfo)
+        {
+            if (curCameraExposureTexturesInfo.current == null || curCameraExposureTexturesInfo.previous == null)
+            {
+                return;
+            }
+
+            (curCameraExposureTexturesInfo.current, curCameraExposureTexturesInfo.previous) = (curCameraExposureTexturesInfo.previous, curCameraExposureTexturesInfo.current);
         }
 
         
@@ -276,8 +333,16 @@ namespace Game.Core.PostProcessing
             m_ResloveRT?.Release();
             m_TestRT?.Release();
 
-            for (int i = 0; i < m_HistoryPingPongRT.Length; i++)
-                m_HistoryPingPongRT[i]?.Release();
+            foreach (var exposureInfo in m_TextureInfos.Values)
+            {
+                exposureInfo.Clear();
+            }
+            
+            if (m_HistoryPingPongRT != null)
+            {
+                for (int i = 0; i < m_HistoryPingPongRT.Length; i++)
+                    m_HistoryPingPongRT[i]?.Release();
+            }
         }
     }
 }

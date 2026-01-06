@@ -77,7 +77,7 @@ namespace Game.Core.PostProcessing
                             passData.sourceTexture = source;
                             builder.UseTexture(source);
                             passData.destination = target;
-                            builder.UseTexture(target);
+                            builder.UseTexture(target, AccessFlags.Write);
                             builder.AllowPassCulling(false);
                             builder.SetRenderFunc(static (PassData data, UnsafeGraphContext context) =>
                             {

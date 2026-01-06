@@ -31,7 +31,7 @@ float4 FragReproject(Varyings input) : SV_Target
     float2 uv = input.texcoord;
 
     // 没有使用jitter 不考虑sceneview 依赖MotionVector
-    float2 motionVector = SAMPLE_TEXTURE2D(_MotionVectorTexture, sampler_LinearClamp, uv).xy;
+    half2 motionVector = SampleMotionVector(uv);
     float2 prevUV = uv - motionVector;
 
     float2 k = _BlitTexture_TexelSize.xy;
@@ -122,35 +122,19 @@ float4 FragComposite(Varyings input) : SV_Target
     // float preDepth = SAMPLE_TEXTURE2D(_MaskDepthRT, sampler_MaskDepthRT, uv).r;
     float depth = SampleSceneDepth(uv);
 
+    //SSR 遮罩
     float mask = 1;//1 - (depth > preDepth);
 
     float4 sourceColor = SAMPLE_TEXTURE2D(_BlitTexture, sampler_LinearClamp, uv);
-    half3 clampedSourceColor = saturate(sourceColor.rgb); // 关闭SSR的情况下直接使用场景颜色叠上去, 但注意场景颜色是HDR, 强行限制一下\
+    
     UNITY_BRANCH
     if (Linear01Depth(depth, _ZBufferParams) > 0.999)
         return sourceColor;
 
     half4 gbuffer0 = SAMPLE_TEXTURE2D_LOD(_GBuffer0, sampler_PointClamp, uv, 0);
     half4 gbuffer1 = SAMPLE_TEXTURE2D_LOD(_GBuffer1, sampler_PointClamp, uv, 0);
-    half4 gbuffer2 = SAMPLE_TEXTURE2D_LOD(_CameraNormalsTexture, sampler_PointClamp, uv, 0);
-
-    // uint materialFlags = UnpackMaterialFlags(gbuffer0.a);
-
-    // 植物 固定occ为1，ssrIndirectSpecAdjust为0
-    // UNITY_BRANCH
-    // if (IsMaterialFlagFoliage(materialFlags))
-    // {
-    //     gbuffer1.gba = float3(0, 0, 1);
-    // }
-
-    // 自定义环境光强度(这里就是SSR强度), 是CustomLit传进来的
-    float envCustomIntensity = 1;
-    // UNITY_BRANCH
-    // if (IsMaterialFlagIDCustomEnvSpecIntensity(materialFlags))
-    // {
-    //     envCustomIntensity = gbuffer1.b * 10;
-    // }
-
+    half4 gbuffer2 = SAMPLE_TEXTURE2D_LOD(_GBuffer2, sampler_PointClamp, uv, 0);
+    
     BRDFData brdfData = BRDFDataFromGbuffer(gbuffer0, gbuffer1, gbuffer2);
 
     half3 normalWS = normalize(UnpackNormal(gbuffer2.xyz));
@@ -162,210 +146,53 @@ float4 FragComposite(Varyings input) : SV_Target
     half3 reflectVector = reflect(-viewDirectionWS, normalWS);
     half NoV = abs(dot(normalWS, viewDirectionWS));
     half fresnelTerm = Pow4(1.0 - NoV) * (1.0 - NoV);
-
-    // TODO 简化版本 没有做mipmap模糊 无法根据粗糙度采样
-    float4 resolve = 0;
-    // UNITY_BRANCH
-    // if (_MobileMode == 0)
-    resolve = SAMPLE_TEXTURE2D(_SSR_ResolveTex, sampler_LinearClamp, uv);
-    // UNITY_BRANCH
-    // if (_MobileMode == 3)
-    //     resolve = SAMPLE_TEXTURE2D(_MinimapPlanarReflectTex, sampler_MinimapPlanarReflectTex, uv);
+    
+    float4 resolve = SAMPLE_TEXTURE2D(_SSR_ResolveTex, sampler_LinearClamp, uv);
     float confidence = saturate(2.0 * dot(-viewDirectionWS, normalize(reflectVector)));
-
-    // 老版本的_CameraReflectionsTexture直接存的indirectSpecular 这里只能把计算LitGBufferPass中的计算分离到这儿
-    // 开启SSR 就关闭Gbuffer生成部分的indirectSpecular部分
-    // UniversalGBuffer 相关Pass需要 #pragma multi_compile_fragment _ _SCREEN_SPACE_REFLECTION
-    half3 indirectSpecular = GlossyEnvironmentReflectionSSR(reflectVector, positionWS, brdfData.perceptualRoughness, 1.0h);
+    
     float distanceFade = _DistanceFade;
-
-    #if DEBUG_SCREEN_SPACE_REFLECTION
-        indirectSpecular = 0;
-    #endif
-
+    
     half smoothness = gbuffer2.a;
+    half occlusion = gbuffer1.a;
     // https://www.desmos.com/calculator/k3hodgy8ry TODO 这个结果是个比较奇怪的曲线
     float fade = resolve.a * resolve.a * 3;
-    // UNITY_BRANCH
-    // if (_MobileMode == 2) fade = 1; // 简化计算
+
     distanceFade = saturate(distanceFade + smoothness);
     // fade是低频部分 理论上相当于一个锐化操作
-    // fade = (1.0 - saturate(fade * smoothstep(0.5, 1.0, fade) * distanceFade)) * confidence;
-    fade = distanceFade * confidence;
+    fade = (1.0 - saturate(fade * smoothstep(0.5, 1.0, fade) * distanceFade)) * confidence;
+    // fade = distanceFade * confidence;
 
-    // UNITY_BRANCH
-    // if (_MobileMode == 2) resolve.rgb = clampedSourceColor.rgb * clampedSourceColor.rgb;
-    // return float4(mask * lerp(indirectSpecular, resolve.rgb, fade), 1);
+    
+    // 老版本的_CameraReflectionsTexture直接存的indirectSpecular 这里只能把计算LitGBufferPass中的计算分离到这儿
+    // 开启SSR 就关闭Gbuffer生成部分的indirectSpecular部分
+    // UniversalGBuffer 相关Pass需要 #pragma multi_compile_fragment _ _SCREEN_SPACE_REFLECTION
+    half3 indirectSpecular = GlossyEnvironmentReflectionSSR(reflectVector, positionWS, brdfData.perceptualRoughness, 1.0h);
+    
+    #if DEBUG_SCREEN_SPACE_REFLECTION
+    indirectSpecular = 0;
+    #endif
+    
     // IBL的间接光和SSR的进行过度
     indirectSpecular = lerp(indirectSpecular, resolve.rgb, fade);
     // 只是菲尼尔项
     half3 indirectSpecularSSR = EnvironmentBRDF(brdfData, 0, indirectSpecular, fresnelTerm);
-    indirectSpecularSSR = max(0, indirectSpecularSSR) * gbuffer1.a * mask * _Intensity;  // occ 和 gbuffer后面物体mask
+    indirectSpecularSSR = max(0, indirectSpecularSSR) * occlusion * mask * _Intensity;  // occ 和 gbuffer后面物体mask
 
     #if DEBUG_SCREEN_SPACE_REFLECTION || DEBUG_INDIRECT_SPECULAR
         return half4(indirectSpecularSSR, 1);
     #endif
-
-    // 自定义环境光强度(这里就是SSR强度), 是CustomLit传进来的
-    indirectSpecularSSR *= envCustomIntensity;
-
-    sourceColor.rgb += indirectSpecularSSR;
-
-    return sourceColor;
-}
-
-float4 FragMobilePlanarReflection(Varyings input) : SV_Target
-{
-    // 由于没有Gbuffer之前的predepth阶段 只能依靠存储两个阶段的深度 过滤出Gbuffer中没有的物体 才能混合SSR
-    // TODO 模糊阶段会把Gbuffer后的像素混进去 导致边缘会有溢出 可能要考虑提前mask
-    float2 uv = input.texcoord;
-    float preDepth = SAMPLE_TEXTURE2D(_MaskDepthRT, sampler_MaskDepthRT, uv).r;
-    float depth = SampleSceneDepth(uv);
-
-    float mask = 1;//1 - (depth > preDepth);
-
-    float4 sourceColor = SAMPLE_TEXTURE2D(_BlitTexture, sampler_LinearClamp, uv);
-    half3 clampedSourceColor = saturate(sourceColor.rgb); // 关闭SSR的情况下直接使用场景颜色叠上去, 但注意场景颜色是HDR, 强行限制一下
-    UNITY_BRANCH
-    if (Linear01Depth(depth, _ZBufferParams) > 0.999)
-        return float4(1, 0, 0, 1);
-
-    // built-in
-    // gbuffer0 rgb: albedo * OneMinusReflectivityFromMetallic(metallic) a: occ
-    // gbuffer1 rgb: lerp (unity_ColorSpaceDielectricSpec.rgb, albedo, metallic) a: smoothness
-    // gbuffer2 rgb: normal
-
-    // urp
-    // gbuffer0 rgb: albedo
-    // gbuffer1 r: 1-OneMinusReflectivityMetallic(metallic) a: occ
-    // gbuffer2 rgb: normal a: smoothness
-
-    half4 gbuffer0 = SAMPLE_TEXTURE2D_LOD(_GBuffer0, sampler_PointClamp, uv, 0);
-    half4 gbuffer1 = SAMPLE_TEXTURE2D_LOD(_GBuffer1, sampler_PointClamp, uv, 0);
-    half4 gbuffer2 = SAMPLE_TEXTURE2D_LOD(_GBuffer2, sampler_PointClamp, uv, 0);
-
-    uint materialFlags = UnpackMaterialFlags(gbuffer0.a);
-
-    // 植物 固定occ为1，ssrIndirectSpecAdjust为0
-    // UNITY_BRANCH
-    // if (IsMaterialFlagFoliage(materialFlags))
-    // {
-    //     gbuffer1.gba = float3(0, 0, 1);
-    // }
 
     // 自定义环境光强度(这里就是SSR强度), 是CustomLit传进来的
     float envCustomIntensity = 1;
     // UNITY_BRANCH
     // if (IsMaterialFlagIDCustomEnvSpecIntensity(materialFlags))
-    // {
     //     envCustomIntensity = gbuffer1.b * 10;
-    // }
 
-    BRDFData brdfData = BRDFDataFromGbuffer(gbuffer0, gbuffer1, gbuffer2);
-    // Lit.shader定制
-    half ssrIndirectSpecAdjust = gbuffer1.g;
-
-    half3 normalWS = normalize(UnpackNormal(gbuffer2.xyz));
-    float3 positionVS = GetViewSpacePosition(depth, uv);
-    float3 viewDirectionWS = -mul((float3x3)_InverseViewMatrixSSR, normalize(positionVS));
-    float3 positionWS = mul(_InverseViewMatrixSSR, float4(positionVS, 1.0)).xyz;
-
-    // GlobalIllumination
-    half3 reflectVector = reflect(-viewDirectionWS, normalWS);
-    half NoV = abs(dot(normalWS, viewDirectionWS));
-    half fresnelTerm = Pow4(1.0 - NoV) * (1.0 - NoV);
-
-    // TODO 简化版本 没有做mipmap模糊 无法根据粗糙度采样
-    float4 resolve = SAMPLE_TEXTURE2D(_SSR_ResolveTex, sampler_LinearClamp, uv);
-
-    float confidence = saturate(2.0 * dot(-viewDirectionWS, normalize(reflectVector)));
-
-    // 老版本的_CameraReflectionsTexture直接存的indirectSpecular 这里只能把计算LitGBufferPass中的计算分离到这儿
-    // 开启SSR 就关闭Gbuffer生成部分的indirectSpecular部分
-    // UniversalGBuffer 相关Pass需要 #pragma multi_compile_fragment _ _SCREEN_SPACE_REFLECTION
-    half3 indirectSpecular = GlossyEnvironmentReflectionSSR(reflectVector, positionWS, brdfData.perceptualRoughness, 1.0h);
-    float distanceFade = _DistanceFade;
-    // GlobalRenderSettings里的自定义环境反射球cubemap
-    // if (IsMaterialFlagIDCustomReflectCubemap(materialFlags))
-    // {
-    //     indirectSpecular = GlossyEnvironmentReflectionByCustomCubemap(reflectVector, positionWS, brdfData.perceptualRoughness, 1.0h) * _GLOBAL_ENVCUSTOM_CUBEMAPINTENSITY;
-    //     distanceFade = _GLOBAL_ENVCUSTOM_CUBEMAPINTENSITY;
-    // }
-
-    #if DEBUG_SCREEN_SPACE_REFLECTION
-        indirectSpecular = 0;
-    #endif
-
-    float fade = 1;
-    distanceFade = saturate(distanceFade + ssrIndirectSpecAdjust);
-    // fade是低频部分 理论上相当于一个锐化操作
-    fade = (1.0 - saturate(fade * smoothstep(0.5, 1.0, fade) * distanceFade)) * confidence;
-    {
-        resolve.rgb = lerp(clampedSourceColor.rgb * clampedSourceColor.rgb, resolve.rgb * 2, 1 * step(0.999, abs(dot(normalWS, float3(0, 1, 0)))) * fresnelTerm * fresnelTerm * fresnelTerm);
-    }
-    // IBL的间接光和SSR的进行过度
-    indirectSpecular = lerp(indirectSpecular, resolve.rgb, fade);
-    // 只是菲尼尔项
-    half3 indirectSpecularSSR = EnvironmentBRDF(brdfData, 0, indirectSpecular, fresnelTerm);
-    indirectSpecularSSR = max(0, indirectSpecularSSR) * gbuffer1.a * mask * _Intensity;  // occ 和 gbuffer后面物体mask
-
-    #if DEBUG_SCREEN_SPACE_REFLECTION || DEBUG_INDIRECT_SPECULAR
-        return half4(indirectSpecularSSR, 1);
-    #endif
-
-    // 自定义环境光强度(这里就是SSR强度), 是CustomLit传进来的
     indirectSpecularSSR *= envCustomIntensity;
 
     sourceColor.rgb += indirectSpecularSSR;
 
     return sourceColor;
-}
-
-float4 FragMobileAntiFlicker(Varyings input) : SV_Target
-{
-    float2 uv = input.texcoord;
-
-    // 没有使用jitter 不考虑sceneview 依赖MotionVector
-    float2 motionVector = SAMPLE_TEXTURE2D(_MotionVectorTexture, sampler_LinearClamp, uv).xy;
-    float2 prevUV = uv - motionVector;
-
-    float2 k = _BlitTexture_TexelSize.xy;
-
-    float4 color = SAMPLE_TEXTURE2D(_BlitTexture, sampler_PointClamp, uv);
-
-    // 0 1 2
-    // 3
-    float4x4 top = float4x4(
-        SAMPLE_TEXTURE2D(_BlitTexture, sampler_PointClamp, uv + float2(-k.x, -k.y)),
-        SAMPLE_TEXTURE2D(_BlitTexture, sampler_PointClamp, uv + float2(0.0, -k.y)),
-        SAMPLE_TEXTURE2D(_BlitTexture, sampler_PointClamp, uv + float2(k.x, -k.y)),
-        SAMPLE_TEXTURE2D(_BlitTexture, sampler_PointClamp, uv + float2(-k.x, 0.0))
-    );
-
-    //     0
-    // 1 2 3
-    float4x4 bottom = float4x4(
-        SAMPLE_TEXTURE2D(_BlitTexture, sampler_PointClamp, uv + float2(k.x, 0.0)),
-        SAMPLE_TEXTURE2D(_BlitTexture, sampler_PointClamp, uv + float2(-k.x, k.y)),
-        SAMPLE_TEXTURE2D(_BlitTexture, sampler_PointClamp, uv + float2(0.0, k.y)),
-        SAMPLE_TEXTURE2D(_BlitTexture, sampler_PointClamp, uv + float2(k.x, k.y))
-    );
-
-    // 简单的minmax
-    float4 minimum = min(min(min(min(min(min(min(min(top[0], top[1]), top[2]), top[3]), bottom[0]), bottom[1]), bottom[2]), bottom[3]), color);
-    float4 maximum = max(max(max(max(max(max(max(max(top[0], top[1]), top[2]), top[3]), bottom[0]), bottom[1]), bottom[2]), bottom[3]), color);
-
-    float4 history = SAMPLE_TEXTURE2D(_HistoryTex, sampler_LinearClamp, prevUV);
-    // 简单的clamp
-    history = clamp(history, minimum, maximum);
-
-    // alpha通道在移动端不一定有 简单的blend
-    float blend = saturate(smoothstep(0.002 * _BlitTexture_TexelSize.z, 0.0035 * _BlitTexture_TexelSize.z, length(motionVector)));
-    blend *= 0.85;
-
-    float weight = clamp(lerp(0.95, 0.7, blend * 100.0), 0.7, 0.95);
-
-    return lerp(color, history, weight);
 }
 
 #endif // SCREEN_SPACE_REFLECTION_INCLUDED
