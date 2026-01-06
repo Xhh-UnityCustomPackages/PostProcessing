@@ -4,7 +4,6 @@
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareNormalsTexture.hlsl"
-#include "Packages/com.game.rendering.postprocessing/ShaderLibrary/DeclareMotionVectorTexture.hlsl"
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/UnityGBuffer.hlsl"
 #include "Packages/com.unity.render-pipelines.universal/Shaders/PostProcessing/Common.hlsl"
 
@@ -98,7 +97,7 @@ float3 GetViewSpacePosition(float rawDepth, float2 uv)
 
 float4 TransformViewToHScreen(float3 vpos, float2 screenSize)
 {
-    float4 cpos = mul(UNITY_MATRIX_P, vpos);
+    float4 cpos = mul(UNITY_MATRIX_P, float4(vpos, 0));
     cpos.xy = float2(cpos.x, cpos.y * _ProjectionParams.x) * 0.5 + 0.5 * cpos.w;
     cpos.xy *= screenSize;
     return cpos;

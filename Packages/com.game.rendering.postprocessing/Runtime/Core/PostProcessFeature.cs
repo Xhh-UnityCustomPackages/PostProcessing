@@ -184,7 +184,7 @@ namespace Game.Core.PostProcessing
             
             if (postProcessPassInput.HasFlag(PostProcessPassInput.HiZ))
             {
-                m_HizDepthGenerator ??= new PyramidDepthGenerator(m_Settings.m_PostProcessFeatureData.computeShaders.pyramidDepthGeneratorCS);
+                m_HizDepthGenerator ??= new PyramidDepthGenerator();
                 renderer.EnqueuePass(m_HizDepthGenerator);
             }
 

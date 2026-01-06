@@ -9,7 +9,7 @@ using UnityEngine.Experimental.Rendering;
 
 namespace Game.Core.PostProcessing
 {
-    public partial class PyramidDepthGenerator : ScriptableRenderPass
+    public class PyramidDepthGenerator : ScriptableRenderPass
     {
 
         public static class CopyTextureKernelProperties
@@ -33,12 +33,13 @@ namespace Game.Core.PostProcessing
 
         public static RTHandle HiZDepthRT => m_HiZDepthRT;
 
-        public PyramidDepthGenerator(ComputeShader shader)
+        public PyramidDepthGenerator()
         {
             base.profilingSampler = new ProfilingSampler(nameof(PyramidDepthGenerator));
             renderPassEvent = RenderPassEvent.BeforeRenderingDeferredLights - 1;
-            m_ComputeShader = shader;
-
+            
+            var runtimeShaders = GraphicsSettings.GetRenderPipelineSettings<PyramidDepthGeneratorResources>();
+            m_ComputeShader = runtimeShaders.hiZCS;
         }
         
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)

@@ -35,7 +35,7 @@ namespace Game.Core.PostProcessing
         public ClampedFloatParameter minSmoothness = new (0.9f, 0.0f, 1.0f);
         public ClampedFloatParameter smoothnessFadeStart = new (0.9f, 0.0f, 1.0f);
         
-        [Tooltip("最大追踪次数, 移动端会被固定到10次")]
+        [Tooltip("最大追踪次数")]
         public ClampedIntParameter maximumIterationCount = new(256, 1, 256);
 
         [Tooltip("最大追踪距离")]
@@ -71,6 +71,7 @@ namespace Game.Core.PostProcessing
         
         public enum Resolution
         {
+            Quater,
             Half,
             Full,
             Double
@@ -80,7 +81,6 @@ namespace Game.Core.PostProcessing
         {
             Disabled,
             SSROnly,
-            IndirectSpecular,
         }
 
         public enum JitterMode
@@ -92,7 +92,7 @@ namespace Game.Core.PostProcessing
     }
     
     
-    [PostProcess("ScreenSpaceReflection", PostProcessInjectionPoint.BeforeRenderingDeferredLights, SupportRenderPath.Deferred)]
+    [PostProcess("ScreenSpaceReflection", PostProcessInjectionPoint.AfterRenderingSkybox, SupportRenderPath.Deferred)]
     public partial class ScreenSpaceReflectionRenderer : PostProcessVolumeRenderer<ScreenSpaceReflection>
     {
         static class ShaderConstants
@@ -117,8 +117,6 @@ namespace Game.Core.PostProcessing
                 {
                     case ScreenSpaceReflection.DebugMode.SSROnly:
                         return "DEBUG_SCREEN_SPACE_REFLECTION";
-                    case ScreenSpaceReflection.DebugMode.IndirectSpecular:
-                        return "DEBUG_INDIRECT_SPECULAR";
                     case ScreenSpaceReflection.DebugMode.Disabled:
                     default:
                         return "_";
@@ -165,9 +163,9 @@ namespace Game.Core.PostProcessing
 
             public bool CreateExposureRT(in CameraType cameraDataCameraType, in RenderTextureDescriptor desc)
             {
-                string rtname = CoreUtils.GetTextureAutoName(desc.width, desc.height, desc.graphicsFormat, TextureDimension.Tex2D, string.Format("_SSR_Main_{0}", cameraDataCameraType));
-                string rtname2 = CoreUtils.GetTextureAutoName(desc.width, desc.height, desc.graphicsFormat, TextureDimension.Tex2D, string.Format("_SSR_Second_{0}", cameraDataCameraType));
-                var RTHandleSign = RenderingUtils.ReAllocateHandleIfNeeded(ref current, in desc, FilterMode.Point, TextureWrapMode.Clamp, name: rtname);
+                string rtname1 = CoreUtils.GetTextureAutoName(desc.width, desc.height, desc.graphicsFormat, TextureDimension.Tex2D, string.Format("_SSR_Histroy_0_{0}", cameraDataCameraType));
+                string rtname2 = CoreUtils.GetTextureAutoName(desc.width, desc.height, desc.graphicsFormat, TextureDimension.Tex2D, string.Format("_SSR_Histroy_1_{0}", cameraDataCameraType));
+                var RTHandleSign = RenderingUtils.ReAllocateHandleIfNeeded(ref current, in desc, FilterMode.Point, TextureWrapMode.Clamp, name: rtname1);
                 var RTHandleSign2 = RenderingUtils.ReAllocateHandleIfNeeded(ref previous, in desc, FilterMode.Point, TextureWrapMode.Clamp, name: rtname2);
                 return RTHandleSign & RTHandleSign2;
             }
@@ -185,23 +183,12 @@ namespace Game.Core.PostProcessing
         RTHandle m_ResloveRT;
         RTHandle m_ResloveBlurRT;
         
-        
-        RTHandle[] m_HistoryPingPongRT;
-        int m_PingPong = 0;
         private static readonly Dictionary<CameraType, SSRTexturesInfo> m_TextureInfos = new ();
         private SSRTexturesInfo m_CurrentTexturesInfo;
         
         public override ScriptableRenderPassInput input => ScriptableRenderPassInput.Depth | ScriptableRenderPassInput.Normal;
         public override PostProcessPassInput postProcessPassInput => settings.mode.value == ScreenSpaceReflection.RaytraceModes.HiZTracing ? PostProcessPassInput.HiZ : PostProcessPassInput.None;
 
-        public void GetHistoryPingPongRT(ref RTHandle rt1, ref RTHandle rt2)
-        {
-            int index = m_PingPong;
-            m_PingPong = ++m_PingPong % 2;
-            
-            rt1 = m_HistoryPingPongRT[index];
-            rt2 = m_HistoryPingPongRT[m_PingPong];
-        }
 
         public override void Setup()
         {
@@ -225,22 +212,41 @@ namespace Game.Core.PostProcessing
         
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
         {
-            m_ScreenSpaceReflectionDescriptor = renderingData.cameraData.cameraTargetDescriptor;
-            int size = Mathf.ClosestPowerOfTwo(Mathf.Min(m_ScreenSpaceReflectionDescriptor.width, m_ScreenSpaceReflectionDescriptor.height));
+            var desc = renderingData.cameraData.cameraTargetDescriptor;
+
+            int width = desc.width;
+            int height = desc.height;
+
+            if(false)
+            {
+                int size = Mathf.ClosestPowerOfTwo(Mathf.Min(m_ScreenSpaceReflectionDescriptor.width, m_ScreenSpaceReflectionDescriptor.height));
+                width = height = size;
+            }
 
             if (settings.resolution.value == ScreenSpaceReflection.Resolution.Half)
-                size >>= 1;
+            {
+                width >>= 1;
+                height >>= 1;
+            }
+            else if (settings.resolution.value == ScreenSpaceReflection.Resolution.Quater)
+            {
+                width >>= 2;
+                height >>= 2;
+            }
             else if (settings.resolution.value == ScreenSpaceReflection.Resolution.Double)
-                size <<= 1;
-            GetCompatibleDescriptor(ref m_ScreenSpaceReflectionDescriptor, size, size, m_ScreenSpaceReflectionDescriptor.graphicsFormat);
+            {
+                width <<= 1;
+                height <<= 1;
+            }
 
-
-            // SSR 移动端用B10G11R11 见MakeRenderTextureGraphicsFormat 就算不管Alpha通道问题 精度也非常难受
-            m_ScreenSpaceReflectionDescriptor.graphicsFormat = GraphicsFormat.R16G16B16A16_SFloat;
+            m_ScreenSpaceReflectionDescriptor = desc;
+            m_ScreenSpaceReflectionDescriptor.width = width;
+            m_ScreenSpaceReflectionDescriptor.height = height;
+            GetCompatibleDescriptor(ref m_ScreenSpaceReflectionDescriptor, GraphicsFormat.R16G16B16A16_SFloat);
 
             RenderingUtils.ReAllocateHandleIfNeeded(ref m_TestRT, m_ScreenSpaceReflectionDescriptor, FilterMode.Point, name: "_SSR_TestTex");
             RenderingUtils.ReAllocateHandleIfNeeded(ref m_ResloveRT, m_ScreenSpaceReflectionDescriptor, FilterMode.Bilinear, name: "_SSR_ResolveTex");
-            RenderingUtils.ReAllocateHandleIfNeeded(ref m_ResloveBlurRT, m_ScreenSpaceReflectionDescriptor, FilterMode.Bilinear, name: "_SSR_ResolveBlurTex");
+            
             
             m_CurrentTexturesInfo = GetOrCreateTextureInfoFromCurCamera(renderingData.cameraData.cameraType);
         }
@@ -258,30 +264,27 @@ namespace Game.Core.PostProcessing
             m_ScreenSpaceReflectionMaterial.SetTexture(ShaderConstants.TestTex, m_TestRT);
             Blit(cmd, source, m_ResloveRT, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Resolve);
 
+            // if (!settings.antiFlicker.value)
+            // {
+            //     Blit(cmd, source, m_ResloveRT, m_ScreenSpaceReflectionMaterial, 5);
+            //     Blit(cmd, m_ResloveRT, target);
+            //     return;
+            // }
+            
             RTHandle lastDownId = m_ResloveRT;
             using (new ProfilingScope(cmd, m_ProfilingSampler_Reproject))
             {
-                // ----------------------------------------------------------------------------------
-                // 简化版本没有用Jitter所以sceneview部分就不处理了
-                if (!renderingData.cameraData.isSceneViewCamera && settings.antiFlicker.value)
+                var camera = renderingData.cameraData.camera;
+                if (camera.cameraType != CameraType.SceneView && settings.antiFlicker.value)
                 {
-                    if (m_HistoryPingPongRT == null) m_HistoryPingPongRT = new RTHandle[2];
-                    RenderingUtils.ReAllocateHandleIfNeeded(ref m_HistoryPingPongRT[0], m_ScreenSpaceReflectionDescriptor, name:"_SSR_History_0");
-                    RenderingUtils.ReAllocateHandleIfNeeded(ref m_HistoryPingPongRT[1], m_ScreenSpaceReflectionDescriptor, name:"_SSR_History_1");
-
-                    RTHandle rt1 = null, rt2 = null;
-                    GetHistoryPingPongRT(ref rt1, ref rt2);
-                    
-                    var camera = renderingData.cameraData.camera;
-                    // GrabExposureRequiredTextures(camera, out var rt1, out var rt2);
+                    GrabExposureRequiredTextures(camera, out var rt1, out var rt2);
 
                     m_ScreenSpaceReflectionMaterial.SetTexture(ShaderConstants.HistoryTex, rt1);
                     Blit(cmd, m_ResloveRT, rt2, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Reproject);
                     lastDownId = rt2;
                 }
             }
-           
-
+            
 
             // ------------------------------------------------------------------------------------------------
             // 简化版本 DualBlur替代 放弃不同粗糙度mipmap的采样
@@ -291,6 +294,7 @@ namespace Game.Core.PostProcessing
                 var iter = settings.blurIterations.value;
                 if (iter > 0)
                 {
+                    RenderingUtils.ReAllocateHandleIfNeeded(ref m_ResloveBlurRT, m_ScreenSpaceReflectionDescriptor, FilterMode.Bilinear, name: "_SSR_ResolveBlurTex");
                     PyramidBlur.ComputeBlurPyramid(cmd, lastDownId, m_ResloveBlurRT, 0.1f, iter);
                     finalRT = m_ResloveBlurRT;
                 }
@@ -336,12 +340,6 @@ namespace Game.Core.PostProcessing
             foreach (var exposureInfo in m_TextureInfos.Values)
             {
                 exposureInfo.Clear();
-            }
-            
-            if (m_HistoryPingPongRT != null)
-            {
-                for (int i = 0; i < m_HistoryPingPongRT.Length; i++)
-                    m_HistoryPingPongRT[i]?.Release();
             }
         }
     }

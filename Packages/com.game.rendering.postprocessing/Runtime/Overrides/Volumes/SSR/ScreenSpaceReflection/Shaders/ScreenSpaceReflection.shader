@@ -60,7 +60,7 @@ Shader "Hidden/PostProcessing/ScreenSpaceReflection"
         Pass
         {
             // 3
-            Name "ScreenSpaceReflection Reproject"
+            Name "ScreenSpaceReflection Reprojection"
 
             HLSLPROGRAM
             #include "ScreenSpaceReflection.hlsl"
@@ -76,13 +76,28 @@ Shader "Hidden/PostProcessing/ScreenSpaceReflection"
 
             HLSLPROGRAM
             #include "ScreenSpaceReflection.hlsl"
-            
-            #pragma multi_compile_local _ DEBUG_SCREEN_SPACE_REFLECTION DEBUG_INDIRECT_SPECULAR
+
+            #pragma multi_compile_local _ DEBUG_SCREEN_SPACE_REFLECTION
             #pragma multi_compile_fragment _ _REFLECTION_PROBE_BLENDING
             #pragma multi_compile_fragment _ _REFLECTION_PROBE_BOX_PROJECTION
 
             #pragma vertex Vert
             #pragma fragment FragComposite
+            ENDHLSL
+        }
+
+        Pass
+        {
+            // 5
+            Name "ScreenSpaceReflection Reprojection"
+            HLSLPROGRAM
+            #include "ScreenSpaceReflection_Reprojection.hlsl"
+
+            #pragma multi_compile_fragment _ _REFLECTION_PROBE_BLENDING
+            #pragma multi_compile_fragment _ _REFLECTION_PROBE_BOX_PROJECTION
+
+            #pragma vertex Vert
+            #pragma fragment FragSSRReprojection
             ENDHLSL
         }
 

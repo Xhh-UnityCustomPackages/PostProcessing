@@ -2,6 +2,7 @@
 #define SCREEN_SPACE_REFLECTION_INCLUDED
 
 #include "ScreenSpaceReflectionInput.hlsl"
+#include "Packages/com.game.rendering.postprocessing/ShaderLibrary/DeclareMotionVectorTexture.hlsl"
 
 //
 // Helper functions
@@ -76,10 +77,7 @@ float4 FragReproject(Varyings input) : SV_Target
 float4 FragResolve(Varyings input) : SV_Target
 {
     float4 test = SAMPLE_TEXTURE2D(_SSR_TestTex, sampler_PointClamp, input.texcoord);
-
-    // 兼容HDR R11G11B10格式 alpha通道isHit替代判断
-    test.w = test.z > 0;
-
+    
     UNITY_BRANCH
     if (test.w == 0.0)
     {
@@ -98,21 +96,6 @@ float4 FragResolve(Varyings input) : SV_Target
     return color;
 }
 
-// 因为SSR无法稳定获取到正确的reflectionProbe和PerObjectData, 我们需要手动在SSR里面指定天空球并解析Environment Reflection Intensity Multiplier
-half3 GlossyEnvironmentReflectionSSR(half3 reflectVector, float3 positionWS, half perceptualRoughness, half occlusion)
-{
-    half mip = PerceptualRoughnessToMipmapLevel(perceptualRoughness);
-    half4 encodedIrradiance = half4(SAMPLE_TEXTURECUBE_LOD(_GlossyEnvironmentCubeMap, sampler_GlossyEnvironmentCubeMap, reflectVector, mip));
-
-    half3 irradiance = 0;
-
-    #if defined(UNITY_USE_NATIVE_HDR) || defined(UNITY_DOTS_INSTANCING_ENABLED)
-        irradiance = encodedIrradiance.rbg;
-    #else
-        irradiance = DecodeHDREnvironment(encodedIrradiance, _Inutan_GlossyEnvironmentCubeMap_HDR);
-    #endif // UNITY_USE_NATIVE_HDR || UNITY_DOTS_INSTANCING_ENABLED
-    return irradiance * occlusion;
-}
 
 float4 FragComposite(Varyings input) : SV_Target
 {
@@ -131,21 +114,16 @@ float4 FragComposite(Varyings input) : SV_Target
     if (Linear01Depth(depth, _ZBufferParams) > 0.999)
         return sourceColor;
 
-    half4 gbuffer0 = SAMPLE_TEXTURE2D_LOD(_GBuffer0, sampler_PointClamp, uv, 0);
     half4 gbuffer1 = SAMPLE_TEXTURE2D_LOD(_GBuffer1, sampler_PointClamp, uv, 0);
     half4 gbuffer2 = SAMPLE_TEXTURE2D_LOD(_GBuffer2, sampler_PointClamp, uv, 0);
     
-    BRDFData brdfData = BRDFDataFromGbuffer(gbuffer0, gbuffer1, gbuffer2);
-
     half3 normalWS = normalize(UnpackNormal(gbuffer2.xyz));
     float3 positionVS = GetViewSpacePosition(depth, uv);
     float3 viewDirectionWS = -mul((float3x3)_InverseViewMatrixSSR, normalize(positionVS));
-    float3 positionWS = mul(_InverseViewMatrixSSR, float4(positionVS, 1.0)).xyz;
 
     // GlobalIllumination
     half3 reflectVector = reflect(-viewDirectionWS, normalWS);
-    half NoV = abs(dot(normalWS, viewDirectionWS));
-    half fresnelTerm = Pow4(1.0 - NoV) * (1.0 - NoV);
+   
     
     float4 resolve = SAMPLE_TEXTURE2D(_SSR_ResolveTex, sampler_LinearClamp, uv);
     float confidence = saturate(2.0 * dot(-viewDirectionWS, normalize(reflectVector)));
@@ -157,31 +135,15 @@ float4 FragComposite(Varyings input) : SV_Target
     // https://www.desmos.com/calculator/k3hodgy8ry TODO 这个结果是个比较奇怪的曲线
     float fade = resolve.a * resolve.a * 3;
 
-    distanceFade = saturate(distanceFade + smoothness);
     // fade是低频部分 理论上相当于一个锐化操作
-    fade = (1.0 - saturate(fade * smoothstep(0.5, 1.0, fade) * distanceFade)) * confidence;
-    // fade = distanceFade * confidence;
-
+    fade = (1.0 - saturate(fade * smoothstep(0.5, 1.0, fade) * distanceFade)) * confidence * smoothness;
+    // fade = (1.0 - distanceFade * resolve.a) * confidence * smoothness;
     
-    // 老版本的_CameraReflectionsTexture直接存的indirectSpecular 这里只能把计算LitGBufferPass中的计算分离到这儿
-    // 开启SSR 就关闭Gbuffer生成部分的indirectSpecular部分
-    // UniversalGBuffer 相关Pass需要 #pragma multi_compile_fragment _ _SCREEN_SPACE_REFLECTION
-    half3 indirectSpecular = GlossyEnvironmentReflectionSSR(reflectVector, positionWS, brdfData.perceptualRoughness, 1.0h);
+    half3 indirectSpecular = resolve.rgb * fade;
     
-    #if DEBUG_SCREEN_SPACE_REFLECTION
-    indirectSpecular = 0;
-    #endif
+    half3 indirectSpecularSSR = indirectSpecular;
+    indirectSpecularSSR *= occlusion * mask *  _Intensity;
     
-    // IBL的间接光和SSR的进行过度
-    indirectSpecular = lerp(indirectSpecular, resolve.rgb, fade);
-    // 只是菲尼尔项
-    half3 indirectSpecularSSR = EnvironmentBRDF(brdfData, 0, indirectSpecular, fresnelTerm);
-    indirectSpecularSSR = max(0, indirectSpecularSSR) * occlusion * mask * _Intensity;  // occ 和 gbuffer后面物体mask
-
-    #if DEBUG_SCREEN_SPACE_REFLECTION || DEBUG_INDIRECT_SPECULAR
-        return half4(indirectSpecularSSR, 1);
-    #endif
-
     // 自定义环境光强度(这里就是SSR强度), 是CustomLit传进来的
     float envCustomIntensity = 1;
     // UNITY_BRANCH
@@ -189,6 +151,10 @@ float4 FragComposite(Varyings input) : SV_Target
     //     envCustomIntensity = gbuffer1.b * 10;
 
     indirectSpecularSSR *= envCustomIntensity;
+    
+    #if DEBUG_SCREEN_SPACE_REFLECTION
+    return half4(indirectSpecularSSR, 1);
+    #endif
 
     sourceColor.rgb += indirectSpecularSSR;
 

@@ -37,11 +37,7 @@ namespace Game.Core.PostProcessing
         {
             if (m_ScreenSpaceReflectionMaterial == null)
                 m_ScreenSpaceReflectionMaterial = GetMaterial(postProcessFeatureData.shaders.screenSpaceReflectionPS);
-            
-            // var camera = cameraData.camera;
-
-            // var width = cameraData.cameraTargetDescriptor.width;
-            // var height = cameraData.cameraTargetDescriptor.height;
+      
             var size = m_ScreenSpaceReflectionDescriptor.width;
             
             var projectionMatrix = GL.GetGPUProjectionMatrix(camera.projectionMatrix, false);

@@ -39,8 +39,6 @@ namespace Game.Core.PostProcessing
         [Serializable]
         public sealed class ComputeShaderResources
         {
-            [Space(5)]
-            public ComputeShader pyramidDepthGeneratorCS;
         }
 
         [Serializable]

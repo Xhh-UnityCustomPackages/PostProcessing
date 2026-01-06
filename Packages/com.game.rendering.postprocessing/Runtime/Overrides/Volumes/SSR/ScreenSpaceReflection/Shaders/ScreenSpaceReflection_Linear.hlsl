@@ -1,7 +1,7 @@
-#ifndef SCREEN_SPACE_REFLECTION_INEAR_INCLUDED
-#define SCREEN_SPACE_REFLECTION_INEAR_INCLUDED
+#ifndef SCREEN_SPACE_REFLECTION_LINEAR_INCLUDED
+#define SCREEN_SPACE_REFLECTION_LINEAR_INCLUDED
 
-#include  "ScreenSpaceReflectionInput.hlsl"
+#include "ScreenSpaceReflectionInput.hlsl"
 
 bool RayIterations(inout half2 P,
                    inout half stepDirection, inout half end, inout int stepCount, inout int maxSteps,
@@ -97,7 +97,7 @@ Result Linear2D_Trace(half3 csOrigin,
     half xMax = csZBufferSize.x - 0.5;
     half xMin = 0.5;
     half alpha = 0;
-
+   
     if (P1.y > yMax || P1.y < yMin)
     {
         half yClip = (P1.y > yMax) ? yMax : yMin;
@@ -110,7 +110,7 @@ Result Linear2D_Trace(half3 csOrigin,
         half xAlpha = (P1.x - xClip) / (P1.x - P0.x);
         alpha = max(alpha, xAlpha);
     }
-
+    
     P1 = lerp(P1, P0, alpha);
     k1 = lerp(k1, k0, alpha);
     Q1 = lerp(Q1, Q0, alpha);
@@ -154,7 +154,7 @@ Result Linear2D_Trace(half3 csOrigin,
     half2 P = P0;
     int originalStepCount = 0;
 
-    float2 hitPixel = half2(0, 0);
+    float2 hitPixel = half2(-1, -1);
 
     RayIterations(P, stepDirection, end, originalStepCount,
                   maxSteps,
@@ -164,7 +164,6 @@ Result Linear2D_Trace(half3 csOrigin,
     int stepCount = originalStepCount;
     Q.xy += dQ.xy * stepCount;
     csHitPoint = Q * (1 / k);
-
 
     UNITY_FLATTEN
     if (intersecting)
@@ -188,18 +187,29 @@ float4 FragTestLinear(Varyings input) : SV_Target
         return float4(input.texcoord, 0, 0);
     }
     
-    // 多一次采样 可以过滤掉角色部分的射线计算
-    // uint materialFlags = UnpackMaterialFlags(SAMPLE_TEXTURE2D_LOD(_GBuffer0, sampler_PointClamp, input.texcoord, 0).a);
-    // UNITY_BRANCH
-    // if (IsMaterialFlagCharacter(materialFlags)) return 0;
+    // 多一次采样 可以过滤掉不需要SSR的计算
+    bool doesntReceiveSSR = false;
+    // uint stencilValue = GetStencilValue(LOAD_TEXTURE2D_X(_StencilTexture, positionSS.xy));
+    // doesntReceiveSSR = (stencilValue & STENCIL_USAGE_IS_SSR) == 0;
+    if (doesntReceiveSSR)
+    {
+        return half4(0, 0, 0, 0);
+    }
     
-    Ray ray;
-    ray.origin = GetViewSpacePosition(rawDepth, uv);
-
+    float3 positionVS = GetViewSpacePosition(rawDepth, uv);
+    
     //太远的点也直接跳过
     UNITY_BRANCH
-    if (ray.origin.z < - _MaximumMarchDistance)
+    if (positionVS.z < - _MaximumMarchDistance)
+    {
         return 0.0;
+    }
+    
+    
+    Ray ray;
+    ray.origin = positionVS;
+
+    
     float3 normalWS = SampleSceneNormals(uv);
     float3 normalVS = mul((float3x3)_ViewMatrixSSR, normalWS);
     float3 reflectionDirectionVS = normalize(reflect(normalize(ray.origin), normalVS));
@@ -235,9 +245,15 @@ float4 FragTestLinear(Varyings input) : SV_Target
                                    hitPointVS
                                    );
 
+    
     float confidence = (float)result.iterationCount / (float)_MaximumIterationCount;
 
-    return float4(result.uv, confidence, (float)result.isHit);
+    float2 reflectUV = result.uv;
+    float edgeMask = result.isHit ? 1 : 0;
+    // float screenEdgeFade = ScreenEdgeMask((reflectUV - 0.5) * 2);
+    // float fadeMask = screenEdgeFade;
+    // edgeMask *= screenEdgeFade;
+    return float4(reflectUV, confidence, edgeMask);
 }
 
 
