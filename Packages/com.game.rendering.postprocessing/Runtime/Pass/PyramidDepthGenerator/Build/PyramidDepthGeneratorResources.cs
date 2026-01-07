@@ -20,13 +20,13 @@ namespace UnityEngine.Rendering
             set => this.SetValueAndNotify(ref m_HiZCS, value);
         }
         
-        [SerializeField, ResourcePath("Runtime/Pass/PyramidDepthGenerator/Shader/PyramidDepthV2.compute")]
-        private ComputeShader m_HiZV2CS;
+        [SerializeField, ResourcePath("Runtime/Pass/PyramidDepthGenerator/Shader/DepthPyramid.compute")]
+        private ComputeShader m_DepthPyramidCS;
         
-        public ComputeShader hiZV2CS
+        public ComputeShader depthPyramidCS
         {
-            get => m_HiZV2CS;
-            set => this.SetValueAndNotify(ref m_HiZV2CS, value);
+            get => m_DepthPyramidCS;
+            set => this.SetValueAndNotify(ref m_DepthPyramidCS, value);
         }
     }
 }

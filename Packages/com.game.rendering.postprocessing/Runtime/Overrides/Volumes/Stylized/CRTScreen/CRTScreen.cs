@@ -19,15 +19,15 @@ namespace Game.Core.PostProcessing
         public override bool IsActive() => true;
 
         [Header("屏幕扭曲")]
-        public Vector2Parameter Curvature = new Vector2Parameter(Vector2.one);
+        public Vector2Parameter Curvature = new (Vector2.one);
         [Header("屏幕扫描线")]
-        public Vector2Parameter Resolution = new Vector2Parameter(Vector2.one * 480);
-        public Vector4Parameter PexelScanlineBrightness = new Vector4Parameter(new Vector4(0.225f, 0.85f, 0.05f, 0.95f));
+        public Vector2Parameter Resolution = new (Vector2.one * 480);
+        public Vector4Parameter PexelScanlineBrightness = new (new Vector4(0.225f, 0.85f, 0.05f, 0.95f));
         [Header("RGB分离")]
-        public ClampedFloatParameter RGBSplitOffset = new ClampedFloatParameter(0.003f, 0.001f, 0.01f);
+        public ClampedFloatParameter RGBSplitOffset = new (0.003f, 0.001f, 0.01f);
         [Header("暗角")]
-        public ClampedFloatParameter VignetteIntensity = new ClampedFloatParameter(0.3f, 0, 1);
-        public MinFloatParameter VignetteBrightness = new MinFloatParameter(16f, 0);
+        public ClampedFloatParameter VignetteIntensity = new (0.3f, 0, 1);
+        public MinFloatParameter VignetteBrightness = new (16f, 0);
 
         // public ColorParameter baseColor = new ColorParameter(Color.black, hdr: false, showAlpha: false, showEyeDropper: true);
     }
@@ -48,7 +48,8 @@ namespace Game.Core.PostProcessing
 
         public override void Setup()
         {
-            m_Material = GetMaterial(postProcessFeatureData.shaders.CRTScreenPS);
+            var runtimeResources = GraphicsSettings.GetRenderPipelineSettings<CRTScreenResources>();
+            m_Material = GetMaterial(runtimeResources.CRTScreenPS);
         }
 
         private void SetupMaterials(Material material)

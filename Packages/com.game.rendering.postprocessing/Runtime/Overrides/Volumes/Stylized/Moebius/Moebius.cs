@@ -34,8 +34,8 @@ namespace Game.Core.PostProcessing
 
         public EnumParameter<SobelSource> sobelSource = new(SobelSource.Depth);
         [Tooltip("用于手绘效果的Noise")]
-        public TextureParameter noise = new TextureParameter(null);
-        public ClampedFloatParameter noiseIntensity = new ClampedFloatParameter(1f, 0f, 5f);
+        public TextureParameter noise = new (null);
+        public ClampedFloatParameter noiseIntensity = new (1f, 0f, 5f);
 
         [Header("Debug")]
         public EnumParameter<DebugMode> debugMode = new(DebugMode.Disabled);
@@ -58,7 +58,8 @@ namespace Game.Core.PostProcessing
 
         public override void Setup()
         {
-            m_Material = GetMaterial(postProcessFeatureData.shaders.MoebiusPS);
+            var runtimeResources = GraphicsSettings.GetRenderPipelineSettings<MoebiusResources>();
+            m_Material = GetMaterial(runtimeResources.MoebiusPS);
         }
 
         public override ScriptableRenderPassInput input

@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
 namespace Game.Core.PostProcessing
@@ -71,14 +72,16 @@ namespace Game.Core.PostProcessing
 
         [SerializeField] public PostProcessSettings m_Settings = new PostProcessSettings();
 
+        private PostProcessFeatureRuntimeResources m_RuntimeResources;
         private PostProcessRenderPass m_BeforeRenderingGBuffer, m_BeforeRenderingDeferredLights;
         private PostProcessRenderPass m_BeforeRenderingOpaques, m_AfterRenderingOpaques;
         private PostProcessRenderPass m_AfterRenderingSkybox, m_BeforeRenderingPostProcessing, m_AfterRenderingPostProcessing;
         UberPostProcess m_UberPostProcessing;
         private static PostProcessFeatureContext m_Context;
         
+        private GPUCopy m_GPUCopy;
+        PyramidDepthGeneratorV2 m_HizDepthGenerator;
         
-        PyramidDepthGenerator m_HizDepthGenerator;
         private ScreenSpaceShadowsPass m_SSShadowsPass = null;
         private ScreenSpaceShadowsPostPass m_SSShadowsPostPass = null;
 
@@ -91,6 +94,8 @@ namespace Game.Core.PostProcessing
 
         public override void Create()
         {
+            m_RuntimeResources = GraphicsSettings.GetRenderPipelineSettings<PostProcessFeatureRuntimeResources>();
+            
             var postProcessFeatureData = m_Settings.m_PostProcessFeatureData;
             m_Context = new PostProcessFeatureContext();
             
@@ -184,7 +189,8 @@ namespace Game.Core.PostProcessing
             
             if (postProcessPassInput.HasFlag(PostProcessPassInput.HiZ))
             {
-                m_HizDepthGenerator ??= new PyramidDepthGenerator();
+                m_GPUCopy = new GPUCopy(m_RuntimeResources.copyChannelCS);
+                m_HizDepthGenerator ??= new PyramidDepthGeneratorV2(m_GPUCopy);
                 renderer.EnqueuePass(m_HizDepthGenerator);
             }
 

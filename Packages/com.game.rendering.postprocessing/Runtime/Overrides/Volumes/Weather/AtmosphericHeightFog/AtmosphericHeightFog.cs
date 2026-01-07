@@ -86,7 +86,8 @@ namespace Game.Core.PostProcessing
 
         public override void Setup()
         {
-            m_GlobalMaterial = GetMaterial(postProcessFeatureData.shaders.atmosphericHeightFogPS);
+            var runtimeResources = GraphicsSettings.GetRenderPipelineSettings<AtmosphericHeightFogResources>();
+            m_GlobalMaterial = GetMaterial(runtimeResources.atmosphericHeightFogPS);
         }
 
         public override void Render(CommandBuffer cmd, RTHandle source, RTHandle destination, ref RenderingData renderingData)

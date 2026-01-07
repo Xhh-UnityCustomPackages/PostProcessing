@@ -237,7 +237,11 @@ namespace Game.Core.PostProcessing
         public override void Render(CommandBuffer cmd, RTHandle source, RTHandle target, ref RenderingData renderingData)
         {
             if (m_Material == null)
-                m_Material = GetMaterial(postProcessFeatureData.shaders.stochasticScreenSpaceReflectionPS);
+            {
+                var runtimeResources = GraphicsSettings.GetRenderPipelineSettings<StochasticScreenSpaceReflectionResources>();
+                m_Material = GetMaterial(runtimeResources.stochasticScreenSpaceReflectionPS);
+            }
+
 
             SetupMaterial(ref renderingData, m_Material);
 

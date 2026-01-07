@@ -4,7 +4,7 @@
 
 #ifndef DEPTHPYRAMIDCONSTANTS_CS_HLSL
 #define DEPTHPYRAMIDCONSTANTS_CS_HLSL
-// Generated from UnityEngine.Rendering.HighDefinition.DepthPyramidConstants
+// Generated from Game.Core.PostProcessing.DepthPyramidConstants
 // PackingRules = Exact
 CBUFFER_START(DepthPyramidConstants)
     uint _MinDstCount;

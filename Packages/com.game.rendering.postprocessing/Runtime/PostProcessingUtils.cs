@@ -4,6 +4,12 @@ using UnityEngine;
 
 namespace Game.Core.PostProcessing
 {
+    static class PipelineShaderIDs
+    {
+        public static readonly int _DepthMipChain = MemberNameHelpers.ShaderPropertyID();
+        public static readonly int _DepthPyramidConstants = MemberNameHelpers.ShaderPropertyID();
+    }
+
     public class PostProcessingUtils
     {
         public static readonly string packagePath = "Packages/com.game.rendering.postprocessing";

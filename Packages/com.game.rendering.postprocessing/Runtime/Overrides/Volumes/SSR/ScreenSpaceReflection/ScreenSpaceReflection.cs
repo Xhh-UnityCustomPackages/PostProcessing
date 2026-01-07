@@ -184,7 +184,6 @@ namespace Game.Core.PostProcessing
 
         RTHandle m_TestRT;
         RTHandle m_ResloveRT;
-        RTHandle m_ResloveBlurRT;
         
         private static readonly Dictionary<CameraType, SSRTexturesInfo> m_TextureInfos = new ();
         private SSRTexturesInfo m_CurrentTexturesInfo;

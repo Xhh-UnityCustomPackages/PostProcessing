@@ -27,12 +27,7 @@ namespace Game.Core.PostProcessing
         {
             public Shader volumetricLightPS;
             public Shader volumetricCloudPS;
-            public Shader stochasticScreenSpaceReflectionPS;
             public Shader screenSpaceRaytracedReflectionPS;
-            public Shader atmosphericHeightFogPS;
-            public Shader CRTScreenPS;
-            public Shader MoebiusPS;
-            public Shader EightColorPS;
         }
 
         [Serializable]

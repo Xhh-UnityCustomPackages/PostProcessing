@@ -60,7 +60,8 @@ namespace Game.Core.PostProcessing
 
         public override void Setup()
         {
-            m_Material = GetMaterial(postProcessFeatureData.shaders.EightColorPS);
+            var runtimeResources = GraphicsSettings.GetRenderPipelineSettings<EightColorResources>();
+            m_Material = GetMaterial(runtimeResources.EightColorPS);
         }
 
         private void SetupMaterials()
