@@ -80,6 +80,7 @@ namespace Game.Core.PostProcessing
         private static PostProcessFeatureContext m_Context;
         
         private GPUCopy m_GPUCopy;
+        private MipGenerator m_MipGenerator;
         PyramidDepthGeneratorV2 m_HizDepthGenerator;
         
         private ScreenSpaceShadowsPass m_SSShadowsPass = null;
@@ -189,8 +190,9 @@ namespace Game.Core.PostProcessing
             
             if (postProcessPassInput.HasFlag(PostProcessPassInput.HiZ))
             {
-                m_GPUCopy = new GPUCopy(m_RuntimeResources.copyChannelCS);
-                m_HizDepthGenerator ??= new PyramidDepthGeneratorV2(m_GPUCopy);
+                m_GPUCopy ??= new GPUCopy();
+                m_MipGenerator ??= new MipGenerator();
+                m_HizDepthGenerator ??= new PyramidDepthGeneratorV2(m_GPUCopy, m_MipGenerator);
                 renderer.EnqueuePass(m_HizDepthGenerator);
             }
 

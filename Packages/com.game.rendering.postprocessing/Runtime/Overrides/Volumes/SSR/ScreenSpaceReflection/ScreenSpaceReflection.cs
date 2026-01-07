@@ -14,8 +14,6 @@ namespace Game.Core.PostProcessing
         {
             displayName = "屏幕空间反射 (Screen Space Reflection)";
         }
-
-        public static int MAX_BLUR_ITERATIONS = 4;
         
         public override bool IsActive() => intensity.value > 0;
         
@@ -106,7 +104,6 @@ namespace Game.Core.PostProcessing
 
             internal static readonly int Params1 = Shader.PropertyToID("_Params1");
             internal static readonly int Params2 = Shader.PropertyToID("_Params2");
-            internal static readonly int Offset = Shader.PropertyToID("_Offset");
             
             public static readonly int SsrIntensity = Shader.PropertyToID("_SSRIntensity");
             public static readonly int SsrRoughnessFadeEnd = Shader.PropertyToID("_SsrRoughnessFadeEnd");
@@ -257,10 +254,7 @@ namespace Game.Core.PostProcessing
                 }
             }
             
-
-            // ------------------------------------------------------------------------------------------------
-            // 简化版本 DualBlur替代 放弃不同粗糙度mipmap的采样
-            var finalRT = m_ResloveRT;
+            var finalRT = lastDownId;
             
             //合成
             using (new ProfilingScope(cmd, m_ProfilingSampler_Compose))

@@ -9,9 +9,11 @@ namespace Game.Core.PostProcessing
         int k_SampleKernel_xyzw2x_8;
         int k_SampleKernel_xyzw2x_1;
 
-        public GPUCopy(ComputeShader shader)
+        public GPUCopy()
         {
-            m_Shader = shader;
+            var runtimeShaders = GraphicsSettings.GetRenderPipelineSettings<PostProcessFeatureRuntimeResources>();
+
+            m_Shader = runtimeShaders.copyChannelCS;
             k_SampleKernel_xyzw2x_8 = m_Shader.FindKernel("KSampleCopy4_1_x_8");
             k_SampleKernel_xyzw2x_1 = m_Shader.FindKernel("KSampleCopy4_1_x_1");
         }

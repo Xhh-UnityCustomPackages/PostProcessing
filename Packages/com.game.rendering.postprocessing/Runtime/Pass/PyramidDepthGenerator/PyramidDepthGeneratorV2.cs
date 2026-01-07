@@ -10,7 +10,7 @@ using UnityEngine.Experimental.Rendering;
 namespace Game.Core.PostProcessing
 {
     /// <summary>
-    /// 非Mip形式的HiZ 算法
+    /// 非Mip形式的HiZ 算法 照搬HDRP版本
     /// </summary>
     public class PyramidDepthGeneratorV2 : ScriptableRenderPass
     {
@@ -28,20 +28,23 @@ namespace Game.Core.PostProcessing
         private static RTHandle m_HiZDepthRT;
         private PackedMipChainInfo m_MipChainInfo;
         private GPUCopy gpuCopy;
+        private MipGenerator mipGenerator;
         public static RTHandle HiZDepthRT => m_HiZDepthRT;
 
-        public PyramidDepthGeneratorV2(GPUCopy gpuCopy)
+        public PyramidDepthGeneratorV2(GPUCopy gpuCopy, MipGenerator mipGenerator)
         {
             profilingSampler = new ProfilingSampler(nameof(PyramidDepthGenerator));
             renderPassEvent = RenderPassEvent.BeforeRenderingDeferredLights - 1;
             this.gpuCopy = gpuCopy;
-          
+            this.mipGenerator = mipGenerator;
+            m_MipChainInfo.Allocate();
         }
         
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
         {
             var cameraTargetDescriptor = renderingData.cameraData.cameraTargetDescriptor;
-            m_MipChainInfo.textureSize = new Vector2Int(cameraTargetDescriptor.width, cameraTargetDescriptor.height);
+            Vector2Int nonScaledViewport = new Vector2Int(cameraTargetDescriptor.width, cameraTargetDescriptor.height);
+            m_MipChainInfo.ComputePackedMipChainInfo(nonScaledViewport, 0);
             var mipChainSize = m_MipChainInfo.textureSize;
             var depthDescriptor = cameraTargetDescriptor;
             depthDescriptor.enableRandomWrite = true;
@@ -73,7 +76,7 @@ namespace Game.Core.PostProcessing
                 
                 using (new ProfilingScope(cmd, DepthPyramidSampler))
                 {
-                    // _rendererData.MipGenerator.RenderMinDepthPyramid(cmd, m_HiZDepthRT, m_MipChainInfo);
+                    mipGenerator.RenderMinDepthPyramid(cmd, m_HiZDepthRT, m_MipChainInfo);
                 }
             }
 

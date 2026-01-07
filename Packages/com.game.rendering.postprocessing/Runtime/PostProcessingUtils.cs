@@ -14,7 +14,14 @@ namespace Game.Core.PostProcessing
     {
         public static readonly string packagePath = "Packages/com.game.rendering.postprocessing";
 
-
+        internal static void CheckRTCreated(RenderTexture rt)
+        {
+            // In some cases when loading a project for the first time in the editor, the internal resource is destroyed.
+            // When used as render target, the C++ code will re-create the resource automatically. Since here it's used directly as an UAV, we need to check manually
+            if (!rt.IsCreated())
+                rt.Create();
+        }
+        
         #region Math
         public static float Exp2(float x)
         {
