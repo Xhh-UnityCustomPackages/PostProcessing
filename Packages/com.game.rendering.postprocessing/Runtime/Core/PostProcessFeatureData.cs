@@ -27,7 +27,6 @@ namespace Game.Core.PostProcessing
         {
             public Shader volumetricLightPS;
             public Shader volumetricCloudPS;
-            public Shader screenSpaceReflectionPS;
             public Shader stochasticScreenSpaceReflectionPS;
             public Shader screenSpaceRaytracedReflectionPS;
             public Shader atmosphericHeightFogPS;

@@ -6,6 +6,7 @@
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareNormalsTexture.hlsl"
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/UnityGBuffer.hlsl"
 #include "Packages/com.unity.render-pipelines.universal/Shaders/PostProcessing/Common.hlsl"
+#include "ShaderVariablesScreenSpaceReflection.hlsl"
 
 // Helper structs
 //
@@ -59,15 +60,10 @@ int _MobileMode;
 float4 _Params1;     // x: vignette intensity, y: distance fade, z: maximum march distance, w: intensity
 float4 _Params2;    // x: aspect ratio, y: noise tiling, z: thickness, w: maximum iteration count
 
-// 因为SSR无法稳定获取到正确的reflectionProbe和PerObjectData, 我们需要手动在SSR里面指定天空球并解析Environment Reflection Intensity Multiplier
-half4 _Inutan_GlossyEnvironmentCubeMap_HDR;
-
-
 #define _Attenuation            .25
 #define _VignetteIntensity      _Params1.x
 #define _DistanceFade           _Params1.y
 #define _MaximumMarchDistance   _Params1.z
-#define _Intensity              _Params1.w
 #define _AspectRatio            _Params2.x
 #define _NoiseTiling            _Params2.y
 #define _Bandwidth              _Params2.z
@@ -76,7 +72,6 @@ half4 _Inutan_GlossyEnvironmentCubeMap_HDR;
 #define SSR_MINIMUM_ATTENUATION 0.275
 #define SSR_ATTENUATION_SCALE (1.0 - SSR_MINIMUM_ATTENUATION)
 #define SSR_VIGNETTE_SMOOTHNESS 5.
-#define SSR_KILL_FIREFLIES 0
 
 // 外面的thickness被当作了步长在用, 实际的thickness写死了
 #define Thickness              0.05
@@ -103,7 +98,6 @@ float4 TransformViewToHScreen(float3 vpos, float2 screenSize)
     return cpos;
 }
 
-
 float GetSquaredDistance(float2 first, float2 second)
 {
     first -= second;
@@ -118,6 +112,19 @@ static half dither[16] = {
     0.937, 0.437, 0.812, 0.312
 };
 
+inline float ScreenEdgeMask(float2 clipPos)
+{
+    float yDif = 1 - abs(clipPos.y);
+    float xDif = 1 - abs(clipPos.x);
+    [flatten]
+    if (yDif < 0 || xDif < 0)
+    {
+        return 0;
+    }
+    float t1 = smoothstep(0, .2, yDif);
+    float t2 = smoothstep(0, .1, xDif);
+    return saturate(t2 * t1);
+}
 
 bool IsInfinityFar(float rawDepth)
 {
@@ -136,6 +143,29 @@ bool IsInfinityFar(float rawDepth)
 bool IntersectsDepthBuffer(half rayZMin, half rayZMax, half sceneZ, half layerThickness)
 {
     return (rayZMax >= sceneZ - layerThickness) && (rayZMin <= sceneZ);
+}
+
+float PerceptualRoughnessFade(float perceptualRoughness, float fadeRcpLength, float fadeEndTimesRcpLength)
+{
+    float t = Remap10(perceptualRoughness, fadeRcpLength, fadeEndTimesRcpLength);
+    return Smoothstep01(t);
+}
+
+float Attenuate(float2 uv)
+{
+    float offset = min(1.0 - max(uv.x, uv.y), min(uv.x, uv.y));
+
+    float result = offset / (SSR_ATTENUATION_SCALE * _Attenuation + SSR_MINIMUM_ATTENUATION);
+    result = saturate(result);
+
+    return pow(result, 0.5);
+}
+
+float Vignette(float2 uv)
+{
+    float2 k = abs(uv - 0.5) * _VignetteIntensity;
+    k.x *= _BlitTexture_TexelSize.y * _BlitTexture_TexelSize.z;
+    return pow(saturate(1.0 - dot(k, k)), SSR_VIGNETTE_SMOOTHNESS);
 }
 
 #endif // SCREEN_SPACE_REFLECTION_INCLUDED

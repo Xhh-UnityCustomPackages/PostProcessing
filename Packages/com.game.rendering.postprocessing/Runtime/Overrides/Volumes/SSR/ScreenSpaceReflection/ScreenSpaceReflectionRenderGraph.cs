@@ -31,12 +31,68 @@ namespace Game.Core.PostProcessing
             internal ProfilingSampler profilingSampler_Compose;
         }
 
-        private ScreenSpaceReflectionPassData m_PassData;
+        
+        private struct ScreenSpaceReflectionVariables
+        {
+            public Matrix4x4 ProjectionMatrix;
+            
+            public float Intensity;
+            public float Thickness;
+            public float ThicknessScale;
+            public float ThicknessBias;
+            
+            // public float Steps;
+            // public float StepSize;
+            public float RoughnessFadeEnd;
+            public float RoughnessFadeRcpLength;
+            
+            public float RoughnessFadeEndTimesRcpLength;
+            public float EdgeFadeRcpLength;
+            // public int DepthPyramidMaxMip;
+            // public float DownsamplingDivider;
+            //
+            // public float AccumulationAmount;
+            // public float PBRSpeedRejection;
+            // public float PBRSpeedRejectionScalerFactor;
+            // public float PBRBias;
+            //
+            // public int ColorPyramidMaxMip;
+        }
+
+        private ScreenSpaceReflectionVariables m_Variables;
+        
+        private void PrepareVariables(Camera camera)
+        {
+            var minSmoothness = settings.minSmoothness.value;
+            var smoothnessFadeStart = settings.smoothnessFadeStart.value;
+            var screenFadeDistance = settings.vignette.value;
+            
+            float roughnessFadeStart = 1 - smoothnessFadeStart;
+            float roughnessFadeEnd = 1 - minSmoothness;
+            float roughnessFadeLength = roughnessFadeEnd - roughnessFadeStart;
+            float roughnessFadeEndTimesRcpLength = (roughnessFadeLength != 0) ? roughnessFadeEnd * (1.0f / roughnessFadeLength) : 1;
+            float roughnessFadeRcpLength = (roughnessFadeLength != 0) ? (1.0f / roughnessFadeLength) : 0;
+            float edgeFadeRcpLength = Mathf.Min(1.0f / screenFadeDistance, float.MaxValue);
+            
+            var projectionMatrix = GL.GetGPUProjectionMatrix(camera.projectionMatrix, false);
+            
+            m_Variables.Intensity = settings.intensity.value;
+            m_Variables.RoughnessFadeEnd = roughnessFadeEnd;
+            m_Variables.RoughnessFadeRcpLength = roughnessFadeRcpLength;
+            m_Variables.RoughnessFadeEndTimesRcpLength = roughnessFadeEndTimesRcpLength;
+            m_Variables.EdgeFadeRcpLength = edgeFadeRcpLength;
+            
+        }
 
         private void SetupMaterials(Camera camera, int width, int height)
         {
             if (m_ScreenSpaceReflectionMaterial == null)
-                m_ScreenSpaceReflectionMaterial = GetMaterial(postProcessFeatureData.shaders.screenSpaceReflectionPS);
+            {
+                var runtimeResources = GraphicsSettings.GetRenderPipelineSettings<ScreenSpaceReflectionResources>();
+                m_ScreenSpaceReflectionMaterial = GetMaterial(runtimeResources.screenSpaceReflectionPS);
+            }
+
+            PrepareVariables(camera);
       
             var size = m_ScreenSpaceReflectionDescriptor.width;
             
@@ -47,7 +103,7 @@ namespace Game.Core.PostProcessing
             m_ScreenSpaceReflectionMaterial.SetMatrix(ShaderConstants.InverseViewMatrix, camera.worldToCameraMatrix.inverse);
             m_ScreenSpaceReflectionMaterial.SetMatrix(ShaderConstants.InverseProjectionMatrix, projectionMatrix.inverse);
             m_ScreenSpaceReflectionMaterial.SetVector(ShaderConstants.Params1,
-                new Vector4(settings.vignette.value, settings.distanceFade.value, settings.maximumMarchDistance.value, settings.intensity.value));
+                new Vector4(settings.vignette.value, settings.distanceFade.value, settings.maximumMarchDistance.value,  m_Variables.Intensity));
 
             if (settings.jitterMode.value == ScreenSpaceReflection.JitterMode.BlueNoise)
             {
@@ -62,11 +118,51 @@ namespace Game.Core.PostProcessing
                     new Vector4(0, 0, settings.thickness.value, settings.maximumIterationCount.value));
             }
             
+            m_ScreenSpaceReflectionMaterial.SetFloat(ShaderConstants.SsrIntensity, m_Variables.Intensity);
+            m_ScreenSpaceReflectionMaterial.SetFloat(ShaderConstants.SsrRoughnessFadeEnd, m_Variables.RoughnessFadeEnd);
+            m_ScreenSpaceReflectionMaterial.SetFloat(ShaderConstants.SsrRoughnessFadeEndTimesRcpLength, m_Variables.RoughnessFadeEndTimesRcpLength);
+            m_ScreenSpaceReflectionMaterial.SetFloat(ShaderConstants.SsrRoughnessFadeRcpLength, m_Variables.RoughnessFadeRcpLength);
+            m_ScreenSpaceReflectionMaterial.SetFloat(ShaderConstants.SsrEdgeFadeRcpLength, m_Variables.EdgeFadeRcpLength);
+            
             // -------------------------------------------------------------------------------------------------
             // local shader keywords
             m_ShaderKeywords[0] = ShaderConstants.GetDebugKeyword(settings.debugMode.value);
             m_ShaderKeywords[1] = ShaderConstants.GetJitterKeyword(settings.jitterMode.value);
             m_ScreenSpaceReflectionMaterial.shaderKeywords = m_ShaderKeywords;
+            
+        }
+
+        void GetSSRDesc(RenderTextureDescriptor desc)
+        {
+            int width = desc.width;
+            int height = desc.height;
+
+            if(false)
+            {
+                int size = Mathf.ClosestPowerOfTwo(Mathf.Min(m_ScreenSpaceReflectionDescriptor.width, m_ScreenSpaceReflectionDescriptor.height));
+                width = height = size;
+            }
+
+            if (settings.resolution.value == ScreenSpaceReflection.Resolution.Half)
+            {
+                width >>= 1;
+                height >>= 1;
+            }
+            else if (settings.resolution.value == ScreenSpaceReflection.Resolution.Quater)
+            {
+                width >>= 2;
+                height >>= 2;
+            }
+            else if (settings.resolution.value == ScreenSpaceReflection.Resolution.Double)
+            {
+                width <<= 1;
+                height <<= 1;
+            }
+
+            m_ScreenSpaceReflectionDescriptor = desc;
+            m_ScreenSpaceReflectionDescriptor.width = width;
+            m_ScreenSpaceReflectionDescriptor.height = height;
+            GetCompatibleDescriptor(ref m_ScreenSpaceReflectionDescriptor, GraphicsFormat.R16G16B16A16_SFloat);
         }
 
         public override void DoRenderGraph(RenderGraph renderGraph, TextureHandle source, TextureHandle destination, ContextContainer frameData)
@@ -76,18 +172,7 @@ namespace Game.Core.PostProcessing
             
             SetupMaterials(cameraData.camera, cameraData.cameraTargetDescriptor.width, cameraData.cameraTargetDescriptor.height);
             
-            RenderTextureDescriptor cameraTargetDescriptor = cameraData.cameraTargetDescriptor;
-            m_ScreenSpaceReflectionDescriptor = cameraTargetDescriptor;
-            
-            int size = Mathf.ClosestPowerOfTwo(Mathf.Min(m_ScreenSpaceReflectionDescriptor.width, m_ScreenSpaceReflectionDescriptor.height));
-            if (settings.resolution.value == ScreenSpaceReflection.Resolution.Half)
-                size >>= 1;
-            else if (settings.resolution.value == ScreenSpaceReflection.Resolution.Double)
-                size <<= 1;
-            GetCompatibleDescriptor(ref m_ScreenSpaceReflectionDescriptor, size, size, m_ScreenSpaceReflectionDescriptor.graphicsFormat);
-            
-            // SSR 移动端用B10G11R11 见MakeRenderTextureGraphicsFormat 就算不管Alpha通道问题 精度也非常难受
-            m_ScreenSpaceReflectionDescriptor.graphicsFormat = GraphicsFormat.R16G16B16A16_SFloat;
+            GetSSRDesc(cameraData.cameraTargetDescriptor);
 
             var gBuffer = resourceData.gBuffer;
             TextureHandle cameraNormalsTexture = resourceData.cameraNormalsTexture;

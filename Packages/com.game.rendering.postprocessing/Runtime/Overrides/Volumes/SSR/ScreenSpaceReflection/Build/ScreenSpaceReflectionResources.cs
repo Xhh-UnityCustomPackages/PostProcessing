@@ -10,5 +10,16 @@ namespace UnityEngine.Rendering
     {
         public int version => 0;
         bool IRenderPipelineGraphicsSettings.isAvailableInPlayerBuild => true;
+        
+        [SerializeField, ResourcePath("Runtime/Overrides/Volumes/SSR/ScreenSpaceReflection/Shaders/ScreenSpaceReflection.shader")]
+        private Shader m_ScreenSpaceReflectionPS;
+        public Shader screenSpaceReflectionPS
+        {
+            get => m_ScreenSpaceReflectionPS;
+            set => this.SetValueAndNotify(ref m_ScreenSpaceReflectionPS, value);
+        }
+        
+        //----------------------------------
+        // ComputeShader 方法
     }
 }

@@ -47,9 +47,6 @@ namespace Game.Core.PostProcessing
         [Tooltip("Jitter模式")]
         public EnumParameter<JitterMode> jitterMode = new(JitterMode.BlueNoise);
         
-        [Tooltip("模糊迭代次数")]
-        public ClampedIntParameter blurIterations = new(3, 0, MAX_BLUR_ITERATIONS);
-        
         [Tooltip("边缘渐变")]
         [InspectorName("Screen Edge Fade Distance")]
         public ClampedFloatParameter vignette = new(0f, 0f, 1f);
@@ -110,6 +107,12 @@ namespace Game.Core.PostProcessing
             internal static readonly int Params1 = Shader.PropertyToID("_Params1");
             internal static readonly int Params2 = Shader.PropertyToID("_Params2");
             internal static readonly int Offset = Shader.PropertyToID("_Offset");
+            
+            public static readonly int SsrIntensity = Shader.PropertyToID("_SSRIntensity");
+            public static readonly int SsrRoughnessFadeEnd = Shader.PropertyToID("_SsrRoughnessFadeEnd");
+            public static readonly int SsrRoughnessFadeEndTimesRcpLength = Shader.PropertyToID("_SsrRoughnessFadeEndTimesRcpLength");
+            public static readonly int SsrRoughnessFadeRcpLength = Shader.PropertyToID("_SsrRoughnessFadeRcpLength");
+            public static readonly int SsrEdgeFadeRcpLength = Shader.PropertyToID("_SsrEdgeFadeRcpLength");
 
             public static string GetDebugKeyword(ScreenSpaceReflection.DebugMode debugMode)
             {
@@ -189,10 +192,9 @@ namespace Game.Core.PostProcessing
         public override ScriptableRenderPassInput input => ScriptableRenderPassInput.Depth | ScriptableRenderPassInput.Normal;
         public override PostProcessPassInput postProcessPassInput => settings.mode.value == ScreenSpaceReflection.RaytraceModes.HiZTracing ? PostProcessPassInput.HiZ : PostProcessPassInput.None;
 
-
-        public override void Setup()
+        public override void InitProfilingSampler()
         {
-
+            base.InitProfilingSampler();
             m_ProfilingSampler_Reproject = new ProfilingSampler("SSR Reproject");
             m_ProfilingSampler_Blur = new ProfilingSampler("SSR Blur");
             m_ProfilingSampler_Compose = new ProfilingSampler("SSR Compose");
@@ -212,37 +214,7 @@ namespace Game.Core.PostProcessing
         
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
         {
-            var desc = renderingData.cameraData.cameraTargetDescriptor;
-
-            int width = desc.width;
-            int height = desc.height;
-
-            if(false)
-            {
-                int size = Mathf.ClosestPowerOfTwo(Mathf.Min(m_ScreenSpaceReflectionDescriptor.width, m_ScreenSpaceReflectionDescriptor.height));
-                width = height = size;
-            }
-
-            if (settings.resolution.value == ScreenSpaceReflection.Resolution.Half)
-            {
-                width >>= 1;
-                height >>= 1;
-            }
-            else if (settings.resolution.value == ScreenSpaceReflection.Resolution.Quater)
-            {
-                width >>= 2;
-                height >>= 2;
-            }
-            else if (settings.resolution.value == ScreenSpaceReflection.Resolution.Double)
-            {
-                width <<= 1;
-                height <<= 1;
-            }
-
-            m_ScreenSpaceReflectionDescriptor = desc;
-            m_ScreenSpaceReflectionDescriptor.width = width;
-            m_ScreenSpaceReflectionDescriptor.height = height;
-            GetCompatibleDescriptor(ref m_ScreenSpaceReflectionDescriptor, GraphicsFormat.R16G16B16A16_SFloat);
+            GetSSRDesc(renderingData.cameraData.cameraTargetDescriptor);
 
             RenderingUtils.ReAllocateHandleIfNeeded(ref m_TestRT, m_ScreenSpaceReflectionDescriptor, FilterMode.Point, name: "_SSR_TestTex");
             RenderingUtils.ReAllocateHandleIfNeeded(ref m_ResloveRT, m_ScreenSpaceReflectionDescriptor, FilterMode.Bilinear, name: "_SSR_ResolveTex");
@@ -260,16 +232,17 @@ namespace Game.Core.PostProcessing
                 Blit(cmd, source, m_TestRT, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Test);
             else
                 Blit(cmd, source, m_TestRT, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.HizTest);
-            
-            m_ScreenSpaceReflectionMaterial.SetTexture(ShaderConstants.TestTex, m_TestRT);
-            Blit(cmd, source, m_ResloveRT, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Resolve);
 
-            // if (!settings.antiFlicker.value)
-            // {
-            //     Blit(cmd, source, m_ResloveRT, m_ScreenSpaceReflectionMaterial, 5);
-            //     Blit(cmd, m_ResloveRT, target);
-            //     return;
-            // }
+            m_ScreenSpaceReflectionMaterial.SetTexture(ShaderConstants.TestTex, m_TestRT);
+            if (!settings.antiFlicker.value)
+            {
+                Blit(cmd, source, m_ResloveRT, m_ScreenSpaceReflectionMaterial, 5);
+                m_ScreenSpaceReflectionMaterial.SetTexture(ShaderConstants.ResolveTex, m_ResloveRT);
+                Blit(cmd, source, target, m_ScreenSpaceReflectionMaterial, 6);
+                return;
+            }
+            
+            Blit(cmd, source, m_ResloveRT, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Resolve);
             
             RTHandle lastDownId = m_ResloveRT;
             using (new ProfilingScope(cmd, m_ProfilingSampler_Reproject))
@@ -289,16 +262,6 @@ namespace Game.Core.PostProcessing
             // ------------------------------------------------------------------------------------------------
             // 简化版本 DualBlur替代 放弃不同粗糙度mipmap的采样
             var finalRT = m_ResloveRT;
-            using (new ProfilingScope(cmd, m_ProfilingSampler_Blur))
-            {
-                var iter = settings.blurIterations.value;
-                if (iter > 0)
-                {
-                    RenderingUtils.ReAllocateHandleIfNeeded(ref m_ResloveBlurRT, m_ScreenSpaceReflectionDescriptor, FilterMode.Bilinear, name: "_SSR_ResolveBlurTex");
-                    PyramidBlur.ComputeBlurPyramid(cmd, lastDownId, m_ResloveBlurRT, 0.1f, iter);
-                    finalRT = m_ResloveBlurRT;
-                }
-            }
             
             //合成
             using (new ProfilingScope(cmd, m_ProfilingSampler_Compose))

@@ -37,8 +37,8 @@ namespace Game.Core.PostProcessing
             m_Descriptor = cameraTargetDescriptor;
             
             var desc = GetCompatibleDescriptor(m_Descriptor, m_Descriptor.graphicsFormat);
-            var tempRT0 = UniversalRenderer.CreateRenderGraphTexture(renderGraph, desc, "_TempRT0", true, FilterMode.Bilinear);
-            var tempRT1 = UniversalRenderer.CreateRenderGraphTexture(renderGraph, desc, "_TempRT1", true, FilterMode.Bilinear);
+            var tempRT0 = UniversalRenderer.CreateRenderGraphTexture(renderGraph, desc, "_TempRT0", false, FilterMode.Bilinear);
+            var tempRT1 = UniversalRenderer.CreateRenderGraphTexture(renderGraph, desc, "_TempRT1", false, FilterMode.Bilinear);
             
             var cameraColorTarget = resourceData.activeColorTexture;
             var source = cameraColorTarget;
@@ -66,19 +66,19 @@ namespace Game.Core.PostProcessing
                 {
                     // 最后一个 target 正常必须是 m_CameraColorTarget
                     // 如果 source == m_CameraColorTarget 则需要把 m_CameraColorTarget copyto RT
-                    if (source.Equals(cameraColorTarget) && !renderer.dontCareSourceTargetCopy)
+                    if (source.GetDescriptor(renderGraph).name == cameraColorTarget.GetDescriptor(renderGraph).name && 
+                        !renderer.dontCareSourceTargetCopy)
                     {
                         // blit source: m_CameraColorTarget target: m_TempRT
                         // copy
                         // swap source: m_TempRT target: m_CameraColorTarget
 
-                        using (var builder = renderGraph.AddUnsafePass<PassData>("PostProcess Swap", out var passData, renderer.profilingSampler))
+                        using (var builder = renderGraph.AddUnsafePass<PassData>(m_PassName, out var passData))
                         {
                             passData.sourceTexture = source;
                             builder.UseTexture(source);
                             passData.destination = target;
                             builder.UseTexture(target, AccessFlags.Write);
-                            builder.AllowPassCulling(false);
                             builder.SetRenderFunc(static (PassData data, UnsafeGraphContext context) =>
                             {
                                 var cmd = CommandBufferHelpers.GetNativeCommandBuffer(context.cmd);
@@ -95,16 +95,21 @@ namespace Game.Core.PostProcessing
                 {
                     // 不是最后一个时 如果 target == m_CameraColorTarget 就改成非souce的那个RT
                     // source: lastRT target: nextRT
-                    if (target.Equals(cameraColorTarget))
+                    if (target.GetDescriptor(renderGraph).name == cameraColorTarget.GetDescriptor(renderGraph).name)
                     {
-                        target = source.Equals(tempRT0) ? tempRT1 : tempRT0;
+                        target = source.GetDescriptor(renderGraph).name == tempRT0.GetDescriptor(renderGraph).name ? tempRT1 : tempRT0;
                     }
                 }
                 
                 m_PassData.destination = target;
                 m_PassData.sourceTexture = source;
                 
-                renderer.DoRenderGraph(renderGraph, m_PassData.sourceTexture, m_PassData.destination, frameData);
+                //如何包起来
+                using (new ProfilingScope(profilingSampler))
+                {
+                    renderer.DoRenderGraph(renderGraph, m_PassData.sourceTexture, m_PassData.destination, frameData);
+                }
+
                 CoreUtils.Swap(ref source, ref target);
                 
             }
