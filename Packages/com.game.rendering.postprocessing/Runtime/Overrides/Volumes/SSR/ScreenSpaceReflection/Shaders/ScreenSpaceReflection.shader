@@ -17,7 +17,6 @@ Shader "Hidden/PostProcessing/ScreenSpaceReflection"
             
             #include "ScreenSpaceReflection_Linear.hlsl"
             
-            #pragma multi_compile_local _ JITTER_BLURNOISE JITTER_DITHER
             #pragma multi_compile_fragment _ _GBUFFER_NORMALS_OCT
             
             #pragma vertex Vert
@@ -34,7 +33,6 @@ Shader "Hidden/PostProcessing/ScreenSpaceReflection"
 
             #include "ScreenSpaceReflection_Hiz.hlsl"
 
-            #pragma multi_compile_local _ JITTER_BLURNOISE JITTER_DITHER
             #pragma multi_compile_fragment _ _GBUFFER_NORMALS_OCT
 
             #pragma vertex Vert
@@ -45,53 +43,10 @@ Shader "Hidden/PostProcessing/ScreenSpaceReflection"
         Pass
         {
             // 2
-            Name "ScreenSpaceReflection Resolve"
-
-            HLSLPROGRAM
-            #include "ScreenSpaceReflection_Resolve.hlsl"
-            
-            #pragma vertex Vert
-            #pragma fragment FragResolve
-            ENDHLSL
-        }
-
-        Pass
-        {
-            // 3
-            Name "ScreenSpaceReflection Reprojection"
-
-            HLSLPROGRAM
-            #include "ScreenSpaceReflection_Reprojection.hlsl"
-            #pragma vertex Vert
-            #pragma fragment FragReproject
-            ENDHLSL
-        }
-
-        Pass
-        {
-            // 4
-            Name "ScreenSpaceReflection Composite"
-
-            HLSLPROGRAM
-            #include "ScreenSpaceReflection_Resolve.hlsl"
-
-            #pragma multi_compile_local _ DEBUG_SCREEN_SPACE_REFLECTION
-            #pragma multi_compile_fragment _ _REFLECTION_PROBE_BLENDING
-            #pragma multi_compile_fragment _ _REFLECTION_PROBE_BOX_PROJECTION
-
-            #pragma vertex Vert
-            #pragma fragment FragComposite
-            ENDHLSL
-        }
-
-        Pass
-        {
-            // 5
             Name "ScreenSpaceReflection Reprojection"
             HLSLPROGRAM
             #include "ScreenSpaceReflection_Reprojection.hlsl"
 
-            #pragma multi_compile_local _ DEBUG_SCREEN_SPACE_REFLECTION
             #pragma multi_compile_fragment _ _REFLECTION_PROBE_BLENDING
             #pragma multi_compile_fragment _ _REFLECTION_PROBE_BOX_PROJECTION
 
@@ -102,18 +57,16 @@ Shader "Hidden/PostProcessing/ScreenSpaceReflection"
 
         Pass
         {
-            // 4
+            // 3
             Name "ScreenSpaceReflection Composite"
 
             HLSLPROGRAM
             #include "ScreenSpaceReflection_Resolve.hlsl"
 
-            #pragma multi_compile_local _ DEBUG_SCREEN_SPACE_REFLECTION
-            #pragma multi_compile_fragment _ _REFLECTION_PROBE_BLENDING
-            #pragma multi_compile_fragment _ _REFLECTION_PROBE_BOX_PROJECTION
+            #pragma shader_feature_local _ DEBUG_SCREEN_SPACE_REFLECTION
 
             #pragma vertex Vert
-            #pragma fragment FragComposite2
+            #pragma fragment FragSSRComposite
             ENDHLSL
         }
     }

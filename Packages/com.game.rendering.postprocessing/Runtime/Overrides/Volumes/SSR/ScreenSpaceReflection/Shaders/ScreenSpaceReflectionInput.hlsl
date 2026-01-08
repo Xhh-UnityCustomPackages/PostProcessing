@@ -38,34 +38,27 @@ struct Result
 //
 // Uniforms
 //
-TEXTURE2D(_NoiseTex);
-TEXTURE2D(_SSR_TestTex);
-TEXTURE2D(_SSR_ResolveTex);
-
-TEXTURE2D(_HistoryTex);
+TEXTURE2D(_SsrHitPointTexture);
+TEXTURE2D(_SsrLightingTexture);
 
 TEXTURE2D_HALF(_GBuffer0);
 TEXTURE2D_HALF(_GBuffer1);
 TEXTURE2D_HALF(_GBuffer2);
 
 
-float4 _SSR_TestTex_TexelSize;
+float4 _SsrHitPointTexture_TexelSize;
 
 float4x4 _ViewMatrixSSR;
 float4x4 _InverseViewMatrixSSR;
 float4x4 _InverseProjectionMatrixSSR;
 
-int _MobileMode;
-
 float4 _Params1;     // x: vignette intensity, y: distance fade, z: maximum march distance, w: intensity
-float4 _Params2;    // x: aspect ratio, y: noise tiling, z: thickness, w: maximum iteration count
+float4 _Params2;    // z: thickness, w: maximum iteration count
 
 #define _Attenuation            .25
 #define _VignetteIntensity      _Params1.x
 #define _DistanceFade           _Params1.y
 #define _MaximumMarchDistance   _Params1.z
-#define _AspectRatio            _Params2.x
-#define _NoiseTiling            _Params2.y
 #define _Bandwidth              _Params2.z
 #define _MaximumIterationCount  _Params2.w
 
@@ -149,23 +142,6 @@ float PerceptualRoughnessFade(float perceptualRoughness, float fadeRcpLength, fl
 {
     float t = Remap10(perceptualRoughness, fadeRcpLength, fadeEndTimesRcpLength);
     return Smoothstep01(t);
-}
-
-float Attenuate(float2 uv)
-{
-    float offset = min(1.0 - max(uv.x, uv.y), min(uv.x, uv.y));
-
-    float result = offset / (SSR_ATTENUATION_SCALE * _Attenuation + SSR_MINIMUM_ATTENUATION);
-    result = saturate(result);
-
-    return pow(result, 0.5);
-}
-
-float Vignette(float2 uv)
-{
-    float2 k = abs(uv - 0.5) * _VignetteIntensity;
-    k.x *= _BlitTexture_TexelSize.y * _BlitTexture_TexelSize.z;
-    return pow(saturate(1.0 - dot(k, k)), SSR_VIGNETTE_SMOOTHNESS);
 }
 
 #endif // SCREEN_SPACE_REFLECTION_INCLUDED

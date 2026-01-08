@@ -3,14 +3,14 @@
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Sampling/Sampling.hlsl"
-#include "Packages/com.kurisu.illusion-render-pipelines/ShaderLibrary/ShaderVariables.hlsl"
+// #include "Packages/com.kurisu.illusion-render-pipelines/ShaderLibrary/ShaderVariables.hlsl"
 #include "Packages/com.game.rendering.postprocessing/ShaderLibrary/DeclarePyramidDepthTexture.hlsl"
-#include "Packages/com.kurisu.illusion-render-pipelines/ShaderLibrary/NormalBuffer.hlsl"
-#include "Packages/com.kurisu.illusion-render-pipelines/ShaderLibrary/DeclareMotionVectorTexture.hlsl"
-#include "Packages/com.kurisu.illusion-render-pipelines/ShaderLibrary/PrecomputeRadianceTransfer/EvaluateProbeVolume.hlsl"
+// #include "Packages/com.kurisu.illusion-render-pipelines/ShaderLibrary/NormalBuffer.hlsl"
+#include "Packages/com.game.rendering.postprocessing/ShaderLibrary/DeclareMotionVectorTexture.hlsl"
+// #include "Packages/com.kurisu.illusion-render-pipelines/ShaderLibrary/PrecomputeRadianceTransfer/EvaluateProbeVolume.hlsl"
 
 // Raytracing includes (should probably be in generic files)
-#include "Packages/com.kurisu.illusion-render-pipelines/ShaderLibrary/Raytracing/RaytracingSampling.hlsl"
+// #include "Packages/com.kurisu.illusion-render-pipelines/ShaderLibrary/Raytracing/RaytracingSampling.hlsl"
 #include "Packages/com.game.rendering.postprocessing/Runtime/Overrides/Volumes/ScreenSpaceGlobalIllumination/Shaders/GlobalIlluminationFallback.hlsl"
 
 // #pragma enable_d3d11_debug_symbols

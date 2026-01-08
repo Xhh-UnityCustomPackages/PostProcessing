@@ -115,7 +115,7 @@ Result Linear2D_Trace(half3 csOrigin,
     k1 = lerp(k1, k0, alpha);
     Q1 = lerp(Q1, Q0, alpha);
     */
-    P1 = (GetSquaredDistance(P0, P1) < 0.0001) ? P0 + half2(_SSR_TestTex_TexelSize.x, _SSR_TestTex_TexelSize.y) : P1;
+    P1 = (GetSquaredDistance(P0, P1) < 0.0001) ? P0 + half2(_SsrHitPointTexture_TexelSize.x, _SsrHitPointTexture_TexelSize.y) : P1;
     // P1 = (GetSquaredDistance(P0, P1) < 0.0001) ? P0 + half2(0.01, 0.01) : P1;
     half2 delta = P1 - P0;
     bool permute = false;
@@ -184,7 +184,7 @@ float4 FragTestLinear(Varyings input) : SV_Target
     UNITY_BRANCH
     if (IsInfinityFar(rawDepth))
     {
-        return float4(input.texcoord, 0, 0);
+        return half4(0, 0, 0, 0);
     }
     
     // 多一次采样 可以过滤掉不需要SSR的计算
@@ -202,40 +202,29 @@ float4 FragTestLinear(Varyings input) : SV_Target
     UNITY_BRANCH
     if (positionVS.z < - _MaximumMarchDistance)
     {
-        return 0.0;
+        return half4(0, 0, 0, 0);
     }
-    
-    
-    Ray ray;
-    ray.origin = positionVS;
-
     
     float3 normalWS = SampleSceneNormals(uv);
     float3 normalVS = mul((float3x3)_ViewMatrixSSR, normalWS);
-    float3 reflectionDirectionVS = normalize(reflect(normalize(ray.origin), normalVS));
+    float3 reflectionDirectionVS = normalize(reflect(normalize(positionVS), normalVS));
+    
+    Ray ray;
+    ray.origin = positionVS;
     ray.direction = reflectionDirectionVS;
 
     UNITY_BRANCH
     if (ray.direction.z > 0.0)
-        return 0.0;
+        return half4(0, 0, 0, 0);
 
-    #if JITTER_BLURNOISE
-    uv *= _NoiseTiling;
-    uv.y *= _AspectRatio;
-
-    float jitter = SAMPLE_TEXTURE2D(_NoiseTex, sampler_LinearClamp, uv + _WorldSpaceCameraPos.xz).a;
-    #elif JITTER_DITHER
     float2 ditherUV = input.texcoord * _ScreenParams.xy;
     uint ditherIndex = (uint(ditherUV.x) % 4) * 4 + uint(ditherUV.y) % 4;
     float jitter = 1.0f + (1.0f - dither[ditherIndex]);
-    #else
-    float jitter = 0;
-    #endif
     
     float3 hitPointVS = ray.origin;
     Result result = Linear2D_Trace(ray.origin,
                                    ray.direction,
-                                   _SSR_TestTex_TexelSize,
+                                   _SsrHitPointTexture_TexelSize,
                                    jitter,
                                    normalVS,
                                    _MaximumIterationCount,
@@ -244,7 +233,6 @@ float4 FragTestLinear(Varyings input) : SV_Target
                                    _Bandwidth,
                                    hitPointVS
                                    );
-
     
     float confidence = (float)result.iterationCount / (float)_MaximumIterationCount;
 

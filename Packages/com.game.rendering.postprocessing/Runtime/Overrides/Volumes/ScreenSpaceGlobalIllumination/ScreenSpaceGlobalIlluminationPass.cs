@@ -328,7 +328,7 @@ namespace Game.Core.PostProcessing
         {
             var normalTexture = UniversalRenderingUtility.GetNormalTexture(cameraData.renderer);
 
-            if (normalTexture == null) return;
+            // if (normalTexture == null) return;
             
             var motionVectorTexture = UniversalRenderingUtility.GetMotionVectorColor(cameraData.renderer);
             
@@ -408,7 +408,7 @@ namespace Game.Core.PostProcessing
 
                 using (new ProfilingScope(cmd, ReprojectSampler))
                 {
-                    ExecuteReproject(cmd, ref cameraData);
+                    // ExecuteReproject(cmd, ref cameraData);
                 }
             }
 

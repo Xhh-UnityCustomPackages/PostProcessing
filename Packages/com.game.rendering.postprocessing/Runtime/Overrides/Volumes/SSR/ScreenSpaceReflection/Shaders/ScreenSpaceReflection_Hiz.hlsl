@@ -117,7 +117,7 @@ Result Hiz_Trace(half3 csOrigin,
     half3 Q0 = csOrigin * k0;           //View空间起点 (齐次化)
     half3 Q1 = csEndPoint * k1;         //View空间终点 (齐次化)
 
-    P1 = (GetSquaredDistance(P0, P1) < 0.0001) ? P0 + half2(_SSR_TestTex_TexelSize.x, _SSR_TestTex_TexelSize.y) : P1;
+    P1 = (GetSquaredDistance(P0, P1) < 0.0001) ? P0 + half2(_SsrHitPointTexture_TexelSize.x, _SsrHitPointTexture_TexelSize.y) : P1;
     // P1 = (GetSquaredDistance(P0, P1) < 0.0001) ? P0 + half2(0.01, 0.01) : P1;
     half2 delta = P1 - P0;
     bool permute = false;
@@ -207,23 +207,14 @@ float4 FragTestHiZ(Varyings input) : SV_Target
     if (ray.direction.z > 0.0)
         return 0.0;
     
-    #if JITTER_BLURNOISE
-    uv *= _NoiseTiling;
-    uv.y *= _AspectRatio;
-
-    float jitter = SAMPLE_TEXTURE2D(_NoiseTex, sampler_LinearClamp, uv + _WorldSpaceCameraPos.xz).a;
-    #elif JITTER_DITHER
     float2 ditherUV = input.texcoord * _ScreenParams.xy;
     uint ditherIndex = (uint(ditherUV.x) % 4) * 4 + uint(ditherUV.y) % 4;
     float jitter = 1.0f + (1.0f - dither[ditherIndex]);
-    #else
-    float jitter = 0;
-    #endif
 
     float3 hitPointVS = ray.origin;
     Result result = Hiz_Trace(ray.origin,
                                    ray.direction,
-                                   _SSR_TestTex_TexelSize,
+                                   _SsrHitPointTexture_TexelSize,
                                    jitter,
                                    normalVS,
                                    _MaximumIterationCount,

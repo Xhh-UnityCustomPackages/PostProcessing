@@ -17,18 +17,12 @@ namespace Game.Core.PostProcessing
             // Pass textures
             internal TextureHandle testTexture;
             internal TextureHandle resolveTexture;
-            internal TextureHandle resolveBlurTexture;
             internal TextureHandle gBuffer0;
             internal TextureHandle gBuffer1;
             internal TextureHandle gBuffer2;
             internal TextureHandle motionVectorColorTexture;
             // Output texture
             internal TextureHandle targetTexture;
-            
-        
-            internal ProfilingSampler profilingSampler_Reproject;
-            internal ProfilingSampler profilingSampler_Blur;
-            internal ProfilingSampler profilingSampler_Compose;
         }
 
         
@@ -74,17 +68,26 @@ namespace Game.Core.PostProcessing
             float roughnessFadeRcpLength = (roughnessFadeLength != 0) ? (1.0f / roughnessFadeLength) : 0;
             float edgeFadeRcpLength = Mathf.Min(1.0f / screenFadeDistance, float.MaxValue);
             
-            var projectionMatrix = GL.GetGPUProjectionMatrix(camera.projectionMatrix, false);
+            var SSR_ProjectionMatrix = GL.GetGPUProjectionMatrix(camera.projectionMatrix, false);
+            var HalfCameraSize = new Vector2(
+                (int)(camera.pixelWidth * 0.5f),
+                (int)(camera.pixelHeight * 0.5f));
+            Matrix4x4 warpToScreenSpaceMatrix = Matrix4x4.identity;
+            warpToScreenSpaceMatrix.m00 = HalfCameraSize.x;
+            warpToScreenSpaceMatrix.m03 = HalfCameraSize.x;
+            warpToScreenSpaceMatrix.m11 = HalfCameraSize.y;
+            warpToScreenSpaceMatrix.m13 = HalfCameraSize.y;
+            Matrix4x4 SSR_ProjectToPixelMatrix = warpToScreenSpaceMatrix * SSR_ProjectionMatrix;
             
             m_Variables.Intensity = settings.intensity.value;
             m_Variables.RoughnessFadeEnd = roughnessFadeEnd;
             m_Variables.RoughnessFadeRcpLength = roughnessFadeRcpLength;
             m_Variables.RoughnessFadeEndTimesRcpLength = roughnessFadeEndTimesRcpLength;
-            m_Variables.EdgeFadeRcpLength = edgeFadeRcpLength;
-            
+            m_Variables.EdgeFadeRcpLength = edgeFadeRcpLength;//照搬的HDRP 但是这个实际效果过度太硬了
+            m_Variables.ProjectionMatrix = SSR_ProjectToPixelMatrix;
         }
 
-        private void SetupMaterials(Camera camera, int width, int height)
+        private void SetupMaterials(Camera camera)
         {
             if (m_ScreenSpaceReflectionMaterial == null)
             {
@@ -93,30 +96,15 @@ namespace Game.Core.PostProcessing
             }
 
             PrepareVariables(camera);
-      
-            var size = m_ScreenSpaceReflectionDescriptor.width;
             
             var projectionMatrix = GL.GetGPUProjectionMatrix(camera.projectionMatrix, false);
-           
-
+            
             m_ScreenSpaceReflectionMaterial.SetMatrix(ShaderConstants.ViewMatrix, camera.worldToCameraMatrix);
             m_ScreenSpaceReflectionMaterial.SetMatrix(ShaderConstants.InverseViewMatrix, camera.worldToCameraMatrix.inverse);
             m_ScreenSpaceReflectionMaterial.SetMatrix(ShaderConstants.InverseProjectionMatrix, projectionMatrix.inverse);
             m_ScreenSpaceReflectionMaterial.SetVector(ShaderConstants.Params1,
-                new Vector4(settings.vignette.value, settings.distanceFade.value, settings.maximumMarchDistance.value,  m_Variables.Intensity));
-
-            if (settings.jitterMode.value == ScreenSpaceReflection.JitterMode.BlueNoise)
-            {
-                var noiseTex = postProcessFeatureData.textures.blueNoiseTex;
-                m_ScreenSpaceReflectionMaterial.SetTexture(ShaderConstants.NoiseTex, noiseTex);
-                m_ScreenSpaceReflectionMaterial.SetVector(ShaderConstants.Params2,
-                    new Vector4((float)width / height, size / (float)noiseTex.width, settings.thickness.value, settings.maximumIterationCount.value));
-            }
-            else
-            {
-                m_ScreenSpaceReflectionMaterial.SetVector(ShaderConstants.Params2,
-                    new Vector4(0, 0, settings.thickness.value, settings.maximumIterationCount.value));
-            }
+                new Vector4(settings.vignette.value, settings.distanceFade.value, settings.maximumMarchDistance.value, 0));
+            m_ScreenSpaceReflectionMaterial.SetVector(ShaderConstants.Params2, new Vector4(0, 0, settings.thickness.value, settings.maximumIterationCount.value));
             
             m_ScreenSpaceReflectionMaterial.SetFloat(ShaderConstants.SsrIntensity, m_Variables.Intensity);
             m_ScreenSpaceReflectionMaterial.SetFloat(ShaderConstants.SsrRoughnessFadeEnd, m_Variables.RoughnessFadeEnd);
@@ -127,9 +115,7 @@ namespace Game.Core.PostProcessing
             // -------------------------------------------------------------------------------------------------
             // local shader keywords
             m_ShaderKeywords[0] = ShaderConstants.GetDebugKeyword(settings.debugMode.value);
-            m_ShaderKeywords[1] = ShaderConstants.GetJitterKeyword(settings.jitterMode.value);
             m_ScreenSpaceReflectionMaterial.shaderKeywords = m_ShaderKeywords;
-            
         }
 
         void GetSSRDesc(RenderTextureDescriptor desc)
@@ -148,7 +134,7 @@ namespace Game.Core.PostProcessing
                 width >>= 1;
                 height >>= 1;
             }
-            else if (settings.resolution.value == ScreenSpaceReflection.Resolution.Quater)
+            else if (settings.resolution.value == ScreenSpaceReflection.Resolution.Quarter)
             {
                 width >>= 2;
                 height >>= 2;
@@ -170,7 +156,7 @@ namespace Game.Core.PostProcessing
             UniversalResourceData resourceData = frameData.Get<UniversalResourceData>();
             UniversalCameraData cameraData = frameData.Get<UniversalCameraData>();
             
-            SetupMaterials(cameraData.camera, cameraData.cameraTargetDescriptor.width, cameraData.cameraTargetDescriptor.height);
+            SetupMaterials(cameraData.camera);
             
             GetSSRDesc(cameraData.cameraTargetDescriptor);
 
@@ -179,9 +165,8 @@ namespace Game.Core.PostProcessing
             TextureHandle cameraDepthTexture = resourceData.cameraDepthTexture;
             TextureHandle motionVectorColorTexture = resourceData.motionVectorColor;
             
-            var testRT = UniversalRenderer.CreateRenderGraphTexture(renderGraph, m_ScreenSpaceReflectionDescriptor, "_SSR_TestTex", false);
-            var resolveTex = UniversalRenderer.CreateRenderGraphTexture(renderGraph, m_ScreenSpaceReflectionDescriptor, "_SSR_ResolveTex", false);
-            var resolveBlurTex = UniversalRenderer.CreateRenderGraphTexture(renderGraph, m_ScreenSpaceReflectionDescriptor, "_SSR_ResolveBlurTex", false);
+            var testRT = UniversalRenderer.CreateRenderGraphTexture(renderGraph, m_ScreenSpaceReflectionDescriptor, "SSR_Hit_Point_Texture", false);
+            var resolveTex = UniversalRenderer.CreateRenderGraphTexture(renderGraph, m_ScreenSpaceReflectionDescriptor, "SSR_Lighting_Texture", false);
 
             using (var builder = renderGraph.AddUnsafePass<ScreenSpaceReflectionPassData>(profilingSampler.name, out var passData))
             {
@@ -206,9 +191,6 @@ namespace Game.Core.PostProcessing
                 passData.resolveTexture = resolveTex;
                 builder.UseTexture(resolveTex, AccessFlags.ReadWrite);
 
-                passData.resolveBlurTexture = resolveBlurTex;
-                builder.UseTexture(resolveBlurTex, AccessFlags.Write);
-
                 //global
                 builder.UseTexture(motionVectorColorTexture, AccessFlags.Read);
                 builder.UseTexture(cameraNormalsTexture, AccessFlags.Read);
@@ -220,56 +202,38 @@ namespace Game.Core.PostProcessing
                 passData.gBuffer1 = gBuffer[1];
                 passData.gBuffer2 = gBuffer[2];
 
-                passData.profilingSampler_Reproject = m_ProfilingSampler_Reproject;
-                passData.profilingSampler_Blur = m_ProfilingSampler_Blur;
-                passData.profilingSampler_Compose = m_ProfilingSampler_Compose;
-
-                // if (cameraData.historyManager != null)
-                // {
-                //     cameraData.historyManager.
-                // }
-
                 builder.SetRenderFunc(static (ScreenSpaceReflectionPassData data, UnsafeGraphContext context) =>
                 {
                     var cmd = CommandBufferHelpers.GetNativeCommandBuffer(context.cmd);
 
-                    RTHandle sourceTextureHdl = data.sourceTexture;
-                    RTHandle targetTextureHdl = data.targetTexture;
-                    RTHandle testTextureHdl = data.testTexture;
-                    Blitter.BlitCameraTexture(cmd, sourceTextureHdl, testTextureHdl, data.material, (int)ShaderPasses.Test);
-                    
-                    RTHandle resolveTextureHdl = data.resolveTexture;
-                    data.material.SetTexture(ShaderConstants.TestTex, testTextureHdl);
-                    Blitter.BlitCameraTexture(cmd, sourceTextureHdl, resolveTextureHdl, data.material, (int)ShaderPasses.Resolve);
-
-                    using (new ProfilingScope(cmd, data.profilingSampler_Reproject))
-                    {
-                        ExecuteReprojection(cmd, data);
-                    }
-                    
-                    using (new ProfilingScope(cmd, data.profilingSampler_Blur))
-                    {
-                        ExecuteBlur(cmd, data);
-                    }
-
-                    using (new ProfilingScope(cmd, data.profilingSampler_Compose))
-                    {
-                        var finalRT = data.resolveTexture;
-                        data.material.SetTexture(ShaderConstants.ResolveTex, finalRT);
-                        data.material.SetTexture("_GBuffer0", data.gBuffer0);
-                        data.material.SetTexture("_GBuffer1", data.gBuffer1);
-                        data.material.SetTexture("_GBuffer2", data.gBuffer2);
-                        Blitter.BlitCameraTexture(cmd, sourceTextureHdl, targetTextureHdl, data.material, (int)ShaderPasses.Composite);
-                    }
+                    // RTHandle sourceTextureHdl = data.sourceTexture;
+                    // RTHandle targetTextureHdl = data.targetTexture;
+                    // RTHandle testTextureHdl = data.testTexture;
+                    // Blitter.BlitCameraTexture(cmd, sourceTextureHdl, testTextureHdl, data.material, (int)ShaderPasses.Test);
+                    //
+                    // RTHandle resolveTextureHdl = data.resolveTexture;
+                    // data.material.SetTexture(ShaderConstants.TestTex, testTextureHdl);
+                    // Blitter.BlitCameraTexture(cmd, sourceTextureHdl, resolveTextureHdl, data.material, (int)ShaderPasses.Resolve);
+                    //
+                    // using (new ProfilingScope(cmd, data.profilingSampler_Reproject))
+                    // {
+                    //     ExecuteReprojection(cmd, data);
+                    // }
+                    //
+                    // using (new ProfilingScope(cmd, data.profilingSampler_Compose))
+                    // {
+                    //     var finalRT = data.resolveTexture;
+                    //     data.material.SetTexture(ShaderConstants.ResolveTex, finalRT);
+                    //     data.material.SetTexture("_GBuffer0", data.gBuffer0);
+                    //     data.material.SetTexture("_GBuffer1", data.gBuffer1);
+                    //     data.material.SetTexture("_GBuffer2", data.gBuffer2);
+                    //     Blitter.BlitCameraTexture(cmd, sourceTextureHdl, targetTextureHdl, data.material, (int)ShaderPasses.Composite);
+                    // }
                 });
             }
         }
 
         static void ExecuteReprojection(CommandBuffer cmd, ScreenSpaceReflectionPassData data)
-        {
-        }
-
-        static void ExecuteBlur(CommandBuffer cmd, ScreenSpaceReflectionPassData data)
         {
         }
     }
