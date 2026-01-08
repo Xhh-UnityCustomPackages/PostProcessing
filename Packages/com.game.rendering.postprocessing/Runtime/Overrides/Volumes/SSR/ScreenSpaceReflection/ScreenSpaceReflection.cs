@@ -15,7 +15,9 @@ namespace Game.Core.PostProcessing
             displayName = "屏幕空间反射 (Screen Space Reflection)";
         }
         
-        public override bool IsActive() => intensity.value > 0;
+        public BoolParameter Enable = new BoolParameter(false);
+        
+        public override bool IsActive() => Enable.value;
         
         [Tooltip("模式")] 
         public EnumParameter<RaytraceModes> mode = new(RaytraceModes.LinearTracing);
@@ -92,6 +94,12 @@ namespace Game.Core.PostProcessing
             public static readonly int SsrRoughnessFadeEndTimesRcpLength = Shader.PropertyToID("_SsrRoughnessFadeEndTimesRcpLength");
             public static readonly int SsrRoughnessFadeRcpLength = Shader.PropertyToID("_SsrRoughnessFadeRcpLength");
             public static readonly int SsrEdgeFadeRcpLength = Shader.PropertyToID("_SsrEdgeFadeRcpLength");
+            
+            public static readonly int _BlitTexture = MemberNameHelpers.ShaderPropertyID();
+            public static readonly int _CameraDepthTexture = MemberNameHelpers.ShaderPropertyID();
+            public static readonly int _BlitScaleBias = MemberNameHelpers.ShaderPropertyID();
+            public static readonly int _GBuffer2 = MemberNameHelpers.ShaderPropertyID();
+            public static readonly int SSR_Lighting_Texture = Shader.PropertyToID("SSR_Lighting_Texture");
 
             public static string GetDebugKeyword(ScreenSpaceReflection.DebugMode debugMode)
             {
@@ -122,10 +130,24 @@ namespace Game.Core.PostProcessing
         RTHandle m_SsrHitPointRT;
         RTHandle m_SsrLightingRT;
         
+        private readonly ProfilingSampler m_TracingSampler = new("SSR Tracing");
+        private readonly ProfilingSampler m_ReprojectionSampler = new("SSR Reprojection");
+        private readonly ProfilingSampler m_AccumulationSampler = new("SSR Accumulation");
+        
         public override ScriptableRenderPassInput input => ScriptableRenderPassInput.Depth | ScriptableRenderPassInput.Normal | ScriptableRenderPassInput.Motion;
         public override PostProcessPassInput postProcessPassInput => settings.mode.value == ScreenSpaceReflection.RaytraceModes.HiZTracing ? PostProcessPassInput.HiZ : PostProcessPassInput.None;
 
-        
+        public override void Setup()
+        {
+            base.Setup();
+            
+            if (m_ScreenSpaceReflectionMaterial == null)
+            {
+                var runtimeResources = GraphicsSettings.GetRenderPipelineSettings<ScreenSpaceReflectionResources>();
+                m_ScreenSpaceReflectionMaterial = GetMaterial(runtimeResources.screenSpaceReflectionPS);
+            }
+        }
+
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
         {
             GetSSRDesc(renderingData.cameraData.cameraTargetDescriptor);
@@ -136,18 +158,27 @@ namespace Game.Core.PostProcessing
 
         public override void Render(CommandBuffer cmd, RTHandle source, RTHandle target, ref RenderingData renderingData)
         {
-            var desc = renderingData.cameraData.cameraTargetDescriptor;
             SetupMaterials(renderingData.cameraData.camera);
-            
-            if (settings.mode.value == ScreenSpaceReflection.RaytraceModes.LinearTracing)
-                Blit(cmd, source, m_SsrHitPointRT, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Test);
-            else
-                Blit(cmd, source, m_SsrHitPointRT, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.HizTest);
 
-            m_ScreenSpaceReflectionMaterial.SetTexture(ShaderConstants.SsrHitPointTexture, m_SsrHitPointRT);
-            Blit(cmd, source, m_SsrLightingRT, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Reproject);
-            m_ScreenSpaceReflectionMaterial.SetTexture(ShaderConstants.SsrLightingTexture, m_SsrLightingRT);
-            Blit(cmd, source, target, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Composite);
+            using (new ProfilingScope(cmd, m_TracingSampler))
+            {
+                if (settings.mode.value == ScreenSpaceReflection.RaytraceModes.LinearTracing)
+                    Blit(cmd, source, m_SsrHitPointRT, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Test);
+                else
+                    Blit(cmd, source, m_SsrHitPointRT, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.HizTest);
+            }
+
+            using (new ProfilingScope(cmd, m_ReprojectionSampler))
+            {
+                m_ScreenSpaceReflectionMaterial.SetTexture(ShaderConstants.SsrHitPointTexture, m_SsrHitPointRT);
+                Blit(cmd, source, m_SsrLightingRT, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Reproject);
+            }
+
+            using (new ProfilingScope(cmd, m_AccumulationSampler))
+            {
+                m_ScreenSpaceReflectionMaterial.SetTexture(ShaderConstants.SsrLightingTexture, m_SsrLightingRT);
+                Blit(cmd, source, target, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Composite);
+            }
         }
         
         public override void Dispose(bool disposing)
