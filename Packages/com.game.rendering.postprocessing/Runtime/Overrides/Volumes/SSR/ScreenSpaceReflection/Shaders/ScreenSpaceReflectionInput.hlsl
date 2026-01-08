@@ -55,6 +55,8 @@ float4x4 _InverseProjectionMatrixSSR;
 float4 _Params1;     // x: vignette intensity, y: distance fade, z: maximum march distance, w: intensity
 float4 _Params2;    // z: thickness, w: maximum iteration count
 
+float SEPARATION_POS;
+
 #define _Attenuation            .25
 #define _VignetteIntensity      _Params1.x
 #define _DistanceFade           _Params1.y

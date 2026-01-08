@@ -32,7 +32,9 @@ namespace Game.Core.PostProcessing
         [Tooltip("实际上是追踪步长, 越大精度越低, 追踪范围越大, 越节省追踪次数")]
         public ClampedFloatParameter thickness = new(8f, 1f, 64f);
         
+        [Tooltip("Controls the smoothness value at which HDRP activates SSR and the smoothness-controlled fade out stops.")]
         public ClampedFloatParameter minSmoothness = new (0.9f, 0.0f, 1.0f);
+        [Tooltip("Controls the smoothness value at which the smoothness-controlled fade out starts. The fade is in the range [Min Smoothness, Smoothness Fade Start]")]
         public ClampedFloatParameter smoothnessFadeStart = new (0.9f, 0.0f, 1.0f);
         
         [Tooltip("最大追踪次数")]
@@ -42,14 +44,17 @@ namespace Game.Core.PostProcessing
         public MinFloatParameter maximumMarchDistance = new(100f, 0f);
 
         [Tooltip("值越大, 未追踪部分天空颜色会越多, 过度边界会越硬")]
-        public ClampedFloatParameter distanceFade = new(0.02f, 0f, 1f);
+        public ClampedFloatParameter distanceFade = new(1f, 0f, 1f);
         
         [Tooltip("边缘渐变")]
         [InspectorName("Screen Edge Fade Distance")]
-        public ClampedFloatParameter vignette = new(0f, 0f, 1f);
+        public ClampedFloatParameter vignette = new(1f, 0f, 1f);
         
         [Header("Debug")]
         public EnumParameter<DebugMode> debugMode = new(DebugMode.Disabled);
+
+        public ClampedFloatParameter split = new(0.5f, 0f, 1f);
+        
         
         public enum RaytraceModes
         {
@@ -69,7 +74,51 @@ namespace Game.Core.PostProcessing
         {
             Disabled,
             SSROnly,
+            Split,
         }
+
+        public enum Preset
+        {
+            Fast = 10,
+            Medium = 20,
+            High = 30,
+            Superb = 35,
+            Ultra = 40
+        }
+
+        public void ApplyPreset(Preset preset)
+        {
+            switch (preset)
+            {
+                case Preset.Fast:
+                    resolution.value = Resolution.Quarter;
+                    thickness.value = 1.0f;
+                    maximumIterationCount.value = 16;
+                    break;
+                case Preset.Medium:
+                    resolution.value = Resolution.Half;
+                    thickness.value = 2.5f;
+                    maximumIterationCount.value = 32;
+                    break;
+                case Preset.High:
+                    resolution.value = Resolution.Full;
+                    thickness.value = 3f;
+                    maximumIterationCount.value = 64;
+                    break;
+                case Preset.Superb:
+                    resolution.value = Resolution.Double;
+                    thickness.value = 6f;
+                    maximumIterationCount.value = 128;
+                    break;
+                case Preset.Ultra:
+                    resolution.value = Resolution.Double;
+                    thickness.value = 4f;
+                    maximumIterationCount.value = 256;
+                    break;
+            }
+        }
+
+
     }
     
     
@@ -94,7 +143,8 @@ namespace Game.Core.PostProcessing
             public static readonly int SsrRoughnessFadeEndTimesRcpLength = Shader.PropertyToID("_SsrRoughnessFadeEndTimesRcpLength");
             public static readonly int SsrRoughnessFadeRcpLength = Shader.PropertyToID("_SsrRoughnessFadeRcpLength");
             public static readonly int SsrEdgeFadeRcpLength = Shader.PropertyToID("_SsrEdgeFadeRcpLength");
-            
+
+            public static readonly int SEPARATION_POS = Shader.PropertyToID("SEPARATION_POS");
             public static readonly int _BlitTexture = MemberNameHelpers.ShaderPropertyID();
             public static readonly int _CameraDepthTexture = MemberNameHelpers.ShaderPropertyID();
             public static readonly int _BlitScaleBias = MemberNameHelpers.ShaderPropertyID();
@@ -107,6 +157,8 @@ namespace Game.Core.PostProcessing
                 {
                     case ScreenSpaceReflection.DebugMode.SSROnly:
                         return "DEBUG_SCREEN_SPACE_REFLECTION";
+                    case ScreenSpaceReflection.DebugMode.Split:
+                        return "SPLIT_SCREEN_SPACE_REFLECTION";
                     case ScreenSpaceReflection.DebugMode.Disabled:
                     default:
                         return "_";

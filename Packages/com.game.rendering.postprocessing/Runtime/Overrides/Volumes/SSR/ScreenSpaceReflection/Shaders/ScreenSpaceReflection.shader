@@ -63,7 +63,7 @@ Shader "Hidden/PostProcessing/ScreenSpaceReflection"
             HLSLPROGRAM
             #include "ScreenSpaceReflection_Resolve.hlsl"
 
-            #pragma shader_feature_local _ DEBUG_SCREEN_SPACE_REFLECTION
+            #pragma shader_feature_local _ DEBUG_SCREEN_SPACE_REFLECTION SPLIT_SCREEN_SPACE_REFLECTION
 
             #pragma vertex Vert
             #pragma fragment FragSSRComposite

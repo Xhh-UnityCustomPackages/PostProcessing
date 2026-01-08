@@ -373,6 +373,52 @@ MonoBehaviour:
   imagePSFPow:
     m_OverrideState: 0
     m_Value: 1
+--- !u!114 &-1207722540395511353
+MonoBehaviour:
+  m_ObjectHideFlags: 3
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2a4668833666a0c43bd70dfb9beb3c58, type: 3}
+  m_Name: LightShaft
+  m_EditorClassIdentifier: 
+  active: 0
+  enabled:
+    m_OverrideState: 1
+    m_Value: 1
+  enable:
+    m_OverrideState: 0
+    m_Value: 0
+  mode:
+    m_OverrideState: 0
+    m_Value: 0
+  downSample:
+    m_OverrideState: 0
+    m_Value: 2
+  density:
+    m_OverrideState: 0
+    m_Value: 2
+  weight:
+    m_OverrideState: 0
+    m_Value: 1
+  decay:
+    m_OverrideState: 0
+    m_Value: 1
+  exposure:
+    m_OverrideState: 0
+    m_Value: 0.5
+  bloomTintAndThreshold:
+    m_OverrideState: 0
+    m_Value: {r: 1, g: 1, b: 1, a: 1}
+  radialBlurPower:
+    m_OverrideState: 0
+    m_Value: 0.6
+  radialBlurVectorMin:
+    m_OverrideState: 0
+    m_Value: 0.17
 --- !u!114 &11400000
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -391,6 +437,7 @@ MonoBehaviour:
   - {fileID: 1381281844011770164}
   - {fileID: 6814338713532929025}
   - {fileID: -5498483779157613583}
+  - {fileID: -1207722540395511353}
 --- !u!114 &1381281844011770164
 MonoBehaviour:
   m_ObjectHideFlags: 3
@@ -407,18 +454,27 @@ MonoBehaviour:
   enabled:
     m_OverrideState: 1
     m_Value: 1
+  Enable:
+    m_OverrideState: 1
+    m_Value: 1
   mode:
     m_OverrideState: 0
     m_Value: 0
   resolution:
     m_OverrideState: 1
-    m_Value: 2
+    m_Value: 3
   intensity:
     m_OverrideState: 1
-    m_Value: 5
+    m_Value: 1
   thickness:
     m_OverrideState: 0
-    m_Value: 8
+    m_Value: 4
+  minSmoothness:
+    m_OverrideState: 1
+    m_Value: 0.606
+  smoothnessFadeStart:
+    m_OverrideState: 1
+    m_Value: 1
   maximumIterationCount:
     m_OverrideState: 0
     m_Value: 256
@@ -426,20 +482,11 @@ MonoBehaviour:
     m_OverrideState: 0
     m_Value: 100
   distanceFade:
-    m_OverrideState: 0
-    m_Value: 0.02
-  jitterMode:
     m_OverrideState: 1
-    m_Value: 2
-  blurIterations:
-    m_OverrideState: 1
-    m_Value: 3
+    m_Value: 1
   vignette:
     m_OverrideState: 1
-    m_Value: 0
-  antiFlicker:
-    m_OverrideState: 0
-    m_Value: 1
+    m_Value: 0.693
   debugMode:
     m_OverrideState: 1
     m_Value: 0

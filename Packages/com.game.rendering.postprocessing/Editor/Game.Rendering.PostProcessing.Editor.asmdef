@@ -1,6 +1,6 @@
 {
     "name": "Game.Rendering.PostProcessing.Editor",
-    "rootNamespace": "",
+    "rootNamespace": "Game.Core.PostProcessing.UnityEditor",
     "references": [
         "GUID:525b5dcfe5c5b404fbc0447e3e60dc84",
         "GUID:3eae0364be2026648bf74846acb8a731",

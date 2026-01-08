@@ -12,6 +12,17 @@ float4 FragSSRComposite(Varyings input) : SV_Target
     float4 resolve = SAMPLE_TEXTURE2D(_SsrLightingTexture, sampler_LinearClamp, uv);
     #if DEBUG_SCREEN_SPACE_REFLECTION
     return resolve;
+    #elif SPLIT_SCREEN_SPACE_REFLECTION
+    
+    if (uv.x < SEPARATION_POS - _BlitTexture_TexelSize.x * 1)
+    {
+        return sourceColor;
+    }
+    else if (uv.x < SEPARATION_POS + _BlitTexture_TexelSize.x * 1)
+    {
+        return 1.0;
+    }
+    
     #endif
     
     

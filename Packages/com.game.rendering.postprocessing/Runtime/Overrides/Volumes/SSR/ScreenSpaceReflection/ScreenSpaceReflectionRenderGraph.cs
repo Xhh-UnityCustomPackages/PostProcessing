@@ -129,6 +129,10 @@ namespace Game.Core.PostProcessing
             // local shader keywords
             m_ShaderKeywords[0] = ShaderConstants.GetDebugKeyword(settings.debugMode.value);
             m_ScreenSpaceReflectionMaterial.shaderKeywords = m_ShaderKeywords;
+            if (settings.debugMode.value == ScreenSpaceReflection.DebugMode.Split)
+            {
+                m_ScreenSpaceReflectionMaterial.SetFloat(ShaderConstants.SEPARATION_POS, settings.split.value);
+            }
         }
 
         void GetSSRDesc(RenderTextureDescriptor desc)
