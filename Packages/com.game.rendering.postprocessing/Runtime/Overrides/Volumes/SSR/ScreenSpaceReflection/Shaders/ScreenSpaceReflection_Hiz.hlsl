@@ -2,12 +2,7 @@
 #define SCREEN_SPACE_REFLECTION_HIZ_INCLUDED
 
 #include "ScreenSpaceReflectionInput.hlsl"
-
-//Hiz
-TEXTURE2D(_HizDepthTexture);                SAMPLER(sampler_HizDepthTexture);
-int _HizDepthTextureMipLevel;
-
-float4 _HizDepthTexture_TexelSize;
+#include "Packages/com.game.rendering.postprocessing/ShaderLibrary/DeclarePyramidDepthTexture.hlsl"
 
 float3 _WorldSpaceViewDir;//相机朝向
 
@@ -26,8 +21,8 @@ bool RayIterations(inout half2 P,
 {
     bool stop = intersecting;
 
-    float mipLevel = 0.0;
-    
+    int mipLevel = 0;
+    const int maxMipLevel = min(_SsrDepthPyramidMaxMip, 14);
     UNITY_LOOP
     for (; (P.x * stepDirection) <= end && stepCount < maxSteps && !stop;)
     {
@@ -44,7 +39,11 @@ bool RayIterations(inout half2 P,
         }
 
         hitPixel = permute ? P.yx : P;
-        float mipDepth = SAMPLE_TEXTURE2D_X_LOD(_HizDepthTexture, sampler_HizDepthTexture, hitPixel * invSize,mipLevel);
+        
+        int2 mipCoord  = (int2)1 >> mipLevel;
+        int2 mipOffset = _DepthPyramidMipLevelOffsets[mipLevel];
+        
+        float mipDepth = LOAD_TEXTURE2D_X(_DepthPyramid, mipOffset + mipCoord).r;
         float surfaceZ = -LinearEyeDepth(mipDepth, _ZBufferParams);
 
         bool isBehind = (rayZMin <= sceneZ);//如果光线深度小于深度图深度
@@ -62,7 +61,7 @@ bool RayIterations(inout half2 P,
         }
         else
         {
-            mipLevel = min(mipLevel + 1, _HizDepthTextureMipLevel);
+            mipLevel = min(mipLevel + 1, maxMipLevel);
         }
 
     }

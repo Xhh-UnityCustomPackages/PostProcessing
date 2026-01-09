@@ -10,9 +10,9 @@ namespace Game.Core.PostProcessing
     public enum FrameHistoryType
     {
         /// <summary>
-        /// 历史帧颜色
+        /// Color buffer mip chain.
         /// </summary>
-        ColorBuffer,
+        ColorBufferMipChain,
         /// <summary>
         /// Exposure buffer.
         /// </summary>
@@ -31,18 +31,39 @@ namespace Game.Core.PostProcessing
         
         private Camera m_Camera;
         private UniversalAdditionalCameraData m_AdditionalCameraData;
-
-
+        private GPUCopy m_GPUCopy;
+        public GPUCopy GPUCopy => m_GPUCopy;
+        private MipGenerator m_MipGenerator;
+        public  MipGenerator MipGenerator => m_MipGenerator;
+        
+        private PackedMipChainInfo m_MipChainInfo;
+        public PackedMipChainInfo MipChainInfo => m_MipChainInfo;
+        public int ColorPyramidHistoryMipCount { get; internal set; }
+        
         private BufferedRTHandleSystem m_HistoryRTSystem = new();
+        
+        private bool m_Init = false;
 
         public void Setup(Camera camera)
         {
+            if (m_Init)
+            {
+                return;
+            }
+
+            m_Init = true;
+
             m_Camera = camera;
 
             if (m_AdditionalCameraData == null)
             {
                 m_Camera.TryGetComponent(out m_AdditionalCameraData);
             }
+            
+            m_GPUCopy ??= new GPUCopy();
+            m_MipGenerator ??= new MipGenerator();
+            m_MipChainInfo = new();
+            m_MipChainInfo.Allocate();
         }
         
         public void UpdateFrame(ref RenderingData renderingData)
@@ -56,6 +77,7 @@ namespace Game.Core.PostProcessing
             var descriptor = renderingData.cameraData.cameraTargetDescriptor;
             var viewportSize = new Vector2Int(descriptor.width, descriptor.height);
             m_HistoryRTSystem.SwapAndSetReferenceSize(descriptor.width, descriptor.height);
+            m_MipChainInfo.ComputePackedMipChainInfo(viewportSize, 0);
         }
 
         public void Dispose()
@@ -67,6 +89,7 @@ namespace Game.Core.PostProcessing
                 m_HistoryRTSystem.Dispose();
                 m_HistoryRTSystem = null;
             }
+            m_MipGenerator.Release();
         }
 
 

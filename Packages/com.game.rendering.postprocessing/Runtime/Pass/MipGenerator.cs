@@ -55,11 +55,13 @@ namespace Game.Core.PostProcessing
             Vector2Int hardwareTextureSize = isHardwareDrsOn ? DynamicResolutionHandler.instance.ApplyScalesOnSize(viewportSize) : viewportSize;
             Vector2 textureScale = isHardwareDrsOn ? new Vector2((float)viewportSize.x / (float)hardwareTextureSize.x, (float)viewportSize.y / (float)hardwareTextureSize.y) : new Vector2(1.0f, 1.0f);
 
+
             // We need to mark the buffer dirty in case another camera has a different viewport size
             m_OffsetBufferWillNeedUpdate = true;
 
             // No work needed.
-            if (cachedHardwareTextureSize == hardwareTextureSize && cachedTextureScale == textureScale && cachedCheckerboardMipCount == checkerboardMipCount)
+            if (cachedHardwareTextureSize == hardwareTextureSize && cachedTextureScale == textureScale &&
+                cachedCheckerboardMipCount == checkerboardMipCount)
                 return;
 
             cachedHardwareTextureSize = hardwareTextureSize;
@@ -118,7 +120,8 @@ namespace Game.Core.PostProcessing
                 hardwareTextureSize.y = Math.Max(hardwareTextureSize.y, mipBegin.y + mipSize.y);
                 hardwareTextureSize.x = Math.Max(hardwareTextureSize.x, mipBeginCheckerboard.x + mipSize.x);
                 hardwareTextureSize.y = Math.Max(hardwareTextureSize.y, mipBeginCheckerboard.y + mipSize.y);
-            } while ((mipSize.x > 1) || (mipSize.y > 1));
+            } 
+            while ((mipSize.x > 1) || (mipSize.y > 1));
 
             textureSize = new Vector2Int(
                 (int)Mathf.Ceil((float)hardwareTextureSize.x * textureScale.x), (int)Mathf.Ceil((float)hardwareTextureSize.y * textureScale.y));
@@ -141,35 +144,50 @@ namespace Game.Core.PostProcessing
 
     public class MipGenerator
     {
+        static class ShaderIDs
+        {
+            public static readonly int _DepthPyramidConstants = Shader.PropertyToID("DepthPyramidConstants");
+            public static readonly int _Size = Shader.PropertyToID("_Size");
+            public static readonly int _Source = Shader.PropertyToID("_Source");
+            public static readonly int _BlitTexture = Shader.PropertyToID("_BlitTexture");
+            public static readonly int _BlitScaleBias = Shader.PropertyToID("_BlitScaleBias");
+            public static readonly int _BlitMipLevel = Shader.PropertyToID("_BlitMipLevel");
+            public static readonly int _Destination = Shader.PropertyToID("_Destination");
+        }
+
         // RTHandle m_TempColorTargets;
-        // RTHandle m_TempDownsamplePyramid;
+        RTHandle m_TempDownsamplePyramid;
 
         ComputeShader m_DepthPyramidCS;
-        // ComputeShader m_ColorPyramidCS;
+        ComputeShader m_ColorPyramidCS;
         // Shader m_ColorPyramidPS;
         // Material m_ColorPyramidPSMat;
-        // MaterialPropertyBlock m_PropertyBlock;
+        MaterialPropertyBlock m_PropertyBlock;
 
         int m_DepthDownsampleKernel;
-        // int m_ColorDownsampleKernel;
-        // int m_ColorGaussianKernel;
+        int m_ColorDownsampleKernel;
+        int m_ColorGaussianKernel;
 
         public MipGenerator()
         {
-            var runtimeShaders = GraphicsSettings.GetRenderPipelineSettings<PyramidDepthGeneratorResources>();
+            var runtimeShaders = GraphicsSettings.GetRenderPipelineSettings<PostProcessFeatureRuntimeResources>();
             m_DepthPyramidCS = runtimeShaders.depthPyramidCS;
+            m_ColorPyramidCS = runtimeShaders.colorPyramidCS;
+            
             m_DepthDownsampleKernel = m_DepthPyramidCS.FindKernel("KDepthDownsample8DualUav");
+            m_ColorDownsampleKernel = m_ColorPyramidCS.FindKernel("KColorDownsample");
+            m_ColorGaussianKernel = m_ColorPyramidCS.FindKernel("KColorGaussian");
 
-            // m_PropertyBlock = new MaterialPropertyBlock();
+            m_PropertyBlock = new MaterialPropertyBlock();
         }
 
         public void Release()
         {
             // RTHandles.Release(m_TempColorTargets);
             // m_TempColorTargets = null;
-            // RTHandles.Release(m_TempDownsamplePyramid);
-            // m_TempDownsamplePyramid = null;
-            //
+            RTHandles.Release(m_TempDownsamplePyramid);
+            m_TempDownsamplePyramid = null;
+            
             // CoreUtils.Destroy(m_ColorPyramidPSMat);
         }
 
@@ -219,7 +237,7 @@ namespace Game.Core.PostProcessing
                     _CbDstOffset0 = info.mipLevelOffsetsCheckerboard[dstIndex0],
                     _CbDstOffset1 = info.mipLevelOffsetsCheckerboard[dstIndex1],
                 };
-                ConstantBuffer.Push(cmd, cb, cs, PipelineShaderIDs._DepthPyramidConstants);
+                ConstantBuffer.Push(cmd, cb, cs, ShaderIDs._DepthPyramidConstants);
 
                 CoreUtils.SetKeyword(cmd, cs, "ENABLE_CHECKERBOARD", cbCount != 0);
 
@@ -229,5 +247,115 @@ namespace Game.Core.PostProcessing
                 dstIndex0 += minCount;
             }
         }
+        
+        
+        // Generates the gaussian pyramid of source into destination
+        // We can't do it in place as the color pyramid has to be read while writing to the color
+        // buffer in some cases (e.g. refraction, distortion)
+        // Returns the number of mips
+        public int RenderColorGaussianPyramid(CommandBuffer cmd, Vector2Int size, Texture source, RenderTexture destination)
+        {
+            // Select between Tex2D and Tex2DArray versions of the kernels
+            bool sourceIsArray = (source.dimension == TextureDimension.Tex2DArray);
+            int rtIndex = sourceIsArray ? 1 : 0;
+            // Sanity check
+            if (sourceIsArray)
+            {
+                Debug.Assert(source.dimension == destination.dimension, "MipGenerator source texture does not match dimension of destination!");
+            }
+            
+            int srcMipLevel = 0;
+            int srcMipWidth = size.x;
+            int srcMipHeight = size.y;
+            int slices = destination.volumeDepth;
+            
+            // Check if format has changed since last time we generated mips
+            if (m_TempDownsamplePyramid != null && m_TempDownsamplePyramid.rt.graphicsFormat != destination.graphicsFormat)
+            {
+                RTHandles.Release(m_TempDownsamplePyramid);
+                m_TempDownsamplePyramid = null;
+            }
+            
+            if (m_TempDownsamplePyramid == null)
+            {
+                m_TempDownsamplePyramid = RTHandles.Alloc(
+                    Vector2.one * 0.5f,
+                    sourceIsArray ? TextureXR.slices : 1,
+                    dimension: source.dimension,
+                    filterMode: FilterMode.Bilinear,
+                    colorFormat: destination.graphicsFormat,
+                    enableRandomWrite: true,
+                    useMipMap: false,
+                    useDynamicScale: true,
+                    name: "Temporary Downsampled Pyramid"
+                );
+
+                cmd.SetRenderTarget(m_TempDownsamplePyramid);
+                cmd.ClearRenderTarget(false, true, Color.black);
+            }
+            
+            bool isHardwareDrsOn = DynamicResolutionHandler.instance.HardwareDynamicResIsEnabled();
+            var hardwareTextureSize = new Vector2Int(source.width, source.height);
+            if (isHardwareDrsOn)
+                hardwareTextureSize = DynamicResolutionHandler.instance.ApplyScalesOnSize(hardwareTextureSize);
+
+            float sourceScaleX = size.x / (float)hardwareTextureSize.x;
+            float sourceScaleY = size.y / (float)hardwareTextureSize.y;
+            
+            // Copies src mip0 to dst mip0
+            // Note that we still use a fragment shader to do the first copy because fragment are faster at copying
+            // data types like R11G11B10 (default) and pretty similar in term of speed with R16G16B16A16.
+            m_PropertyBlock.SetTexture(ShaderIDs._BlitTexture, source);
+            m_PropertyBlock.SetVector(ShaderIDs._BlitScaleBias, new Vector4(sourceScaleX, sourceScaleY, 0f, 0f));
+            m_PropertyBlock.SetFloat(ShaderIDs._BlitMipLevel, 0f);
+            cmd.SetRenderTarget(destination, 0, CubemapFace.Unknown, -1);
+            cmd.SetViewport(new Rect(0, 0, srcMipWidth, srcMipHeight));
+            cmd.DrawProcedural(Matrix4x4.identity, Blitter.GetBlitMaterial(source.dimension), 0, MeshTopology.Triangles, 3, 1, m_PropertyBlock);
+            
+            var finalTargetSize = new Vector2Int(destination.width, destination.height);
+            if (destination.useDynamicScale && isHardwareDrsOn)
+                finalTargetSize = DynamicResolutionHandler.instance.ApplyScalesOnSize(finalTargetSize);
+            
+            // Note: smaller mips are excluded as we don't need them and the gaussian compute works
+            // on 8x8 blocks
+            while (srcMipWidth >= 8 || srcMipHeight >= 8)
+            {
+                int dstMipWidth = Mathf.Max(1, srcMipWidth >> 1);
+                int dstMipHeight = Mathf.Max(1, srcMipHeight >> 1);
+                
+                cmd.SetComputeVectorParam(m_ColorPyramidCS, ShaderIDs._Size,
+                    new Vector4(srcMipWidth, srcMipHeight, 0f, 0f));
+
+                {
+                    // Downsample.
+                    cmd.SetComputeTextureParam(m_ColorPyramidCS, m_ColorDownsampleKernel, ShaderIDs._Source,
+                        destination, srcMipLevel);
+                    cmd.SetComputeTextureParam(m_ColorPyramidCS, m_ColorDownsampleKernel, ShaderIDs._Destination,
+                        m_TempDownsamplePyramid);
+                    cmd.DispatchCompute(m_ColorPyramidCS, m_ColorDownsampleKernel, (dstMipWidth + 7) / 8,
+                        (dstMipHeight + 7) / 8, TextureXR.slices);
+
+                    // Single pass blur
+                    cmd.SetComputeVectorParam(m_ColorPyramidCS, ShaderIDs._Size,
+                        new Vector4(dstMipWidth, dstMipHeight, 0f, 0f));
+                    cmd.SetComputeTextureParam(m_ColorPyramidCS, m_ColorGaussianKernel, ShaderIDs._Source,
+                        m_TempDownsamplePyramid);
+                    cmd.SetComputeTextureParam(m_ColorPyramidCS, m_ColorGaussianKernel, ShaderIDs._Destination,
+                        destination, srcMipLevel + 1);
+                    cmd.DispatchCompute(m_ColorPyramidCS, m_ColorGaussianKernel, (dstMipWidth + 7) / 8,
+                        (dstMipHeight + 7) / 8, TextureXR.slices);
+                }
+
+                srcMipLevel++;
+                srcMipWidth >>= 1;
+                srcMipHeight >>= 1;
+
+                finalTargetSize.x >>= 1;
+                finalTargetSize.y >>= 1;
+            }
+            
+            return srcMipLevel + 1;
+        }
+
     }
 }

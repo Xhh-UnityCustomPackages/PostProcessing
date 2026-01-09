@@ -35,6 +35,7 @@ namespace Game.Core.PostProcessing
             public static readonly int _SsrAccumPrev = MemberNameHelpers.ShaderPropertyID();
             
             public static readonly int SSR_Lighting_Texture = Shader.PropertyToID("SSR_Lighting_Texture");
+            public static readonly int _DepthPyramidMipLevelOffsets = MemberNameHelpers.ShaderPropertyID();
 
             public static string GetDebugKeyword(ScreenSpaceReflection.DebugMode debugMode)
             {
@@ -75,13 +76,15 @@ namespace Game.Core.PostProcessing
         private readonly int m_AccumulateSmoothSpeedRejectionBothKernel;
         private readonly int m_AccumulateNoWorldSpeedRejectionBothDebugKernel;
         private readonly int m_AccumulateSmoothSpeedRejectionBothDebugKernel;
+        
+        ComputeBuffer m_DepthPyramidMipLevelOffsetsBuffer = null;
 
         private readonly ProfilingSampler m_TracingSampler = new("SSR Tracing");
         private readonly ProfilingSampler m_ReprojectionSampler = new("SSR Reprojection");
         private readonly ProfilingSampler m_AccumulationSampler = new("SSR Accumulation");
 
         public override ScriptableRenderPassInput input => ScriptableRenderPassInput.Depth | ScriptableRenderPassInput.Normal | ScriptableRenderPassInput.Motion;
-        public override PostProcessPassInput postProcessPassInput => settings.mode.value == ScreenSpaceReflection.RaytraceModes.HiZTracing ? PostProcessPassInput.HiZ : PostProcessPassInput.None;
+        public override PostProcessPassInput postProcessPassInput => settings.mode.value == ScreenSpaceReflection.RaytraceModes.HiZTracing ? PostProcessPassInput.DepthPyramid : PostProcessPassInput.None;
 
         public override void Setup()
         {
@@ -142,7 +145,15 @@ namespace Game.Core.PostProcessing
                     if (settings.mode.value == ScreenSpaceReflection.RaytraceModes.LinearTracing)
                         Blit(cmd, source, m_SsrHitPointRT, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Test);
                     else
+                    {
+                        if (m_DepthPyramidMipLevelOffsetsBuffer == null)
+                            m_DepthPyramidMipLevelOffsetsBuffer = new ComputeBuffer(15, sizeof(int) * 2);
+
+                        var offsetBuffer = context.MipChainInfo.GetOffsetBufferData(m_DepthPyramidMipLevelOffsetsBuffer);
+                        m_ScreenSpaceReflectionMaterial.SetBuffer(ShaderConstants._DepthPyramidMipLevelOffsets, offsetBuffer);
                         Blit(cmd, source, m_SsrHitPointRT, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.HizTest);
+                    }
+
                 }
             }
 
@@ -225,6 +236,8 @@ namespace Game.Core.PostProcessing
 
             m_SsrLightingRT?.Release();
             m_SsrHitPointRT?.Release();
+            
+            CoreUtils.SafeRelease(m_DepthPyramidMipLevelOffsetsBuffer);
         }
     }
 }

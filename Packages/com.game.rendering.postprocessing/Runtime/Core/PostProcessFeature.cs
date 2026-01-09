@@ -33,9 +33,11 @@ namespace Game.Core.PostProcessing
     public enum PostProcessPassInput
     {
         None = 0,
-        HiZ = 1 << 0, // 层次深度
+        DepthPyramid = 1 << 0, // 层次深度
         ScreenSpaceShadow = 1 << 1, // 走屏幕空间阴影 
-        PreviousFrameColor = 1 << 2, //上一帧颜色
+        ColorPyramid = 1 << 2, // 颜色金字塔
+        PreviousFrameColor = 1 << 3, //上一帧颜色
+        // UberPost = 1 << 4,//自定义UberPost
     }
 
     [DisallowMultipleRendererFeature]
@@ -79,9 +81,9 @@ namespace Game.Core.PostProcessing
         UberPostProcess m_UberPostProcessing;
         private static PostProcessFeatureContext m_Context;
         
-        private GPUCopy m_GPUCopy;
-        private MipGenerator m_MipGenerator;
-        PyramidDepthGeneratorV2 m_HizDepthGenerator;
+     
+        ColorPyramidPass m_ColorPyramidPass;
+        DepthPyramidPass m_HizDepthGenerator;
         
         private ScreenSpaceShadowsPass m_SSShadowsPass = null;
         private ScreenSpaceShadowsPostPass m_SSShadowsPostPass = null;
@@ -127,11 +129,8 @@ namespace Game.Core.PostProcessing
             m_AfterRenderingPostProcessing = new PostProcessRenderPass(PostProcessInjectionPoint.AfterRenderingPostProcessing,
                 InstantiateRenderers(m_Settings.m_RenderersAfterRenderingPostProcessing, shared),
                 postProcessFeatureData, m_Context);
-            
-            m_UberPostProcessing = new UberPostProcess(postProcessFeatureData)
-            {
-                renderPassEvent = RenderPassEvent.AfterRenderingPostProcessing,
-            };
+
+            m_UberPostProcessing = new UberPostProcess(postProcessFeatureData);
             
 #if UNITY_EDITOR
             m_DebugHandler = new DebugHandler();
@@ -187,14 +186,26 @@ namespace Game.Core.PostProcessing
 
                 renderer.EnqueuePass(m_UberPostProcessing);
             }
-
             
-            if (postProcessPassInput.HasFlag(PostProcessPassInput.HiZ))
+            DealPostProcessInput(renderer, postProcessPassInput);
+
+#if UNITY_EDITOR
+            m_DebugHandler.EnqueuePass(renderer);
+#endif
+        }
+
+        void DealPostProcessInput(ScriptableRenderer renderer, PostProcessPassInput postProcessPassInput)
+        {
+            if (postProcessPassInput.HasFlag(PostProcessPassInput.DepthPyramid))
             {
-                m_GPUCopy ??= new GPUCopy();
-                m_MipGenerator ??= new MipGenerator();
-                m_HizDepthGenerator ??= new PyramidDepthGeneratorV2(m_GPUCopy, m_MipGenerator);
+                m_HizDepthGenerator ??= new DepthPyramidPass(m_Context);
                 renderer.EnqueuePass(m_HizDepthGenerator);
+            }
+
+            if (postProcessPassInput.HasFlag(PostProcessPassInput.ColorPyramid))
+            {
+                m_ColorPyramidPass ??= new ColorPyramidPass(m_Context);
+                renderer.EnqueuePass(m_ColorPyramidPass);
             }
 
             if (postProcessPassInput.HasFlag(PostProcessPassInput.ScreenSpaceShadow))
@@ -215,10 +226,6 @@ namespace Game.Core.PostProcessing
                 renderer.EnqueuePass(m_SSShadowsPass);
                 renderer.EnqueuePass(m_SSShadowsPostPass);
             }
-
-#if UNITY_EDITOR
-            m_DebugHandler.EnqueuePass(renderer);
-#endif
         }
 
         private void CheckRenderingMode(ScriptableRenderer renderer)
@@ -240,7 +247,7 @@ namespace Game.Core.PostProcessing
             PyramidBlur.Release();
             
             m_SSShadowsPass?.Dispose();
-
+            m_HizDepthGenerator?.Dispose();
 #if UNITY_EDITOR
             m_DebugHandler.Dispose();
 #endif

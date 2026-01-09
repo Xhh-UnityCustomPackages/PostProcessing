@@ -185,5 +185,10 @@ namespace Game.Core.PostProcessing
             int threadGroupY = Mathf.CeilToInt(destinationH / COMPUTE_SHADER_THREAD_COUNT_2D);
             cmd.DispatchCompute(computeShader, kernelID, threadGroupX, threadGroupY, 1);
         }
+        
+        public void Dispose()
+        {
+            m_HiZDepthRT?.Release();
+        }
     }
 }

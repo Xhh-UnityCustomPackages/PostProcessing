@@ -24,6 +24,7 @@ namespace Game.Core.PostProcessing
         public UberPostProcess(PostProcessFeatureData PostProcessFeatureData)
         {
             m_PostProcessFeatureData = PostProcessFeatureData;
+            renderPassEvent = RenderPassEvent.AfterRenderingPostProcessing;
         }
 
         public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)

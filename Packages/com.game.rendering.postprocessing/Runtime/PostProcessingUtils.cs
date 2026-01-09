@@ -1,13 +1,27 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Rendering.Universal;
 
 namespace Game.Core.PostProcessing
 {
+    //全局变量&关键字
     static class PipelineShaderIDs
     {
         public static readonly int _DepthMipChain = MemberNameHelpers.ShaderPropertyID();
-        public static readonly int _DepthPyramidConstants = MemberNameHelpers.ShaderPropertyID();
+        public static readonly int _DepthPyramid = MemberNameHelpers.ShaderPropertyID();
+        public static readonly int _ColorPyramidTexture = MemberNameHelpers.ShaderPropertyID();
+    }
+
+    public static class PostProcessingRenderPassEvent
+    {
+        public const RenderPassEvent SetGlobalVariablesPass = RenderPassEvent.AfterRenderingPrePasses + 0;
+        // ================================= Depth Prepass ================================================ //
+        // Screen space effect need ignore transparent post depth since normal is not matched with depth.
+        public const RenderPassEvent DepthPyramidPass = RenderPassEvent.AfterRenderingPrePasses + 1;
+        // ==================================== Transparency =============================================== //
+
+        public const RenderPassEvent ColorPyramidPass = RenderPassEvent.AfterRenderingTransparents + 4;
     }
 
     public class PostProcessingUtils

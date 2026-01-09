@@ -12,6 +12,7 @@ float _SsrRoughnessFadeRcpLength;
 
 float _SsrRoughnessFadeEndTimesRcpLength;
 float _SsrEdgeFadeRcpLength;
+int _SsrDepthPyramidMaxMip;
 
 CBUFFER_END
 

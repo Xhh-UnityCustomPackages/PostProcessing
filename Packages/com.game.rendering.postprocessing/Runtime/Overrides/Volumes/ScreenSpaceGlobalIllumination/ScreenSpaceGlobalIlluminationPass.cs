@@ -124,7 +124,7 @@ namespace Game.Core.PostProcessing
             public int IndirectDiffuseFrameIndex;
         }
 
-        public override PostProcessPassInput postProcessPassInput => PostProcessPassInput.HiZ | PostProcessPassInput.PreviousFrameColor;
+        public override PostProcessPassInput postProcessPassInput => PostProcessPassInput.DepthPyramid | PostProcessPassInput.PreviousFrameColor;
         
         public override ScriptableRenderPassInput input => ScriptableRenderPassInput.Depth
                                                            | ScriptableRenderPassInput.Normal

@@ -12,40 +12,32 @@ namespace Game.Core.PostProcessing
     /// <summary>
     /// 非Mip形式的HiZ 算法 照搬HDRP版本
     /// </summary>
-    public class PyramidDepthGeneratorV2 : ScriptableRenderPass
+    public class DepthPyramidPass : ScriptableRenderPass
     {
-
-        static class ShaderProperties
-        {
-            public static readonly int _DepthMipChain = MemberNameHelpers.ShaderPropertyID();
-            public static readonly int _DepthPyramid = MemberNameHelpers.ShaderPropertyID();
-            public static readonly int _DepthPyramidMipLevelOffsets = MemberNameHelpers.ShaderPropertyID();
-        }
-
         private static readonly ProfilingSampler CopyDepthSampler = new("Copy Depth Buffer");
         private static readonly ProfilingSampler DepthPyramidSampler = new("Depth Pyramid");
         
         private static RTHandle m_HiZDepthRT;
-        private PackedMipChainInfo m_MipChainInfo;
-        private GPUCopy gpuCopy;
-        private MipGenerator mipGenerator;
+        
+        private readonly PostProcessFeatureContext m_Context;
         public static RTHandle HiZDepthRT => m_HiZDepthRT;
 
-        public PyramidDepthGeneratorV2(GPUCopy gpuCopy, MipGenerator mipGenerator)
+        public DepthPyramidPass(PostProcessFeatureContext context)
         {
-            profilingSampler = new ProfilingSampler(nameof(PyramidDepthGenerator));
-            renderPassEvent = RenderPassEvent.BeforeRenderingDeferredLights - 1;
-            this.gpuCopy = gpuCopy;
-            this.mipGenerator = mipGenerator;
-            m_MipChainInfo.Allocate();
+            profilingSampler = new ProfilingSampler(nameof(DepthPyramidPass));
+            renderPassEvent = PostProcessingRenderPassEvent.DepthPyramidPass;
+            m_Context = context;
+        }
+        
+        public override void Configure(CommandBuffer cmd, RenderTextureDescriptor cameraTextureDescriptor)
+        {
+            ConfigureInput(ScriptableRenderPassInput.Depth);
         }
         
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
         {
             var cameraTargetDescriptor = renderingData.cameraData.cameraTargetDescriptor;
-            Vector2Int nonScaledViewport = new Vector2Int(cameraTargetDescriptor.width, cameraTargetDescriptor.height);
-            m_MipChainInfo.ComputePackedMipChainInfo(nonScaledViewport, 0);
-            var mipChainSize = m_MipChainInfo.textureSize;
+            var mipChainSize = m_Context.MipChainInfo.textureSize;
             var depthDescriptor = cameraTargetDescriptor;
             depthDescriptor.enableRandomWrite = true;
             depthDescriptor.width = mipChainSize.x;
@@ -53,7 +45,7 @@ namespace Game.Core.PostProcessing
             depthDescriptor.graphicsFormat = GraphicsFormat.R32_SFloat;
             depthDescriptor.depthBufferBits = 0;
             RenderingUtils.ReAllocateHandleIfNeeded(ref m_HiZDepthRT, depthDescriptor, name: "CameraDepthBufferMipChain");
-            cmd.SetGlobalTexture(ShaderProperties._DepthPyramid, m_HiZDepthRT);
+            cmd.SetGlobalTexture(PipelineShaderIDs._DepthPyramid, m_HiZDepthRT);
         }
 
         public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
@@ -69,14 +61,14 @@ namespace Game.Core.PostProcessing
                 // Copy Depth
                 using (new ProfilingScope(cmd, CopyDepthSampler))
                 {
-                    var _depthStencilBuffer = UniversalRenderingUtility.GetDepthTexture(renderingData.cameraData.renderer);
-                    gpuCopy.SampleCopyChannel_xyzw2x(cmd, _depthStencilBuffer, m_HiZDepthRT,
+                    var cameraDepth = UniversalRenderingUtility.GetDepthTexture(renderingData.cameraData.renderer);
+                    m_Context.GPUCopy.SampleCopyChannel_xyzw2x(cmd, cameraDepth, m_HiZDepthRT,
                         new RectInt(0, 0, cameraTargetDescriptor.width, cameraTargetDescriptor.height));
                 }
-                
+                // Depth Pyramid
                 using (new ProfilingScope(cmd, DepthPyramidSampler))
                 {
-                    mipGenerator.RenderMinDepthPyramid(cmd, m_HiZDepthRT, m_MipChainInfo);
+                    m_Context.MipGenerator.RenderMinDepthPyramid(cmd, m_HiZDepthRT, m_Context.MipChainInfo);
                 }
             }
 
@@ -84,7 +76,10 @@ namespace Game.Core.PostProcessing
             CommandBufferPool.Release(cmd);
         }
 
-
+        public void Dispose()
+        {
+            m_HiZDepthRT?.Release();
+        }
         
     }
 }

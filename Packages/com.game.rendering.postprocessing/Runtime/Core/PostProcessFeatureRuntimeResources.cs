@@ -21,6 +21,25 @@ namespace UnityEngine.Rendering
             get => m_CopyChannelCS;
             set => this.SetValueAndNotify(ref m_CopyChannelCS, value);
         }
+        
+        [SerializeField, ResourcePath("Runtime/Pass/PyramidDepthGenerator/Shader/DepthPyramid.compute")]
+        private ComputeShader m_DepthPyramidCS;
+        
+        public ComputeShader depthPyramidCS
+        {
+            get => m_DepthPyramidCS;
+            set => this.SetValueAndNotify(ref m_DepthPyramidCS, value);
+        }
+        
+        [SerializeField, ResourcePath("Runtime/Pass/PyramidColorGenerator/Shader/ColorPyramid.compute")]
+        private ComputeShader m_ColorPyramidCS;
+        
+        public ComputeShader colorPyramidCS
+        {
+            get => m_ColorPyramidCS;
+            set => this.SetValueAndNotify(ref m_ColorPyramidCS, value);
+        }
+        
         #endregion
     }
 }
