@@ -21,5 +21,12 @@ namespace UnityEngine.Rendering
         
         //----------------------------------
         // ComputeShader 方法
+        [SerializeField, ResourcePath("Runtime/Overrides/Volumes/SSR/ScreenSpaceReflection/Shaders/ScreenSpaceReflection.compute")]
+        private ComputeShader m_ScreenSpaceReflectionCS;
+        public ComputeShader screenSpaceReflectionCS
+        {
+            get => m_ScreenSpaceReflectionCS;
+            set => this.SetValueAndNotify(ref m_ScreenSpaceReflectionCS, value);
+        }
     }
 }

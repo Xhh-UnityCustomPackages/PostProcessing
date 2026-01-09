@@ -21,28 +21,19 @@ namespace Game.Core.PostProcessing
         
         [Tooltip("模式")] 
         public EnumParameter<RaytraceModes> mode = new(RaytraceModes.LinearTracing);
-
-        [Tooltip("分辨率")] 
-        public EnumParameter<Resolution> resolution = new(Resolution.Full);
-
+        
+        /// <summary>Screen Space Reflections Algorithm used.</summary>
+        public EnumParameter<ScreenSpaceReflectionAlgorithm> usedAlgorithm = new (ScreenSpaceReflectionAlgorithm.Approximation);
+        
         [Space(6)]
         [Tooltip("强度")]
         public ClampedFloatParameter intensity = new(1f, 0f, 5f);
-        
-        [Tooltip("实际上是追踪步长, 越大精度越低, 追踪范围越大, 越节省追踪次数")]
-        public ClampedFloatParameter thickness = new(8f, 1f, 64f);
         
         [Tooltip("Controls the smoothness value at which HDRP activates SSR and the smoothness-controlled fade out stops.")]
         public ClampedFloatParameter minSmoothness = new (0.9f, 0.0f, 1.0f);
         [Tooltip("Controls the smoothness value at which the smoothness-controlled fade out starts. The fade is in the range [Min Smoothness, Smoothness Fade Start]")]
         public ClampedFloatParameter smoothnessFadeStart = new (0.9f, 0.0f, 1.0f);
         
-        [Tooltip("最大追踪次数")]
-        public ClampedIntParameter maximumIterationCount = new(256, 1, 256);
-
-        [Tooltip("最大追踪距离")]
-        public MinFloatParameter maximumMarchDistance = new(100f, 0f);
-
         [Tooltip("值越大, 未追踪部分天空颜色会越多, 过度边界会越硬")]
         public ClampedFloatParameter distanceFade = new(1f, 0f, 1f);
         
@@ -50,10 +41,56 @@ namespace Game.Core.PostProcessing
         [InspectorName("Screen Edge Fade Distance")]
         public ClampedFloatParameter vignette = new(1f, 0f, 1f);
         
+        [Header("Performance")]
+        [Tooltip("分辨率")] 
+        public EnumParameter<Resolution> resolution = new(Resolution.Full);
+        
+        [Tooltip("最大追踪次数")]
+        public ClampedIntParameter maximumIterationCount = new(256, 1, 256);
+
+        [Tooltip("实际上是追踪步长, 越大精度越低, 追踪范围越大, 越节省追踪次数")]
+        public ClampedFloatParameter thickness = new(8f, 1f, 64f);
+        
+        [Tooltip("最大追踪距离")]
+        public MinFloatParameter maximumMarchDistance = new(100f, 0f);
+
+        /// <summary>
+        /// Controls the amount of accumulation (0 no accumulation, 1 just accumulate)
+        /// </summary>
+        [Header("Accumulation")]
+        public ClampedFloatParameter accumulationFactor = new(0.75f, 0.0f, 1.0f);
+        
+        /// <summary>
+        /// For PBR: Controls the bias of accumulation (0 no bias, 1 bias ssr)
+        /// </summary>
+        public ClampedFloatParameter biasFactor = new(0.5f, 0.0f, 1.0f);
+        
+        /// <summary>
+        /// Controls the likelihood history will be rejected based on the previous frame motion vectors of both the surface and the hit object in world space.
+        /// </summary>
+        // If change this value, must change on ScreenSpaceReflections.compute on 'float speed = saturate((speedDst + speedSrc) * 128.0f / (...)'
+        public ClampedFloatParameter speedRejectionParam = new(0.5f, 0.0f, 1.0f);
+
+        /// <summary>
+        /// Controls the upper range of speed. The faster the objects or camera are moving, the higher this number should be.
+        /// </summary>
+        // If change this value, must change on ScreenSpaceReflections.compute on 'float speed = saturate((speedDst + speedSrc) * 128.0f / (...)'
+        public ClampedFloatParameter speedRejectionScalerFactor = new(0.2f, 0.001f, 1f);
+        
+        /// <summary>
+        /// When enabled, world space speed from Motion vector is used to reject samples.
+        /// </summary>
+        public BoolParameter enableWorldSpeedRejection = new(false);
+        
+        
         [Header("Debug")]
         public EnumParameter<DebugMode> debugMode = new(DebugMode.Disabled);
 
         public ClampedFloatParameter split = new(0.5f, 0f, 1f);
+        
+        
+        
+        
         
         
         public enum RaytraceModes
@@ -68,6 +105,17 @@ namespace Game.Core.PostProcessing
             Half,
             Full,
             Double
+        }
+        
+        /// <summary>
+        /// Screen Space Reflection Algorithm
+        /// </summary>
+        public enum ScreenSpaceReflectionAlgorithm
+        {
+            /// <summary>Legacy SSR approximation.</summary>
+            Approximation,
+            /// <summary>Screen Space Reflection, Physically Based with Accumulation through multiple frame.</summary>
+            PBRAccumulation
         }
 
         public enum DebugMode
@@ -116,130 +164,6 @@ namespace Game.Core.PostProcessing
                     maximumIterationCount.value = 256;
                     break;
             }
-        }
-
-
-    }
-    
-    
-    [PostProcess("ScreenSpaceReflection", PostProcessInjectionPoint.AfterRenderingSkybox, SupportRenderPath.Deferred)]
-    public partial class ScreenSpaceReflectionRenderer : PostProcessVolumeRenderer<ScreenSpaceReflection>
-    {
-        static class ShaderConstants
-        {
-            internal static readonly int SsrLightingTexture = Shader.PropertyToID("_SsrLightingTexture");
-            internal static readonly int SsrHitPointTexture = Shader.PropertyToID("_SsrHitPointTexture");
-            internal static readonly int _SSR_TestTex_TexelSize = Shader.PropertyToID("_SsrHitPointTexture_TexelSize");
-
-            internal static readonly int ViewMatrix = Shader.PropertyToID("_ViewMatrixSSR");
-            internal static readonly int InverseViewMatrix = Shader.PropertyToID("_InverseViewMatrixSSR");
-            internal static readonly int InverseProjectionMatrix = Shader.PropertyToID("_InverseProjectionMatrixSSR");
-
-            internal static readonly int Params1 = Shader.PropertyToID("_Params1");
-            internal static readonly int Params2 = Shader.PropertyToID("_Params2");
-            
-            public static readonly int SsrIntensity = Shader.PropertyToID("_SSRIntensity");
-            public static readonly int SsrRoughnessFadeEnd = Shader.PropertyToID("_SsrRoughnessFadeEnd");
-            public static readonly int SsrRoughnessFadeEndTimesRcpLength = Shader.PropertyToID("_SsrRoughnessFadeEndTimesRcpLength");
-            public static readonly int SsrRoughnessFadeRcpLength = Shader.PropertyToID("_SsrRoughnessFadeRcpLength");
-            public static readonly int SsrEdgeFadeRcpLength = Shader.PropertyToID("_SsrEdgeFadeRcpLength");
-
-            public static readonly int SEPARATION_POS = Shader.PropertyToID("SEPARATION_POS");
-            public static readonly int _BlitTexture = MemberNameHelpers.ShaderPropertyID();
-            public static readonly int _CameraDepthTexture = MemberNameHelpers.ShaderPropertyID();
-            public static readonly int _BlitScaleBias = MemberNameHelpers.ShaderPropertyID();
-            public static readonly int _GBuffer2 = MemberNameHelpers.ShaderPropertyID();
-            public static readonly int SSR_Lighting_Texture = Shader.PropertyToID("SSR_Lighting_Texture");
-
-            public static string GetDebugKeyword(ScreenSpaceReflection.DebugMode debugMode)
-            {
-                switch (debugMode)
-                {
-                    case ScreenSpaceReflection.DebugMode.SSROnly:
-                        return "DEBUG_SCREEN_SPACE_REFLECTION";
-                    case ScreenSpaceReflection.DebugMode.Split:
-                        return "SPLIT_SCREEN_SPACE_REFLECTION";
-                    case ScreenSpaceReflection.DebugMode.Disabled:
-                    default:
-                        return "_";
-                }
-            }
-        }
-
-        internal enum ShaderPasses
-        {
-            Test = 0,
-            HizTest = 1,
-            Reproject = 2,
-            Composite = 3,
-        }
-
-        
-        RenderTextureDescriptor m_ScreenSpaceReflectionDescriptor;
-        readonly string[] m_ShaderKeywords = new string[1];
-        Material m_ScreenSpaceReflectionMaterial;
-
-        RTHandle m_SsrHitPointRT;
-        RTHandle m_SsrLightingRT;
-        
-        private readonly ProfilingSampler m_TracingSampler = new("SSR Tracing");
-        private readonly ProfilingSampler m_ReprojectionSampler = new("SSR Reprojection");
-        private readonly ProfilingSampler m_AccumulationSampler = new("SSR Accumulation");
-        
-        public override ScriptableRenderPassInput input => ScriptableRenderPassInput.Depth | ScriptableRenderPassInput.Normal | ScriptableRenderPassInput.Motion;
-        public override PostProcessPassInput postProcessPassInput => settings.mode.value == ScreenSpaceReflection.RaytraceModes.HiZTracing ? PostProcessPassInput.HiZ : PostProcessPassInput.None;
-
-        public override void Setup()
-        {
-            base.Setup();
-            
-            if (m_ScreenSpaceReflectionMaterial == null)
-            {
-                var runtimeResources = GraphicsSettings.GetRenderPipelineSettings<ScreenSpaceReflectionResources>();
-                m_ScreenSpaceReflectionMaterial = GetMaterial(runtimeResources.screenSpaceReflectionPS);
-            }
-        }
-
-        public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
-        {
-            GetSSRDesc(renderingData.cameraData.cameraTargetDescriptor);
-
-            RenderingUtils.ReAllocateHandleIfNeeded(ref m_SsrHitPointRT, m_ScreenSpaceReflectionDescriptor, FilterMode.Point, name: "SSR_Hit_Point_Texture");
-            RenderingUtils.ReAllocateHandleIfNeeded(ref m_SsrLightingRT, m_ScreenSpaceReflectionDescriptor, FilterMode.Bilinear, name: "SSR_Lighting_Texture");
-        }
-
-        public override void Render(CommandBuffer cmd, RTHandle source, RTHandle target, ref RenderingData renderingData)
-        {
-            SetupMaterials(renderingData.cameraData.camera);
-
-            using (new ProfilingScope(cmd, m_TracingSampler))
-            {
-                if (settings.mode.value == ScreenSpaceReflection.RaytraceModes.LinearTracing)
-                    Blit(cmd, source, m_SsrHitPointRT, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Test);
-                else
-                    Blit(cmd, source, m_SsrHitPointRT, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.HizTest);
-            }
-
-            using (new ProfilingScope(cmd, m_ReprojectionSampler))
-            {
-                m_ScreenSpaceReflectionMaterial.SetTexture(ShaderConstants.SsrHitPointTexture, m_SsrHitPointRT);
-                Blit(cmd, source, m_SsrLightingRT, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Reproject);
-            }
-
-            using (new ProfilingScope(cmd, m_AccumulationSampler))
-            {
-                m_ScreenSpaceReflectionMaterial.SetTexture(ShaderConstants.SsrLightingTexture, m_SsrLightingRT);
-                Blit(cmd, source, target, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Composite);
-            }
-        }
-        
-        public override void Dispose(bool disposing)
-        {
-            CoreUtils.Destroy(m_ScreenSpaceReflectionMaterial);
-            m_ScreenSpaceReflectionMaterial = null;
-
-            m_SsrLightingRT?.Release();
-            m_SsrHitPointRT?.Release();
         }
     }
 }

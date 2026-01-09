@@ -69,5 +69,20 @@ Shader "Hidden/PostProcessing/ScreenSpaceReflection"
             #pragma fragment FragSSRComposite
             ENDHLSL
         }
+
+        Pass
+        {
+            // 4
+            Name "ScreenSpaceReflection Composite"
+
+            HLSLPROGRAM
+            #include "ScreenSpaceReflection_Reprojection.hlsl"
+
+            #pragma shader_feature_local _ DEBUG_SCREEN_SPACE_REFLECTION SPLIT_SCREEN_SPACE_REFLECTION
+
+            #pragma vertex Vert
+            #pragma fragment FragSSRAccumulation
+            ENDHLSL
+        }
     }
 }

@@ -8,55 +8,51 @@
 #define MIN_GGX_ROUGHNESS           0.00001f
 #define MAX_GGX_ROUGHNESS           0.99999f
 
+float3 CompositeSSRColor(float2 uv, float2 reflectUV, float mask, float2 offset)
+{
+    float3 ssrColor = SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_LinearClamp, reflectUV + offset, 0).rgb;
+    // float3 color = SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_LinearClamp, uv + offset, 0).rgb;
+    return lerp(0, ssrColor, mask * _SSRIntensity);
+}
+
 //
 // Fragment shaders
 //
-// float4 FragReproject(Varyings input) : SV_Target
-// {
-//     float2 uv = input.texcoord;
-//
-//     // 没有使用jitter 不考虑sceneview 依赖MotionVector
-//     half2 motionVector = SampleMotionVector(uv);
-//     float2 prevUV = uv - motionVector;
-//
-//     float2 k = _BlitTexture_TexelSize.xy;
-//
-//     float4 color = SAMPLE_TEXTURE2D(_BlitTexture, sampler_PointClamp, uv);
-//
-//     // 0 1 2
-//     // 3
-//     float4x4 top = float4x4(
-//         SAMPLE_TEXTURE2D(_BlitTexture, sampler_PointClamp, uv + float2(-k.x, -k.y)),
-//         SAMPLE_TEXTURE2D(_BlitTexture, sampler_PointClamp, uv + float2(0.0, -k.y)),
-//         SAMPLE_TEXTURE2D(_BlitTexture, sampler_PointClamp, uv + float2(k.x, -k.y)),
-//         SAMPLE_TEXTURE2D(_BlitTexture, sampler_PointClamp, uv + float2(-k.x, 0.0))
-//     );
-//
-//     //     0
-//     // 1 2 3
-//     float4x4 bottom = float4x4(
-//         SAMPLE_TEXTURE2D(_BlitTexture, sampler_PointClamp, uv + float2(k.x, 0.0)),
-//         SAMPLE_TEXTURE2D(_BlitTexture, sampler_PointClamp, uv + float2(-k.x, k.y)),
-//         SAMPLE_TEXTURE2D(_BlitTexture, sampler_PointClamp, uv + float2(0.0, k.y)),
-//         SAMPLE_TEXTURE2D(_BlitTexture, sampler_PointClamp, uv + float2(k.x, k.y))
-//     );
-//
-//     // 简单的minmax
-//     float4 minimum = min(min(min(min(min(min(min(min(top[0], top[1]), top[2]), top[3]), bottom[0]), bottom[1]), bottom[2]), bottom[3]), color);
-//     float4 maximum = max(max(max(max(max(max(max(max(top[0], top[1]), top[2]), top[3]), bottom[0]), bottom[1]), bottom[2]), bottom[3]), color);
-//
-//     float4 history = SAMPLE_TEXTURE2D(_HistoryTex, sampler_LinearClamp, prevUV);
-//     // 简单的clamp
-//     history = clamp(history, minimum, maximum);
-//
-//     // alpha通道在移动端不一定有 简单的blend
-//     float blend = saturate(smoothstep(0.002 * _BlitTexture_TexelSize.z, 0.0035 * _BlitTexture_TexelSize.z, length(motionVector)));
-//     blend *= 0.85;
-//
-//     float weight = clamp(lerp(0.95, 0.7, blend * 100.0), 0.7, 0.95);
-//
-//     return lerp(color, history, weight);
-// }
+float4 FragSSRAccumulation(Varyings input) : SV_Target
+{
+    float2 uv = input.texcoord;
+    
+    float4 ssrColor = SAMPLE_TEXTURE2D(_BlitTexture, sampler_PointClamp, uv);
+    float4 ssrTest = SAMPLE_TEXTURE2D(_SsrHitPointTexture, sampler_PointClamp, uv);
+    float2 hitPositionNDC = ssrTest.xy;
+    
+    float2 motionVectorNDC;
+    DecodeMotionVector(SAMPLE_TEXTURE2D_X_LOD(_MotionVectorTexture, sampler_LinearClamp, uv, 0), motionVectorNDC);
+    float2 prevFrameNDC = hitPositionNDC - motionVectorNDC;
+    float2 prevFrameUV = prevFrameNDC;
+
+    
+    float3 prevSsrColor = SAMPLE_TEXTURE2D_X_LOD(_SsrAccumPrev, sampler_LinearClamp, prevFrameUV, 0).rgb;
+    float3 minColor = 9999.0, maxColor = -9999.0;
+    for(int x = -1; x <= 1; ++x)
+    {
+        for(int y = -1; y <= 1; ++y)
+        {
+            float3 checkColor = CompositeSSRColor(uv, hitPositionNDC, 1, float2(x,y) * _BlitTexture_TexelSize.xy);
+            minColor = min(minColor, checkColor); // Take min and max
+            maxColor = max(maxColor, checkColor);
+        }
+    }
+    // Clamp previous color to min/max bounding box
+    prevSsrColor = clamp(prevSsrColor, minColor, 2 * maxColor);
+    
+    float3 blendedColor = lerp(prevSsrColor, ssrColor, 0.95);
+    float luminance = dot(blendedColor, float3(0.299, 0.587, 0.114));
+    float luminanceWeight = 1.0 / (1.0 + luminance);
+    blendedColor = float4(blendedColor, 1.0) * luminanceWeight;
+    
+    return float4(blendedColor, 1);
+}
 
 //--------------------------------------------------------------------------------------------------
 // Helpers

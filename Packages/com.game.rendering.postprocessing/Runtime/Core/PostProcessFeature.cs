@@ -154,13 +154,14 @@ namespace Game.Core.PostProcessing
 
             CheckRenderingMode(renderer);
             
-            m_Context.UpdateFrame();
-
             var camera = renderingData.cameraData.camera;
             if (camera.cameraType == CameraType.Preview || camera.cameraType == CameraType.Reflection || camera.cameraType == CameraType.VR)
             {
                 return;
             }
+
+            m_Context.Setup(camera);
+            m_Context.UpdateFrame(ref renderingData);
 
             PostProcessPassInput postProcessPassInput = PostProcessPassInput.None; 
             
@@ -227,6 +228,7 @@ namespace Game.Core.PostProcessing
 
         protected override void Dispose(bool disposing)
         {
+            m_Context.Dispose();
             m_BeforeRenderingOpaques.Dispose(disposing);
             m_AfterRenderingOpaques.Dispose(disposing);
             m_BeforeRenderingGBuffer.Dispose(disposing);

@@ -96,6 +96,15 @@ namespace Game.Core.PostProcessing
             m_Variables.RoughnessFadeEndTimesRcpLength = roughnessFadeEndTimesRcpLength;
             m_Variables.EdgeFadeRcpLength = edgeFadeRcpLength;//照搬的HDRP 但是这个实际效果过度太硬了
             m_Variables.ProjectionMatrix = SSR_ProjectToPixelMatrix;
+
+            if (context.FrameCount <= 3)
+            {
+                // m_Variables.AccumulationAmount = 1.0f;
+            }
+            else
+            {
+                
+            }
         }
 
         private void SetupMaterials(Camera camera)
@@ -134,37 +143,45 @@ namespace Game.Core.PostProcessing
                 m_ScreenSpaceReflectionMaterial.SetFloat(ShaderConstants.SEPARATION_POS, settings.split.value);
             }
         }
+        
+        private float GetScaleFactor()
+        {
+            float scaleFactor = 1.0f;
+            if (settings.resolution.value == ScreenSpaceReflection.Resolution.Half)
+            {
+                scaleFactor = 0.5f;
+               
+            }
+            else if (settings.resolution.value == ScreenSpaceReflection.Resolution.Quarter)
+            {
+                scaleFactor = 0.25f;
+            }
+            else if (settings.resolution.value == ScreenSpaceReflection.Resolution.Double)
+            {
+                scaleFactor = 2.0f;
+            }
+
+            return scaleFactor;
+        }
 
         void GetSSRDesc(RenderTextureDescriptor desc)
         {
-            int width = desc.width;
-            int height = desc.height;
+            float width = desc.width;
+            float height = desc.height;
 
-            if(false)
+            if (false)
             {
                 int size = Mathf.ClosestPowerOfTwo(Mathf.Min(m_ScreenSpaceReflectionDescriptor.width, m_ScreenSpaceReflectionDescriptor.height));
                 width = height = size;
             }
-
-            if (settings.resolution.value == ScreenSpaceReflection.Resolution.Half)
-            {
-                width >>= 1;
-                height >>= 1;
-            }
-            else if (settings.resolution.value == ScreenSpaceReflection.Resolution.Quarter)
-            {
-                width >>= 2;
-                height >>= 2;
-            }
-            else if (settings.resolution.value == ScreenSpaceReflection.Resolution.Double)
-            {
-                width <<= 1;
-                height <<= 1;
-            }
+            
+            float scaleFactor = GetScaleFactor(); 
+            width *= scaleFactor;
+            height *= scaleFactor;
 
             m_ScreenSpaceReflectionDescriptor = desc;
-            m_ScreenSpaceReflectionDescriptor.width = width;
-            m_ScreenSpaceReflectionDescriptor.height = height;
+            m_ScreenSpaceReflectionDescriptor.width = Mathf.CeilToInt(width);
+            m_ScreenSpaceReflectionDescriptor.height = Mathf.CeilToInt(height);
             GetCompatibleDescriptor(ref m_ScreenSpaceReflectionDescriptor, GraphicsFormat.R16G16B16A16_SFloat);
         }
 

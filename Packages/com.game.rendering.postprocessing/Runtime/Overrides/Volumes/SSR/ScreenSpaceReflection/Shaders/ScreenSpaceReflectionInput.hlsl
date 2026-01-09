@@ -16,14 +16,6 @@ struct Ray
     float3 direction;
 };
 
-struct Segment
-{
-    float3 start;
-    float3 end;
-
-    float3 direction;
-};
-
 struct Result
 {
     bool isHit;
@@ -35,11 +27,11 @@ struct Result
 };
 
 
-//
-// Uniforms
-//
+
 TEXTURE2D(_SsrHitPointTexture);
 TEXTURE2D(_SsrLightingTexture);
+
+TEXTURE2D(_SsrAccumPrev);
 
 TEXTURE2D_HALF(_GBuffer0);
 TEXTURE2D_HALF(_GBuffer1);
