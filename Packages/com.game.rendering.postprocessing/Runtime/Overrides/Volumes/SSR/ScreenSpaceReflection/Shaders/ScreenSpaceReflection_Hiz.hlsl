@@ -190,17 +190,20 @@ float4 FragTestHiZ(Varyings input) : SV_Target
         return float4(uv, 0, 0);
     }
     
+    float3 positionWS = ComputeWorldSpacePosition(input.texcoord.xy, rawDepth, UNITY_MATRIX_I_VP);
+    float3 positionVS = TransformWorldToView(positionWS);
+    
     Ray ray;
-    ray.origin = GetViewSpacePosition(rawDepth, uv);
+    ray.origin = positionVS;
 
     //太远的点也直接跳过
     UNITY_BRANCH
     if (ray.origin.z < - _MaximumMarchDistance)
         return 0.0;
     float3 normalWS = SampleSceneNormals(uv);
-    float3 normalVS = mul((float3x3)_ViewMatrixSSR, normalWS);
-    float3 reflectionDirectionVS = normalize(reflect(normalize(ray.origin), normalVS));
-    ray.direction = reflectionDirectionVS;
+    float3 reflectRayWS = normalize(reflect((positionWS - _WorldSpaceCameraPos), normalWS));
+    float3 reflectRayVS = TransformWorldToViewDir(reflectRayWS);
+    ray.direction = reflectRayVS;
 
     UNITY_BRANCH
     if (ray.direction.z > 0.0)
@@ -210,16 +213,17 @@ float4 FragTestHiZ(Varyings input) : SV_Target
     uint ditherIndex = (uint(ditherUV.x) % 4) * 4 + uint(ditherUV.y) % 4;
     float jitter = 1.0f + (1.0f - dither[ditherIndex]);
 
+    float stepSize = _Thickness * 30;
     float3 hitPointVS = ray.origin;
     Result result = Hiz_Trace(ray.origin,
                                    ray.direction,
                                    _SsrHitPointTexture_TexelSize,
                                    jitter,
-                                   normalVS,
+                                   reflectRayVS,
                                    _MaximumIterationCount,
-                                   Thickness,
+                                   LINEAR_TRACE_2D_THICKNESS,
                                    _MaximumMarchDistance,
-                                   _Bandwidth,
+                                   stepSize,
                                    hitPointVS
                                    );
     float confidence = (float)result.iterationCount / (float)_MaximumIterationCount;

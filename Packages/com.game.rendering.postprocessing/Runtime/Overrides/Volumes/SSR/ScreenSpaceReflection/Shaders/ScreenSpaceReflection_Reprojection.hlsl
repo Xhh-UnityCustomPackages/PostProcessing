@@ -3,10 +3,18 @@
 
 #include "ScreenSpaceReflectionInput.hlsl"
 #include "Packages/com.game.rendering.postprocessing/ShaderLibrary/DeclareMotionVectorTexture.hlsl"
+#include "Packages/com.game.rendering.postprocessing/ShaderLibrary/DeclareColorPyramidTexture.hlsl"
 #include "Packages/com.game.rendering.postprocessing/ShaderLibrary/BilateralFilter.hlsl"
 
 #define MIN_GGX_ROUGHNESS           0.00001f
 #define MAX_GGX_ROUGHNESS           0.99999f
+
+#if SSR_MULTI_BOUNCE
+#define ColorPyramidUvScaleAndLimitPrevFrame float4(1, 1, 1, 1)
+#else
+#define ColorPyramidUvScaleAndLimitPrevFrame _ColorPyramidUvScaleAndLimitPrevFrame
+#endif
+
 
 float3 CompositeSSRColor(float2 uv, float2 reflectUV, float mask, float2 offset)
 {
@@ -52,6 +60,12 @@ float4 FragSSRAccumulation(Varyings input) : SV_Target
     blendedColor = float4(blendedColor, 1.0) * luminanceWeight;
     
     return float4(blendedColor, 1);
+}
+
+float GetPerceptualSmoothness(uint2 positionSS)
+{
+    half4 gbuffer2 = LOAD_TEXTURE2D_X(_GBuffer2, positionSS);
+    return gbuffer2.a;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -103,20 +117,58 @@ float2 GetHitNDC(float2 positionNDC)
     return prevFrameNDC;
 }
 
+float3 GetWorldSpacePosition(uint2 positionSS)
+{
+    float2 uv = float2(positionSS) * _RTHandleScale.xy;
+    
+    float  deviceDepth = LOAD_TEXTURE2D_X(_CameraDepthTexture, positionSS).r;
+    float2 positionNDC = positionSS *_ScreenSize.zw + (0.5 * _ScreenSize.zw);
+    
+    return ComputeWorldSpacePosition(positionNDC, deviceDepth, UNITY_MATRIX_I_VP);
+}
+
 float3 GetHitColor(float2 hitPositionNDC, float perceptualRoughness, out float opacity, int mipLevel = 0)
 {
     float2 prevFrameNDC = GetHitNDC(hitPositionNDC);
-    float2 prevFrameUV = prevFrameNDC;
     float tmpCoef = PerceptualRoughnessFade(perceptualRoughness, _SsrRoughnessFadeRcpLength, _SsrRoughnessFadeEndTimesRcpLength);
     opacity = tmpCoef;
-    return SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_PointClamp, prevFrameUV, mipLevel).rgb;
+    float2 prevFrameUV = prevFrameNDC * ColorPyramidUvScaleAndLimitPrevFrame.xy;
+    return SAMPLE_TEXTURE2D_X_LOD(_ColorPyramidTexture, sampler_PointClamp, prevFrameUV, mipLevel).rgb;
+}
+
+float2 GetWorldSpacePoint(uint2 positionSS, out float3 positionSrcWS, out float3 positionDstWS)
+{
+    positionSrcWS = GetWorldSpacePosition(positionSS);
+    
+    float2 hitData = _SsrHitPointTexture[positionSS * DOWNSAMPLE].xy;
+    uint2 positionDstSS = (hitData.xy - (0.5 * _ScreenSize.zw)) / _ScreenSize.zw;
+
+    positionDstWS = GetWorldSpacePosition(positionDstSS);
+    
+    return hitData.xy;
 }
 
 float2 GetSampleInfo(uint2 positionSS, out float3 color, out float weight, out float opacity)
 {
     float3 positionSrcWS;
     float3 positionDstWS;
-    // float2 hitData = GetWorldSpacePoint(positionSS, positionSrcWS, positionDstWS);
+    float2 hitData = GetWorldSpacePoint(positionSS, positionSrcWS, positionDstWS);
+    
+    float3 V = GetWorldSpaceNormalizeViewDir(positionSrcWS);
+    float3 L = normalize(positionDstWS - positionSrcWS);
+    float3 H = normalize(V + L);
+    
+    float perceptualRoughness = PerceptualSmoothnessToPerceptualRoughness(GetPerceptualSmoothness(positionSS));
+    
+    float roughness = PerceptualRoughnessToRoughness(perceptualRoughness);
+    
+    roughness = clamp(roughness, MIN_GGX_ROUGHNESS, MAX_GGX_ROUGHNESS);
+
+    weight = GetSSRSampleWeight(V, L, roughness);
+    
+    color = GetHitColor(hitData.xy, perceptualRoughness, opacity, 0);
+
+    return hitData;
 }
 
 // Performs fading at the edge of the screen.
@@ -127,19 +179,11 @@ float EdgeOfScreenFade(float2 coordNDC, float fadeRcpLength)
     return Smoothstep01(t.x) * Smoothstep01(t.y);
 }
 
-float4 FragSSRReprojection(Varyings input) : SV_Target
+float4 ScreenSpaceReflectionReprojection(uint2 positionSS0)
 {
-    float2 uv = input.texcoord;
-    uint2 positionSS0 = (uint2)(input.texcoord * _ScreenSize.xy);
+    float perceptualRoughness = PerceptualSmoothnessToPerceptualRoughness(GetPerceptualSmoothness(positionSS0));
     
-    // half4 gbuffer1 = SAMPLE_TEXTURE2D_LOD(_GBuffer1, sampler_PointClamp, uv, 0);
-    half4 gbuffer2 = SAMPLE_TEXTURE2D_LOD(_GBuffer2, sampler_PointClamp, uv, 0);
-    
-    // float3 N = normalize(UnpackNormal(gbuffer2.xyz));;
-    float smoothness = 1 - gbuffer2.a;
-    float perceptualRoughness = PerceptualRoughnessToRoughness(smoothness);
-    
-    float4 ssrTest = SAMPLE_TEXTURE2D(_SsrHitPointTexture, sampler_PointClamp, input.texcoord);
+    float4 ssrTest = LOAD_TEXTURE2D_X(_SsrHitPointTexture, positionSS0 * DOWNSAMPLE);
     float2 hitPositionNDC = ssrTest.xy;
     if (max(hitPositionNDC.x, hitPositionNDC.y) == 0)
     {
@@ -147,29 +191,37 @@ float4 FragSSRReprojection(Varyings input) : SV_Target
         return 0;
     }
     
+    // TODO: this texture is sparse (mostly black). Can we avoid reading every texel? How about using Hi-S?
     float2 motionVectorNDC;
     DecodeMotionVector(SAMPLE_TEXTURE2D_X_LOD(_MotionVectorTexture, sampler_LinearClamp, min(hitPositionNDC, 1.0f - 0.5f * _ScreenSize.zw) * _RTHandleScale.xy, 0), motionVectorNDC);
     float2 prevFrameNDC = hitPositionNDC - motionVectorNDC;
-    float2 prevFrameUV = prevFrameNDC;
+    float2 prevFrameUV = prevFrameNDC * ColorPyramidUvScaleAndLimitPrevFrame.xy;
+    
     // TODO: filtering is quite awful. Needs to be non-Gaussian, bilateral and anisotropic.
-    float mipLevel = PerceptualRoughnessToMipmapLevel(perceptualRoughness);//lerp(0, _SsrColorPyramidMaxMip, perceptualRoughness);
+    float mipLevel = lerp(0, _SsrColorPyramidMaxMip, perceptualRoughness);
 
-    if (any(prevFrameUV < float2(0.0,0.0)) /*|| any(prevFrameUV > limit)*/)
+    float2 diffLimit = ColorPyramidUvScaleAndLimitPrevFrame.xy - ColorPyramidUvScaleAndLimitPrevFrame.zw;
+    float2 diffLimitMipAdjusted = diffLimit * pow(2.0,1.5 + ceil(abs(mipLevel)));
+    float2 limit = ColorPyramidUvScaleAndLimitPrevFrame.xy - diffLimitMipAdjusted;
+    if (any(prevFrameUV < float2(0.0,0.0)) || any(prevFrameUV > limit))
     {
         // Off-Screen.
         return 0;
     }
 
+    //HDRP 过渡太生硬了 EdgeOfScreenFade 这里修改了实现
     float opacity = PerceptualRoughnessFade(perceptualRoughness, _SsrRoughnessFadeRcpLength, _SsrRoughnessFadeEndTimesRcpLength);
     opacity *= Attenuate(hitPositionNDC) * Vignette(hitPositionNDC);
-    //HDRP 过渡太生硬了 EdgeOfScreenFade
     
     //额外的渐变
     float fade = ssrTest.z;//命中概率
     fade = (1.0 - saturate(fade * smoothstep(0.5, 1.0, fade) * _DistanceFade));
     opacity *= fade;
     
-    float3 color = SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_PointClamp, hitPositionNDC.xy, mipLevel);
+    #ifdef SSR_APPROX
+    
+    //是否使用Mip 不使用的话 就没有粗糙度变化
+    float3 color = SAMPLE_TEXTURE2D_X_LOD(_ColorPyramidTexture, sampler_PointClamp, prevFrameUV, mipLevel).rgb;
     
     // Disable SSR for negative, infinite and NaN history values.
     uint3 intCol   = asuint(color);
@@ -179,10 +231,12 @@ float4 FragSSRReprojection(Varyings input) : SV_Target
     opacity = isPosFin ? opacity : 0;
     
     return float4(color * _SSRIntensity, 1.0) * opacity;
-
-
+    #else
+    
+    // float3 color = SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_PointClamp, hitPositionNDC.xy, mipLevel);
+    // return float4(color * _SSRIntensity, 1.0) * opacity;
+    float3 color = 0.0;
     #define BLOCK_SAMPLE_RADIUS 1
-
     int samplesCount = 0;
     float4 outputs = 0.0f;
     float wAll = 0.0f;
@@ -194,6 +248,7 @@ float4 FragSSRReprojection(Varyings input) : SV_Target
                 continue;
 
             uint2 positionSS = uint2(int2(positionSS0) + int2(x, y));
+
             float3 color;
             float opacity;
             float weight;
@@ -204,7 +259,8 @@ float4 FragSSRReprojection(Varyings input) : SV_Target
                 // Disable SSR for negative, infinite and NaN history values.
                 uint3 intCol   = asuint(color);
                 bool  isPosFin = Max3(intCol.r, intCol.g, intCol.b) < 0x7F800000;
-                float2 prevFrameUV = hitData;
+
+                float2 prevFrameUV = hitData * ColorPyramidUvScaleAndLimitPrevFrame.xy;
 
                 color   = isPosFin ? color : 0;
 
@@ -213,6 +269,7 @@ float4 FragSSRReprojection(Varyings input) : SV_Target
             }
         }
     }
+    #undef BLOCK_SAMPLE_RADIUS
     
     if (wAll > 0.0f)
     {
@@ -228,7 +285,8 @@ float4 FragSSRReprojection(Varyings input) : SV_Target
         return ssrColor;
     }
     
-    return half4(hitPositionNDC.xy, 0, 1);
+    return 0;
+    #endif
 }
 
 #endif // SCREEN_SPACE_REFLECTION_INCLUDED

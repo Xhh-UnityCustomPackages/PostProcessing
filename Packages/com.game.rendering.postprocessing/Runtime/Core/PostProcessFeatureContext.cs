@@ -26,6 +26,11 @@ namespace Game.Core.PostProcessing
 
     public class PostProcessFeatureContext
     {
+        private struct ShaderVariablesGlobal
+        {
+            public Vector4 ColorPyramidUvScaleAndLimitPrevFrame;
+        }
+        
         private uint m_FrameCount = 0;
         public uint FrameCount => m_FrameCount;
         
@@ -37,10 +42,11 @@ namespace Game.Core.PostProcessing
         public  MipGenerator MipGenerator => m_MipGenerator;
         
         private PackedMipChainInfo m_MipChainInfo;
-        public PackedMipChainInfo MipChainInfo => m_MipChainInfo;
+        public PackedMipChainInfo DepthMipChainInfo => m_MipChainInfo;
         public int ColorPyramidHistoryMipCount { get; internal set; }
         
         private BufferedRTHandleSystem m_HistoryRTSystem = new();
+        private ShaderVariablesGlobal m_ShaderVariablesGlobal;
         
         private bool m_Init = false;
 
@@ -82,6 +88,7 @@ namespace Game.Core.PostProcessing
 
         public void Dispose()
         {
+            m_FrameCount = 0;
             m_HistoryRTSystem?.ReleaseAll();
             
             if (m_HistoryRTSystem != null)
@@ -89,8 +96,41 @@ namespace Game.Core.PostProcessing
                 m_HistoryRTSystem.Dispose();
                 m_HistoryRTSystem = null;
             }
-            m_MipGenerator.Release();
+            m_MipGenerator?.Release();
         }
+
+        #region GlobalVariables
+        
+        
+        /// <summary>
+        /// Push global constant buffers to gpu
+        /// </summary>
+        /// <param name="cmd"></param>
+        /// <param name="renderingData"></param>
+        internal void PushGlobalBuffers(CommandBuffer cmd, ref RenderingData renderingData)
+        {
+            // PushShadowData(cmd);
+            PushGlobalVariables(cmd, ref renderingData);
+        }
+        
+        private void PushGlobalVariables(CommandBuffer cmd, ref RenderingData renderingData)
+        {
+            PrepareGlobalVariables(ref renderingData);
+            ConstantBuffer.PushGlobal(cmd, m_ShaderVariablesGlobal, PipelineShaderIDs.ShaderVariablesGlobal);
+        }
+
+        private void PrepareGlobalVariables(ref RenderingData renderingData, RTHandle rtHandle = null)
+        {
+            // Match HDRP View Projection Matrix, pre-handle reverse z.
+            // m_ShaderVariablesGlobal.ViewMatrix = renderingData.cameraData.camera.worldToCameraMatrix;
+            
+            m_ShaderVariablesGlobal.ColorPyramidUvScaleAndLimitPrevFrame
+                = PostProcessingUtils.ComputeViewportScaleAndLimit(m_HistoryRTSystem.rtHandleProperties.previousViewportSize,
+                    m_HistoryRTSystem.rtHandleProperties.previousRenderTargetSize);
+        }
+
+
+        #endregion
 
 
         #region Histroy
@@ -120,7 +160,39 @@ namespace Game.Core.PostProcessing
                     name: $"{id}_{name}_{frameIndex}");
             }
         }
-        
+
+        /// <summary>
+        /// Get previous frame color buffer if possible
+        /// </summary>
+        /// <param name="cameraData"></param>
+        /// <param name="isNewFrame"></param>
+        /// <returns></returns>
+        public RTHandle GetPreviousFrameColorRT(CameraData cameraData, out bool isNewFrame)
+        {
+            // Using color pyramid
+            // if (cameraData.cameraType == CameraType.Game)
+            {
+                var previewsColorRT = GetCurrentFrameRT((int)FrameHistoryType.ColorBufferMipChain);
+                if (previewsColorRT != null)
+                {
+                    isNewFrame = true;
+                    return previewsColorRT;
+                }
+            }
+            
+            // Using history color
+            isNewFrame = true;
+            // if (RequireHistoryColor)
+            // {
+            //     return CameraPreviousColorTextureRT;
+            // }
+            
+            // Fallback to opaque texture if exist.
+            return cameraData.renderer.cameraColorTargetHandle;
+            return UniversalRenderingUtility.GetOpaqueTexture(cameraData.renderer);
+        }
+
+
         /// <summary>
         /// Allocates a history RTHandle with the unique identifier id.
         /// </summary>

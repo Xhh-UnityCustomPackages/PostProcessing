@@ -6,6 +6,9 @@ CBUFFER_START (ShaderVariablesScreenSpaceReflection)
 float4x4 _SSR_ProjectionMatrix;
 
 float _SSRIntensity;
+float _Thickness;
+float _SsrThicknessScale;
+float _SsrThicknessBias;
 
 float _SsrRoughnessFadeEnd;
 float _SsrRoughnessFadeRcpLength;
@@ -13,7 +16,9 @@ float _SsrRoughnessFadeRcpLength;
 float _SsrRoughnessFadeEndTimesRcpLength;
 float _SsrEdgeFadeRcpLength;
 int _SsrDepthPyramidMaxMip;
+float _SsrDownsamplingDivider;
 
+int _SsrColorPyramidMaxMip;
 CBUFFER_END
 
 #endif

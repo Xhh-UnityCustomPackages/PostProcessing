@@ -14,14 +14,15 @@ namespace Game.Core.PostProcessing
             internal static readonly int SsrHitPointTexture = Shader.PropertyToID("_SsrHitPointTexture");
             internal static readonly int _SSR_TestTex_TexelSize = Shader.PropertyToID("_SsrHitPointTexture_TexelSize");
 
-            internal static readonly int ViewMatrix = Shader.PropertyToID("_ViewMatrixSSR");
-            internal static readonly int InverseViewMatrix = Shader.PropertyToID("_InverseViewMatrixSSR");
-            internal static readonly int InverseProjectionMatrix = Shader.PropertyToID("_InverseProjectionMatrixSSR");
-
             internal static readonly int Params1 = Shader.PropertyToID("_Params1");
-            internal static readonly int Params2 = Shader.PropertyToID("_Params2");
 
             public static readonly int SsrIntensity = Shader.PropertyToID("_SSRIntensity");
+            public static readonly int Thickness = Shader.PropertyToID("_Thickness");
+            public static readonly int SsrThicknessScale = Shader.PropertyToID("_SsrThicknessScale");
+            public static readonly int SsrThicknessBias = Shader.PropertyToID("_SsrThicknessBias");
+            public static readonly int SsrDepthPyramidMaxMip = Shader.PropertyToID("_SsrDepthPyramidMaxMip");
+            public static readonly int SsrColorPyramidMaxMip = Shader.PropertyToID("_SsrColorPyramidMaxMip");
+            public static readonly int SsrDownsamplingDivider = Shader.PropertyToID("_SsrDownsamplingDivider");
             public static readonly int SsrRoughnessFadeEnd = Shader.PropertyToID("_SsrRoughnessFadeEnd");
             public static readonly int SsrRoughnessFadeEndTimesRcpLength = Shader.PropertyToID("_SsrRoughnessFadeEndTimesRcpLength");
             public static readonly int SsrRoughnessFadeRcpLength = Shader.PropertyToID("_SsrRoughnessFadeRcpLength");
@@ -50,6 +51,22 @@ namespace Game.Core.PostProcessing
                         return "_";
                 }
             }
+            
+            public static string GetApproxKeyword(ScreenSpaceReflection.ScreenSpaceReflectionAlgorithm algorithmMode)
+            {
+                switch (algorithmMode)
+                {
+                    case ScreenSpaceReflection.ScreenSpaceReflectionAlgorithm.Approximation:
+                        return "SSR_APPROX";
+                    default:
+                        return "_";
+                }
+            }
+
+            public static string GetMultiBounceKeyword(bool enableMultiBounce)
+            {
+                return enableMultiBounce ? "SSR_MULTI_BOUNCE" : "_";
+            }
         }
 
         internal enum ShaderPasses
@@ -62,8 +79,9 @@ namespace Game.Core.PostProcessing
 
 
         RenderTextureDescriptor m_ScreenSpaceReflectionDescriptor;
-        readonly string[] m_ShaderKeywords = new string[1];
+        readonly string[] m_ShaderKeywords = new string[3];
         Material m_ScreenSpaceReflectionMaterial;
+        private readonly MaterialPropertyBlock SharedPropertyBlock = new();
         private ComputeShader m_ComputeShader;
         private bool m_TracingInCS;
 
@@ -84,7 +102,11 @@ namespace Game.Core.PostProcessing
         private readonly ProfilingSampler m_AccumulationSampler = new("SSR Accumulation");
 
         public override ScriptableRenderPassInput input => ScriptableRenderPassInput.Depth | ScriptableRenderPassInput.Normal | ScriptableRenderPassInput.Motion;
-        public override PostProcessPassInput postProcessPassInput => settings.mode.value == ScreenSpaceReflection.RaytraceModes.HiZTracing ? PostProcessPassInput.DepthPyramid : PostProcessPassInput.None;
+
+        public override PostProcessPassInput postProcessPassInput =>
+            settings.mode.value == ScreenSpaceReflection.RaytraceModes.HiZTracing ? 
+                PostProcessPassInput.ColorPyramid | PostProcessPassInput.DepthPyramid :
+                settings.enableMultiBounce.value ? PostProcessPassInput.ColorPyramid : PostProcessPassInput.None;
 
         public override void Setup()
         {
@@ -143,24 +165,40 @@ namespace Game.Core.PostProcessing
                 else
                 {
                     if (settings.mode.value == ScreenSpaceReflection.RaytraceModes.LinearTracing)
+                    {
                         Blit(cmd, source, m_SsrHitPointRT, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Test);
+                    }
                     else
                     {
                         if (m_DepthPyramidMipLevelOffsetsBuffer == null)
                             m_DepthPyramidMipLevelOffsetsBuffer = new ComputeBuffer(15, sizeof(int) * 2);
 
-                        var offsetBuffer = context.MipChainInfo.GetOffsetBufferData(m_DepthPyramidMipLevelOffsetsBuffer);
+                        var offsetBuffer = context.DepthMipChainInfo.GetOffsetBufferData(m_DepthPyramidMipLevelOffsetsBuffer);
                         m_ScreenSpaceReflectionMaterial.SetBuffer(ShaderConstants._DepthPyramidMipLevelOffsets, offsetBuffer);
                         Blit(cmd, source, m_SsrHitPointRT, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.HizTest);
                     }
-
                 }
             }
 
             using (new ProfilingScope(cmd, m_ReprojectionSampler))
             {
-                m_ScreenSpaceReflectionMaterial.SetTexture(ShaderConstants.SsrHitPointTexture, m_SsrHitPointRT);
-                Blit(cmd, source, m_SsrLightingRT, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Reproject);
+                RTHandle preFrameColorRT;
+                if (settings.enableMultiBounce.value)
+                {
+                    preFrameColorRT = context.GetPreviousFrameColorRT(cameraData, out bool isNewFrame);
+                }
+                else
+                {
+                    preFrameColorRT = cameraData.renderer.cameraColorTargetHandle;
+                }
+                SharedPropertyBlock.Clear();
+                SharedPropertyBlock.SetTexture(PipelineShaderIDs._ColorPyramidTexture, preFrameColorRT);
+                SharedPropertyBlock.SetTexture(ShaderConstants.SsrHitPointTexture, m_SsrHitPointRT);
+                // We need to set the "_BlitScaleBias" uniform for user materials with shaders relying on core Blit.hlsl to work
+                SharedPropertyBlock.SetVector(ShaderConstants._BlitScaleBias, new Vector4(1, 1, 0, 0));
+                
+                cmd.SetRenderTarget(m_SsrLightingRT);
+                cmd.DrawProcedural(Matrix4x4.identity, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Reproject, MeshTopology.Triangles, 3, 1, SharedPropertyBlock);
             }
 
             RTHandle finalResult;
@@ -168,14 +206,15 @@ namespace Game.Core.PostProcessing
             {
                 using (new ProfilingScope(cmd, m_AccumulationSampler))
                 {
-                    var histroy = context.GetPreviousFrameRT((int)FrameHistoryType.ScreenSpaceReflectionAccumulation);
-                    m_ScreenSpaceReflectionMaterial.SetTexture(ShaderConstants._SsrAccumPrev, histroy);
-                    m_ScreenSpaceReflectionMaterial.SetTexture(ShaderConstants.SsrHitPointTexture, m_SsrHitPointRT);
-                    //合成累计Lighting
-                    Blit(cmd, m_SsrLightingRT, histroy);
-                    Blit(cmd, m_SsrLightingRT, target, m_ScreenSpaceReflectionMaterial, 4);
-                    finalResult = histroy;
-                    return;
+                    finalResult = m_SsrLightingRT;
+            //         var histroy = context.GetPreviousFrameRT((int)FrameHistoryType.ScreenSpaceReflectionAccumulation);
+            //         m_ScreenSpaceReflectionMaterial.SetTexture(ShaderConstants._SsrAccumPrev, histroy);
+            //         m_ScreenSpaceReflectionMaterial.SetTexture(ShaderConstants.SsrHitPointTexture, m_SsrHitPointRT);
+            //         //合成累计Lighting
+            //         Blit(cmd, m_SsrLightingRT, histroy);
+            //         Blit(cmd, m_SsrLightingRT, target, m_ScreenSpaceReflectionMaterial, 4);
+            //         finalResult = histroy;
+            //         return;
                 }
             }
             else
@@ -183,8 +222,8 @@ namespace Game.Core.PostProcessing
                 finalResult = m_SsrLightingRT;
             }
 
-
             //一些做法是SetGlobal 然后后续进行合成 就能减少一次Blit
+            cmd.SetGlobalTexture(ShaderConstants.SSR_Lighting_Texture, finalResult);
             m_ScreenSpaceReflectionMaterial.SetTexture(ShaderConstants.SsrLightingTexture, finalResult);
             Blit(cmd, source, target, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Composite);
         }

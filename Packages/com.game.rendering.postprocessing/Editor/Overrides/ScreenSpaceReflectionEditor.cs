@@ -14,6 +14,7 @@ namespace Game.Core.PostProcessing.UnityEditor
         private SerializedDataParameter Enable;
         private SerializedDataParameter mode;
         private SerializedDataParameter usedAlgorithm;
+        private SerializedDataParameter enableMultiBounce;
         private SerializedDataParameter resolution;
         private SerializedDataParameter intensity;
         private SerializedDataParameter thickness;
@@ -35,6 +36,7 @@ namespace Game.Core.PostProcessing.UnityEditor
             Enable = Unpack(o.Find(x => x.Enable));
             mode = Unpack(o.Find(x => x.mode));
             usedAlgorithm = Unpack(o.Find(x => x.usedAlgorithm));
+            enableMultiBounce = Unpack(o.Find(x => x.enableMultiBounce));
             resolution = Unpack(o.Find(x => x.resolution));
             intensity = Unpack(o.Find(x => x.intensity));
             thickness = Unpack(o.Find(x => x.thickness));
@@ -92,7 +94,8 @@ namespace Game.Core.PostProcessing.UnityEditor
             
             PropertyField(Enable);
             PropertyField(mode);
-            // PropertyField(usedAlgorithm);
+            PropertyField(usedAlgorithm);
+            PropertyField(enableMultiBounce);
             PropertyField(intensity);
             PropertyField(minSmoothness);
             PropertyField(smoothnessFadeStart);
@@ -101,7 +104,6 @@ namespace Game.Core.PostProcessing.UnityEditor
             
             EditorGUILayout.Space(10);
             PresetUI();
-            EditorGUILayout.LabelField("Performance");
             PropertyField(resolution);
             PropertyField(maximumIterationCount);
             PropertyField(thickness);

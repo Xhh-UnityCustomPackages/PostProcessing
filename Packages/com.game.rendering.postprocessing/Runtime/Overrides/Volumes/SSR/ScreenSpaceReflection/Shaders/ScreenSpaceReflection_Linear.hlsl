@@ -68,7 +68,6 @@ Result Linear2D_Trace(half3 csOrigin,
     {
         return result;
     }
-
     
     half RayBump = max(-0.0002 * stepSize * csOrigin.z, 0.001);
     csOrigin = csOrigin + normalVS * RayBump;//射线起始坐标 沿着法线方向稍微偏移一下 避免自相交
@@ -81,8 +80,8 @@ Result Linear2D_Trace(half3 csOrigin,
 
     half3 csEndPoint = csDirection * rayLength + csOrigin;
     //3D射线投影到2D屏幕空间
-    half4 H0 = TransformViewToHScreen(csOrigin, csZBufferSize.zw);
-    half4 H1 = TransformViewToHScreen(csEndPoint, csZBufferSize.zw);
+    half4 H0 = TransformViewToHScreen(csOrigin, csZBufferSize.xy);
+    half4 H1 = TransformViewToHScreen(csEndPoint, csZBufferSize.xy);
 
     half k0 = 1 / H0.w;
     half k1 = 1 / H1.w;
@@ -155,11 +154,11 @@ Result Linear2D_Trace(half3 csOrigin,
     int originalStepCount = 0;
 
     float2 hitPixel = half2(-1, -1);
-
+    half2 invSize = csZBufferSize.zw;
     RayIterations(P, stepDirection, end, originalStepCount,
                   maxSteps,
                   intersecting, sceneZ, dP, Q, dQ, k, dk, rayZMin, rayZMax, prevZMaxEstimate, permute, hitPixel,
-                  csZBufferSize.xy, layerThickness);
+                  invSize, layerThickness);
 
     int stepCount = originalStepCount;
     Q.xy += dQ.xy * stepCount;
@@ -169,7 +168,7 @@ Result Linear2D_Trace(half3 csOrigin,
     if (intersecting)
     {
         result.iterationCount = stepCount;
-        result.uv = hitPixel * csZBufferSize.xy;
+        result.uv = hitPixel * csZBufferSize.zw;
         result.isHit = true;
     }
     return result;
@@ -196,7 +195,8 @@ float4 FragTestLinear(Varyings input) : SV_Target
         return half4(0, 0, 0, 0);
     }
     
-    float3 positionVS = GetViewSpacePosition(rawDepth, uv);
+    float3 positionWS = ComputeWorldSpacePosition(input.texcoord.xy, rawDepth, UNITY_MATRIX_I_VP);
+    float3 positionVS = TransformWorldToView(positionWS);
     
     //太远的点也直接跳过
     UNITY_BRANCH
@@ -205,13 +205,14 @@ float4 FragTestLinear(Varyings input) : SV_Target
         return half4(0, 0, 0, 0);
     }
     
+    
     float3 normalWS = SampleSceneNormals(uv);
-    float3 normalVS = mul((float3x3)_ViewMatrixSSR, normalWS);
-    float3 reflectionDirectionVS = normalize(reflect(normalize(positionVS), normalVS));
+    float3 reflectRayWS = normalize(reflect((positionWS - _WorldSpaceCameraPos), normalWS));
+    float3 reflectRayVS = TransformWorldToViewDir(reflectRayWS);
     
     Ray ray;
     ray.origin = positionVS;
-    ray.direction = reflectionDirectionVS;
+    ray.direction = reflectRayVS;
 
     UNITY_BRANCH
     if (ray.direction.z > 0.0)
@@ -222,15 +223,16 @@ float4 FragTestLinear(Varyings input) : SV_Target
     float jitter = 1.0f + (1.0f - dither[ditherIndex]);
     
     float3 hitPointVS = ray.origin;
+    float stepSize = _Thickness * 30;
     Result result = Linear2D_Trace(ray.origin,
                                    ray.direction,
-                                   _SsrHitPointTexture_TexelSize,
+                                   _ScreenSize,
                                    jitter,
-                                   normalVS,
+                                   reflectRayVS,
                                    _MaximumIterationCount,
-                                   Thickness,
+                                   LINEAR_TRACE_2D_THICKNESS,
                                    _MaximumMarchDistance,
-                                   _Bandwidth,
+                                   stepSize,
                                    hitPointVS
                                    );
     
@@ -238,9 +240,7 @@ float4 FragTestLinear(Varyings input) : SV_Target
 
     float2 reflectUV = result.uv;
     float edgeMask = result.isHit ? 1 : 0;
-    // float screenEdgeFade = ScreenEdgeMask((reflectUV - 0.5) * 2);
-    // float fadeMask = screenEdgeFade;
-    // edgeMask *= screenEdgeFade;
+    // reflectUV /= _ScreenSize.xy;
     return float4(reflectUV, confidence, edgeMask);
 }
 

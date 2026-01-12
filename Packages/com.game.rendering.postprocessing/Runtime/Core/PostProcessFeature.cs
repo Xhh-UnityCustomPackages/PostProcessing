@@ -80,10 +80,11 @@ namespace Game.Core.PostProcessing
         private PostProcessRenderPass m_AfterRenderingSkybox, m_BeforeRenderingPostProcessing, m_AfterRenderingPostProcessing;
         UberPostProcess m_UberPostProcessing;
         private static PostProcessFeatureContext m_Context;
-        
-     
-        ColorPyramidPass m_ColorPyramidPass;
-        DepthPyramidPass m_HizDepthGenerator;
+
+
+        private SetGlobalVariablesPass m_SetGlobalVariablesPass;
+        private ColorPyramidPass m_ColorPyramidPass;
+        private DepthPyramidPass m_HizDepthGenerator;
         
         private ScreenSpaceShadowsPass m_SSShadowsPass = null;
         private ScreenSpaceShadowsPostPass m_SSShadowsPostPass = null;
@@ -131,6 +132,7 @@ namespace Game.Core.PostProcessing
                 postProcessFeatureData, m_Context);
 
             m_UberPostProcessing = new UberPostProcess(postProcessFeatureData);
+            m_SetGlobalVariablesPass = new SetGlobalVariablesPass(m_Context);
             
 #if UNITY_EDITOR
             m_DebugHandler = new DebugHandler();
@@ -161,6 +163,11 @@ namespace Game.Core.PostProcessing
 
             m_Context.Setup(camera);
             m_Context.UpdateFrame(ref renderingData);
+            
+            
+            // AfterRenderingPrePasses
+            renderer.EnqueuePass(m_SetGlobalVariablesPass);
+            
 
             PostProcessPassInput postProcessPassInput = PostProcessPassInput.None; 
             
@@ -204,6 +211,11 @@ namespace Game.Core.PostProcessing
 
             if (postProcessPassInput.HasFlag(PostProcessPassInput.ColorPyramid))
             {
+                if (m_Context.FrameCount <= 3)
+                {
+                    return;
+                }
+
                 m_ColorPyramidPass ??= new ColorPyramidPass(m_Context);
                 renderer.EnqueuePass(m_ColorPyramidPass);
             }

@@ -105,15 +105,6 @@ namespace Game.Core.PostProcessing
             desc.msaaSamples = 1;
             desc.depthBufferBits = 0;
         }
-        
-        protected void GetCompatibleDescriptor(ref RenderTextureDescriptor desc, int width, int height, GraphicsFormat format)
-        {
-            desc.width = width;
-            desc.height = height;
-            desc.graphicsFormat = format;
-            desc.msaaSamples = 1;
-            desc.depthBufferBits = 0;
-        }
 
         protected void DescriptorDownSample(ref RenderTextureDescriptor desc, int downSample)
         {

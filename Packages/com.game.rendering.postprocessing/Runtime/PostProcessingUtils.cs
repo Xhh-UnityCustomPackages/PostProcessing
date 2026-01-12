@@ -10,7 +10,11 @@ namespace Game.Core.PostProcessing
     {
         public static readonly int _DepthMipChain = MemberNameHelpers.ShaderPropertyID();
         public static readonly int _DepthPyramid = MemberNameHelpers.ShaderPropertyID();
+        public static readonly int _DepthPyramidMipLevelOffsets = MemberNameHelpers.ShaderPropertyID();
         public static readonly int _ColorPyramidTexture = MemberNameHelpers.ShaderPropertyID();
+        
+        
+        public static readonly int ShaderVariablesGlobal = MemberNameHelpers.ShaderPropertyID();
     }
 
     public static class PostProcessingRenderPassEvent
@@ -34,6 +38,30 @@ namespace Game.Core.PostProcessing
             // When used as render target, the C++ code will re-create the resource automatically. Since here it's used directly as an UAV, we need to check manually
             if (!rt.IsCreated())
                 rt.Create();
+        }
+        
+        public static float ComputeViewportScale(int viewportSize, int bufferSize)
+        {
+            float rcpBufferSize = 1.0f / bufferSize;
+
+            // Scale by (vp_dim / buf_dim).
+            return viewportSize * rcpBufferSize;
+        }
+
+        public static float ComputeViewportLimit(int viewportSize, int bufferSize)
+        {
+            float rcpBufferSize = 1.0f / bufferSize;
+
+            // Clamp to (vp_dim - 0.5) / buf_dim.
+            return (viewportSize - 0.5f) * rcpBufferSize;
+        }
+        
+        public static Vector4 ComputeViewportScaleAndLimit(Vector2Int viewportSize, Vector2Int bufferSize)
+        {
+            return new Vector4(ComputeViewportScale(viewportSize.x, bufferSize.x),  // Scale(x)
+                ComputeViewportScale(viewportSize.y, bufferSize.y),                 // Scale(y)
+                ComputeViewportLimit(viewportSize.x, bufferSize.x),                 // Limit(x)
+                ComputeViewportLimit(viewportSize.y, bufferSize.y));                // Limit(y)
         }
         
         #region Math

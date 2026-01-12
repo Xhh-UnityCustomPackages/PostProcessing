@@ -7,6 +7,7 @@
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/UnityGBuffer.hlsl"
 #include "Packages/com.unity.render-pipelines.universal/Shaders/PostProcessing/Common.hlsl"
 #include "ShaderVariablesScreenSpaceReflection.hlsl"
+#include "Packages/com.game.rendering.postprocessing/ShaderLibrary/ShaderVariables.hlsl"
 
 // Helper structs
 //
@@ -40,42 +41,23 @@ TEXTURE2D_HALF(_GBuffer2);
 
 float4 _SsrHitPointTexture_TexelSize;
 
-float4x4 _ViewMatrixSSR;
-float4x4 _InverseViewMatrixSSR;
-float4x4 _InverseProjectionMatrixSSR;
-
 float4 _Params1;     // x: vignette intensity, y: distance fade, z: maximum march distance, w: intensity
-float4 _Params2;    // z: thickness, w: maximum iteration count
 
+//Debug
 float SEPARATION_POS;
 
 #define _Attenuation            .25
 #define _VignetteIntensity      _Params1.x
 #define _DistanceFade           _Params1.y
 #define _MaximumMarchDistance   _Params1.z
-#define _Bandwidth              _Params2.z
-#define _MaximumIterationCount  _Params2.w
-
+#define _MaximumIterationCount  _Params1.w
+#define DOWNSAMPLE                  _SsrDownsamplingDivider
 #define SSR_MINIMUM_ATTENUATION 0.275
 #define SSR_ATTENUATION_SCALE (1.0 - SSR_MINIMUM_ATTENUATION)
 #define SSR_VIGNETTE_SMOOTHNESS 5.
 
 // 外面的thickness被当作了步长在用, 实际的thickness写死了
-#define Thickness              0.05
-
-
-float3 GetViewSpacePosition(float rawDepth, float2 uv)
-{
-    // float rawDepth = SampleSceneDepth(uv);
-
-    // 跨平台深度修正
-    #if defined(UNITY_REVERSED_Z)
-    #else
-    rawDepth = lerp(UNITY_NEAR_CLIP_VALUE, 1, rawDepth);
-    #endif
-    float4 result = mul(_InverseProjectionMatrixSSR, float4(2.0 * uv - 1.0, rawDepth, 1.0));
-    return result.xyz / result.w;
-}
+#define LINEAR_TRACE_2D_THICKNESS              0.1
 
 float4 TransformViewToHScreen(float3 vpos, float2 screenSize)
 {

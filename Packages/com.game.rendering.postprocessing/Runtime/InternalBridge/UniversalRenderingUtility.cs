@@ -6,12 +6,29 @@ namespace UnityEngine.Rendering.Universal
 {
     public static class UniversalRenderingUtility
     {
+        private static FieldInfo m_OpaqueColorFieldInfo;
         private static FieldInfo m_NormalsTextureFieldInfo;
         private static FieldInfo m_MotionVectorColorFieldInfo;
         
         public static RenderingMode GetRenderingMode(ScriptableRenderer renderer)
         {
             return ((UniversalRenderer)renderer).renderingModeRequested;
+        }
+        
+        /// <summary>
+        /// Get UniversalRenderer m_OpaqueColor texture.
+        /// </summary>
+        /// <param name="sr"></param>
+        /// <returns></returns>
+        public static RTHandle GetOpaqueTexture(ScriptableRenderer sr)
+        {
+            if (sr is not UniversalRenderer universalRenderer) return null;
+            if (m_OpaqueColorFieldInfo == null)
+            {
+                m_OpaqueColorFieldInfo = typeof(UniversalRenderer).GetField("m_OpaqueColor",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+            }
+            return m_OpaqueColorFieldInfo!.GetValue(universalRenderer) as RTHandle;
         }
 
         public static RTHandle GetDepthTexture(ScriptableRenderer sr)

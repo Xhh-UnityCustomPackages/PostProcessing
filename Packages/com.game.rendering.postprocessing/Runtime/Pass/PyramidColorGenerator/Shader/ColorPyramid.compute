@@ -24,7 +24,7 @@
 #pragma kernel KColorGaussian                       KERNEL_SIZE=8  MAIN_GAUSSIAN=KColorGaussian
 #pragma kernel KColorDownsample                     KERNEL_SIZE=8  MAIN_DOWNSAMPLE=KColorDownsample
 
-#pragma multi_compile _ DISABLE_TEXTURE2D_X_ARRAY
+#define  DISABLE_TEXTURE2D_X_ARRAY
 
 #define NO_ALPHA
 

@@ -24,6 +24,9 @@ namespace Game.Core.PostProcessing
         
         /// <summary>Screen Space Reflections Algorithm used.</summary>
         public EnumParameter<ScreenSpaceReflectionAlgorithm> usedAlgorithm = new (ScreenSpaceReflectionAlgorithm.Approximation);
+
+        [Tooltip("是否开启光线多次弹射,开启后会使用上一帧反射后的屏幕颜色,实现时域上的多次反弹")]
+        public BoolParameter enableMultiBounce = new (false);
         
         [Space(6)]
         [Tooltip("强度")]
@@ -49,7 +52,7 @@ namespace Game.Core.PostProcessing
         public ClampedIntParameter maximumIterationCount = new(256, 1, 256);
 
         [Tooltip("实际上是追踪步长, 越大精度越低, 追踪范围越大, 越节省追踪次数")]
-        public ClampedFloatParameter thickness = new(8f, 1f, 64f);
+        public ClampedFloatParameter thickness = new(0.1f, 0f, 1f);
         
         [Tooltip("最大追踪距离")]
         public MinFloatParameter maximumMarchDistance = new(100f, 0f);
@@ -89,10 +92,6 @@ namespace Game.Core.PostProcessing
         public ClampedFloatParameter split = new(0.5f, 0f, 1f);
         
         
-        
-        
-        
-        
         public enum RaytraceModes
         {
             LinearTracing = 0,
@@ -101,7 +100,6 @@ namespace Game.Core.PostProcessing
         
         public enum Resolution
         {
-            Quarter,
             Half,
             Full,
             Double
@@ -139,7 +137,7 @@ namespace Game.Core.PostProcessing
             switch (preset)
             {
                 case Preset.Fast:
-                    resolution.value = Resolution.Quarter;
+                    resolution.value = Resolution.Half;
                     thickness.value = 1.0f;
                     maximumIterationCount.value = 16;
                     break;

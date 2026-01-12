@@ -46,31 +46,34 @@ namespace Game.Core.PostProcessing
             public float ThicknessScale;
             public float ThicknessBias;
             
-            // public float Steps;
-            // public float StepSize;
+            public float Steps;
+            public float StepSize;
             public float RoughnessFadeEnd;
             public float RoughnessFadeRcpLength;
             
             public float RoughnessFadeEndTimesRcpLength;
             public float EdgeFadeRcpLength;
-            // public int DepthPyramidMaxMip;
-            // public float DownsamplingDivider;
-            //
-            // public float AccumulationAmount;
-            // public float PBRSpeedRejection;
-            // public float PBRSpeedRejectionScalerFactor;
-            // public float PBRBias;
-            //
-            // public int ColorPyramidMaxMip;
+            public int DepthPyramidMaxMip;
+            public float DownsamplingDivider;
+            
+            public float AccumulationAmount;
+            public float PBRSpeedRejection;
+            public float PBRSpeedRejectionScalerFactor;
+            public float PBRBias;
+            
+            public int ColorPyramidMaxMip;
         }
 
         private ScreenSpaceReflectionVariables m_Variables;
         
         private void PrepareVariables(Camera camera)
         {
+            var thickness = settings.thickness.value;
             var minSmoothness = settings.minSmoothness.value;
             var smoothnessFadeStart = settings.smoothnessFadeStart.value;
             var screenFadeDistance = settings.vignette.value;
+            float n = camera.nearClipPlane;
+            float f = camera.farClipPlane;
             
             float roughnessFadeStart = 1 - smoothnessFadeStart;
             float roughnessFadeEnd = 1 - minSmoothness;
@@ -91,40 +94,51 @@ namespace Game.Core.PostProcessing
             Matrix4x4 SSR_ProjectToPixelMatrix = warpToScreenSpaceMatrix * SSR_ProjectionMatrix;
             
             m_Variables.Intensity = settings.intensity.value;
+            m_Variables.Thickness = thickness;
+            m_Variables.ThicknessScale = 1.0f / (1.0f + thickness);;
+            m_Variables.ThicknessBias = -n / (f - n) * (thickness * m_Variables.ThicknessScale);
+            // m_Variables.Steps = settings.steps.value;
+            // m_Variables.StepSize = settings.stepSize.value;
             m_Variables.RoughnessFadeEnd = roughnessFadeEnd;
             m_Variables.RoughnessFadeRcpLength = roughnessFadeRcpLength;
             m_Variables.RoughnessFadeEndTimesRcpLength = roughnessFadeEndTimesRcpLength;
             m_Variables.EdgeFadeRcpLength = edgeFadeRcpLength;//照搬的HDRP 但是这个实际效果过度太硬了
+            m_Variables.DepthPyramidMaxMip = context.DepthMipChainInfo.mipLevelCount - 1;
+            m_Variables.ColorPyramidMaxMip = context.ColorPyramidHistoryMipCount - 1;
+            m_Variables.DownsamplingDivider = GetScaleFactor();
             m_Variables.ProjectionMatrix = SSR_ProjectToPixelMatrix;
 
+            // PBR properties only be used in compute shader mode
+            m_Variables.PBRBias = settings.biasFactor.value;
+            m_Variables.PBRSpeedRejection = Mathf.Clamp01(settings.speedRejectionParam.value);
+            m_Variables.PBRSpeedRejectionScalerFactor = Mathf.Pow(settings.speedRejectionScalerFactor.value * 0.1f, 2.0f);
             if (context.FrameCount <= 3)
             {
-                // m_Variables.AccumulationAmount = 1.0f;
+                m_Variables.AccumulationAmount = 1.0f;
             }
             else
             {
-                
+                m_Variables.AccumulationAmount = Mathf.Pow(2, Mathf.Lerp(0.0f, -7.0f, settings.accumulationFactor.value));
             }
         }
 
         private void SetupMaterials(Camera camera)
         {
             PrepareVariables(camera);
-            
-            var projectionMatrix = GL.GetGPUProjectionMatrix(camera.projectionMatrix, false);
-            
-            m_ScreenSpaceReflectionMaterial.SetMatrix(ShaderConstants.ViewMatrix, camera.worldToCameraMatrix);
-            m_ScreenSpaceReflectionMaterial.SetMatrix(ShaderConstants.InverseViewMatrix, camera.worldToCameraMatrix.inverse);
-            m_ScreenSpaceReflectionMaterial.SetMatrix(ShaderConstants.InverseProjectionMatrix, projectionMatrix.inverse);
             m_ScreenSpaceReflectionMaterial.SetVector(ShaderConstants.Params1,
-                new Vector4(settings.vignette.value, settings.distanceFade.value, settings.maximumMarchDistance.value, 0));
-            m_ScreenSpaceReflectionMaterial.SetVector(ShaderConstants.Params2, new Vector4(0, 0, settings.thickness.value, settings.maximumIterationCount.value));
+                new Vector4(settings.vignette.value, settings.distanceFade.value, settings.maximumMarchDistance.value, settings.maximumIterationCount.value));
             
             m_ScreenSpaceReflectionMaterial.SetFloat(ShaderConstants.SsrIntensity, m_Variables.Intensity);
+            m_ScreenSpaceReflectionMaterial.SetFloat(ShaderConstants.Thickness, m_Variables.Thickness);
+            m_ScreenSpaceReflectionMaterial.SetFloat(ShaderConstants.SsrThicknessScale, m_Variables.ThicknessScale);
+            m_ScreenSpaceReflectionMaterial.SetFloat(ShaderConstants.SsrThicknessBias, m_Variables.ThicknessBias);
             m_ScreenSpaceReflectionMaterial.SetFloat(ShaderConstants.SsrRoughnessFadeEnd, m_Variables.RoughnessFadeEnd);
             m_ScreenSpaceReflectionMaterial.SetFloat(ShaderConstants.SsrRoughnessFadeEndTimesRcpLength, m_Variables.RoughnessFadeEndTimesRcpLength);
             m_ScreenSpaceReflectionMaterial.SetFloat(ShaderConstants.SsrRoughnessFadeRcpLength, m_Variables.RoughnessFadeRcpLength);
             m_ScreenSpaceReflectionMaterial.SetFloat(ShaderConstants.SsrEdgeFadeRcpLength, m_Variables.EdgeFadeRcpLength);
+            m_ScreenSpaceReflectionMaterial.SetInteger(ShaderConstants.SsrDepthPyramidMaxMip, m_Variables.DepthPyramidMaxMip);
+            m_ScreenSpaceReflectionMaterial.SetInteger(ShaderConstants.SsrColorPyramidMaxMip, m_Variables.ColorPyramidMaxMip);
+            m_ScreenSpaceReflectionMaterial.SetFloat(ShaderConstants.SsrDownsamplingDivider, m_Variables.DownsamplingDivider);
             
             Vector4 testTex_texelSize = new Vector4(
                 1.0f / m_ScreenSpaceReflectionDescriptor.width,
@@ -137,6 +151,8 @@ namespace Game.Core.PostProcessing
             // -------------------------------------------------------------------------------------------------
             // local shader keywords
             m_ShaderKeywords[0] = ShaderConstants.GetDebugKeyword(settings.debugMode.value);
+            m_ShaderKeywords[1] = ShaderConstants.GetApproxKeyword(settings.usedAlgorithm.value);
+            m_ShaderKeywords[2] = ShaderConstants.GetMultiBounceKeyword(settings.enableMultiBounce.value);
             m_ScreenSpaceReflectionMaterial.shaderKeywords = m_ShaderKeywords;
             if (settings.debugMode.value == ScreenSpaceReflection.DebugMode.Split)
             {
@@ -151,10 +167,6 @@ namespace Game.Core.PostProcessing
             {
                 scaleFactor = 0.5f;
                
-            }
-            else if (settings.resolution.value == ScreenSpaceReflection.Resolution.Quarter)
-            {
-                scaleFactor = 0.25f;
             }
             else if (settings.resolution.value == ScreenSpaceReflection.Resolution.Double)
             {
