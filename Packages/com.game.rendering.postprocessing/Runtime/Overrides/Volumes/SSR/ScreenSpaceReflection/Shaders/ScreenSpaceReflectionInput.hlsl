@@ -7,7 +7,6 @@
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/UnityGBuffer.hlsl"
 #include "Packages/com.unity.render-pipelines.universal/Shaders/PostProcessing/Common.hlsl"
 #include "ShaderVariablesScreenSpaceReflection.hlsl"
-#include "Packages/com.game.rendering.postprocessing/ShaderLibrary/ShaderVariables.hlsl"
 
 // Helper structs
 //
@@ -48,7 +47,7 @@ float SEPARATION_POS;
 
 #define _Attenuation            .25
 #define _VignetteIntensity      _Params1.x
-#define _DistanceFade           _Params1.y
+#define _DistanceFade           1
 #define _MaximumMarchDistance   _Params1.z
 #define _MaximumIterationCount  _Params1.w
 #define DOWNSAMPLE                  _SsrDownsamplingDivider

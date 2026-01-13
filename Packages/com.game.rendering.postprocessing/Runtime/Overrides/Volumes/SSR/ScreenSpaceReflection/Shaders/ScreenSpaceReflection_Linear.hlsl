@@ -195,16 +195,14 @@ float4 FragTestLinear(Varyings input) : SV_Target
         return half4(0, 0, 0, 0);
     }
     
-    float3 positionWS = ComputeWorldSpacePosition(input.texcoord.xy, rawDepth, UNITY_MATRIX_I_VP);
+    float3 positionWS = ComputeWorldSpacePosition(input.texcoord.xy, rawDepth, UNITY_MATRIX_I_VP);//UNITY_MATRIX_I_VP _SsrInvViewProjMatrix
     float3 positionVS = TransformWorldToView(positionWS);
-    
     //太远的点也直接跳过
     UNITY_BRANCH
     if (positionVS.z < - _MaximumMarchDistance)
     {
         return half4(0, 0, 0, 0);
     }
-    
     
     float3 normalWS = SampleSceneNormals(uv);
     float3 reflectRayWS = normalize(reflect((positionWS - _WorldSpaceCameraPos), normalWS));
@@ -223,14 +221,14 @@ float4 FragTestLinear(Varyings input) : SV_Target
     float jitter = 1.0f + (1.0f - dither[ditherIndex]);
     
     float3 hitPointVS = ray.origin;
-    float stepSize = _Thickness * 30;
+    float stepSize = _StepSize * 30;
     Result result = Linear2D_Trace(ray.origin,
                                    ray.direction,
                                    _ScreenSize,
                                    jitter,
                                    reflectRayVS,
                                    _MaximumIterationCount,
-                                   LINEAR_TRACE_2D_THICKNESS,
+                                   _Thickness,
                                    _MaximumMarchDistance,
                                    stepSize,
                                    hitPointVS

@@ -6,6 +6,7 @@ namespace UnityEngine.Rendering.Universal
 {
     public static class UniversalRenderingUtility
     {
+        private static FieldInfo m_CopyDepthModeFieldInfo;
         private static FieldInfo m_OpaqueColorFieldInfo;
         private static FieldInfo m_NormalsTextureFieldInfo;
         private static FieldInfo m_MotionVectorColorFieldInfo;
@@ -13,6 +14,17 @@ namespace UnityEngine.Rendering.Universal
         public static RenderingMode GetRenderingMode(ScriptableRenderer renderer)
         {
             return ((UniversalRenderer)renderer).renderingModeRequested;
+        }
+
+        public static CopyDepthMode GetCopyDepthMode(ScriptableRenderer renderer)
+        {
+            if (renderer is not UniversalRenderer universalRenderer)
+                return CopyDepthMode.AfterOpaques;
+    
+            m_CopyDepthModeFieldInfo ??= typeof(UniversalRenderer).GetField("m_CopyDepthMode", 
+                BindingFlags.NonPublic | BindingFlags.Instance);
+    
+            return (CopyDepthMode)(m_CopyDepthModeFieldInfo?.GetValue(universalRenderer) ?? CopyDepthMode.AfterOpaques);
         }
         
         /// <summary>

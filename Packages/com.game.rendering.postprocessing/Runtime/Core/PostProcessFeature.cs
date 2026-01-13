@@ -140,6 +140,14 @@ namespace Game.Core.PostProcessing
 #endif
         }
 
+        RenderPassEvent GetMotionVectorPassEvent(ScriptableRenderer renderer)
+        {
+            var m_CopyDepthMode = UniversalRenderingUtility.GetCopyDepthMode(renderer);
+            bool copyDepthAfterTransparents = m_CopyDepthMode == CopyDepthMode.AfterTransparents;
+            RenderPassEvent copyDepthEvent = copyDepthAfterTransparents ? RenderPassEvent.AfterRenderingTransparents : RenderPassEvent.AfterRenderingSkybox;
+            return copyDepthEvent + 1;
+        }
+
         public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
         {
             if (m_Settings.m_PostProcessFeatureData == null)
@@ -187,6 +195,7 @@ namespace Game.Core.PostProcessing
                 }
                 
                 m_AfterRenderingSkybox.AddRenderPasses(ref renderingData, ref postProcessPassInput);
+                m_AfterRenderingSkybox.renderPassEvent = GetMotionVectorPassEvent(renderer) + 1;//因为MotionVector的顺序会发生改变 这里在强制改变一次
                 m_BeforeRenderingPostProcessing.AddRenderPasses(ref renderingData, ref postProcessPassInput);
                 // 暂时不考虑 Camera stack 的情况
                 m_AfterRenderingPostProcessing.AddRenderPasses(ref renderingData, ref postProcessPassInput);
@@ -247,7 +256,6 @@ namespace Game.Core.PostProcessing
 
         protected override void Dispose(bool disposing)
         {
-            m_Context.Dispose();
             m_BeforeRenderingOpaques.Dispose(disposing);
             m_AfterRenderingOpaques.Dispose(disposing);
             m_BeforeRenderingGBuffer.Dispose(disposing);
@@ -260,6 +268,9 @@ namespace Game.Core.PostProcessing
             
             m_SSShadowsPass?.Dispose();
             m_HizDepthGenerator?.Dispose();
+            
+            m_Context.Dispose();
+            
 #if UNITY_EDITOR
             m_DebugHandler.Dispose();
 #endif

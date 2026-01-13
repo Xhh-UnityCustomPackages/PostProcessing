@@ -18,11 +18,12 @@ namespace Game.Core.PostProcessing.UnityEditor
         private SerializedDataParameter resolution;
         private SerializedDataParameter intensity;
         private SerializedDataParameter thickness;
+        private SerializedDataParameter stepSize;
         private SerializedDataParameter minSmoothness;
         private SerializedDataParameter smoothnessFadeStart;
         private SerializedDataParameter maximumIterationCount;
         private SerializedDataParameter maximumMarchDistance;
-        private SerializedDataParameter distanceFade;
+        // private SerializedDataParameter distanceFade;
         private SerializedDataParameter vignette;
         
         private SerializedDataParameter debugMode;
@@ -40,11 +41,12 @@ namespace Game.Core.PostProcessing.UnityEditor
             resolution = Unpack(o.Find(x => x.resolution));
             intensity = Unpack(o.Find(x => x.intensity));
             thickness = Unpack(o.Find(x => x.thickness));
+            stepSize = Unpack(o.Find(x => x.stepSize));
             minSmoothness = Unpack(o.Find(x => x.minSmoothness));
             smoothnessFadeStart = Unpack(o.Find(x => x.smoothnessFadeStart));
             maximumIterationCount = Unpack(o.Find(x => x.maximumIterationCount));
             maximumMarchDistance = Unpack(o.Find(x => x.maximumMarchDistance));
-            distanceFade = Unpack(o.Find(x => x.distanceFade));
+            // distanceFade = Unpack(o.Find(x => x.distanceFade));
             vignette = Unpack(o.Find(x => x.vignette));
             debugMode = Unpack(o.Find(x => x.debugMode));
             split = Unpack(o.Find(x => x.split));
@@ -99,13 +101,14 @@ namespace Game.Core.PostProcessing.UnityEditor
             PropertyField(intensity);
             PropertyField(minSmoothness);
             PropertyField(smoothnessFadeStart);
-            PropertyField(distanceFade);
+            // PropertyField(distanceFade);
             PropertyField(vignette);
             
             EditorGUILayout.Space(10);
             PresetUI();
             PropertyField(resolution);
             PropertyField(maximumIterationCount);
+            PropertyField(stepSize);
             PropertyField(thickness);
             PropertyField(maximumMarchDistance);
             

@@ -5,14 +5,15 @@
 #include "Packages/com.game.rendering.postprocessing/ShaderLibrary/DeclareMotionVectorTexture.hlsl"
 #include "Packages/com.game.rendering.postprocessing/ShaderLibrary/DeclareColorPyramidTexture.hlsl"
 #include "Packages/com.game.rendering.postprocessing/ShaderLibrary/BilateralFilter.hlsl"
+#include "Packages/com.game.rendering.postprocessing/ShaderLibrary/ShaderVariables.hlsl"
 
 #define MIN_GGX_ROUGHNESS           0.00001f
 #define MAX_GGX_ROUGHNESS           0.99999f
 
 #if SSR_MULTI_BOUNCE
-#define ColorPyramidUvScaleAndLimitPrevFrame float4(1, 1, 1, 1)
-#else
 #define ColorPyramidUvScaleAndLimitPrevFrame _ColorPyramidUvScaleAndLimitPrevFrame
+#else
+#define ColorPyramidUvScaleAndLimitPrevFrame float4(1, 1, 1, 1)
 #endif
 
 
@@ -85,7 +86,7 @@ float Attenuate(float2 uv)
 float Vignette(float2 uv)
 {
     float2 k = abs(uv - 0.5) * _VignetteIntensity;
-    k.x *= _BlitTexture_TexelSize.y * _BlitTexture_TexelSize.z;
+    k.x *= _ScreenSize.w * _ScreenSize.x;
     return pow(saturate(1.0 - dot(k, k)), SSR_VIGNETTE_SMOOTHNESS);
 }
 
@@ -211,7 +212,7 @@ float4 ScreenSpaceReflectionReprojection(uint2 positionSS0)
 
     //HDRP 过渡太生硬了 EdgeOfScreenFade 这里修改了实现
     float opacity = PerceptualRoughnessFade(perceptualRoughness, _SsrRoughnessFadeRcpLength, _SsrRoughnessFadeEndTimesRcpLength);
-    opacity *= Attenuate(hitPositionNDC) * Vignette(hitPositionNDC);
+    opacity *= Attenuate(hitPositionNDC) * Vignette(positionSS0 * _ScreenSize.zw * _RTHandleScale.xy);
     
     //额外的渐变
     float fade = ssrTest.z;//命中概率

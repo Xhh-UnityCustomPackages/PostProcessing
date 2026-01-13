@@ -26,7 +26,7 @@ namespace Game.Core.PostProcessing
         public EnumParameter<ScreenSpaceReflectionAlgorithm> usedAlgorithm = new (ScreenSpaceReflectionAlgorithm.Approximation);
 
         [Tooltip("是否开启光线多次弹射,开启后会使用上一帧反射后的屏幕颜色,实现时域上的多次反弹")]
-        public BoolParameter enableMultiBounce = new (false);
+        public BoolParameter enableMultiBounce = new (true);
         
         [Space(6)]
         [Tooltip("强度")]
@@ -37,8 +37,8 @@ namespace Game.Core.PostProcessing
         [Tooltip("Controls the smoothness value at which the smoothness-controlled fade out starts. The fade is in the range [Min Smoothness, Smoothness Fade Start]")]
         public ClampedFloatParameter smoothnessFadeStart = new (0.9f, 0.0f, 1.0f);
         
-        [Tooltip("值越大, 未追踪部分天空颜色会越多, 过度边界会越硬")]
-        public ClampedFloatParameter distanceFade = new(1f, 0f, 1f);
+        // [Tooltip("值越大, 未追踪部分天空颜色会越多, 过度边界会越硬")]
+        // public ClampedFloatParameter distanceFade = new(0.2f, 0f, 1f);
         
         [Tooltip("边缘渐变")]
         [InspectorName("Screen Edge Fade Distance")]
@@ -51,8 +51,10 @@ namespace Game.Core.PostProcessing
         [Tooltip("最大追踪次数")]
         public ClampedIntParameter maximumIterationCount = new(256, 1, 256);
 
-        [Tooltip("实际上是追踪步长, 越大精度越低, 追踪范围越大, 越节省追踪次数")]
-        public ClampedFloatParameter thickness = new(0.1f, 0f, 1f);
+        [Tooltip("追踪步长, 越大精度越低, 追踪范围越大, 越节省追踪次数")]
+        public ClampedFloatParameter stepSize = new(0.1f, 0f, 1f);
+        
+        public ClampedFloatParameter thickness = new(0.1f, 0.05f, 1f);
         
         [Tooltip("最大追踪距离")]
         public MinFloatParameter maximumMarchDistance = new(100f, 0f);
@@ -138,27 +140,27 @@ namespace Game.Core.PostProcessing
             {
                 case Preset.Fast:
                     resolution.value = Resolution.Half;
-                    thickness.value = 1.0f;
+                    stepSize.value = 1.0f;
                     maximumIterationCount.value = 16;
                     break;
                 case Preset.Medium:
                     resolution.value = Resolution.Half;
-                    thickness.value = 2.5f;
+                    stepSize.value = 2.5f;
                     maximumIterationCount.value = 32;
                     break;
                 case Preset.High:
                     resolution.value = Resolution.Full;
-                    thickness.value = 3f;
+                    stepSize.value = 3f;
                     maximumIterationCount.value = 64;
                     break;
                 case Preset.Superb:
                     resolution.value = Resolution.Double;
-                    thickness.value = 6f;
+                    stepSize.value = 6f;
                     maximumIterationCount.value = 128;
                     break;
                 case Preset.Ultra:
                     resolution.value = Resolution.Double;
-                    thickness.value = 4f;
+                    stepSize.value = 4f;
                     maximumIterationCount.value = 256;
                     break;
             }

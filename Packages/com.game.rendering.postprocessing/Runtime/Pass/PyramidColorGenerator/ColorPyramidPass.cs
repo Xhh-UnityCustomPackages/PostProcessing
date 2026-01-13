@@ -48,10 +48,6 @@ namespace Game.Core.PostProcessing
             {
                 // Color Pyramid
                 var colorPyramidRT = m_Context.GetCurrentFrameRT((int)FrameHistoryType.ColorBufferMipChain);
-                if (colorPyramidRT == null)
-                {
-                    return;
-                }
 
                 cmd.SetGlobalTexture(PipelineShaderIDs._ColorPyramidTexture, colorPyramidRT);
                 Vector2Int pyramidSize = new Vector2Int(camera.pixelWidth, camera.pixelHeight);

@@ -16,10 +16,14 @@ namespace Game.Core.PostProcessing
 
             internal static readonly int Params1 = Shader.PropertyToID("_Params1");
 
+            public static readonly int SSR_ProjectionMatrix = Shader.PropertyToID("_SSR_ProjectionMatrix");
+            public static readonly int SsrInvViewProjMatrix = Shader.PropertyToID("_SsrInvViewProjMatrix");
+            
             public static readonly int SsrIntensity = Shader.PropertyToID("_SSRIntensity");
             public static readonly int Thickness = Shader.PropertyToID("_Thickness");
             public static readonly int SsrThicknessScale = Shader.PropertyToID("_SsrThicknessScale");
             public static readonly int SsrThicknessBias = Shader.PropertyToID("_SsrThicknessBias");
+            public static readonly int StepSize = Shader.PropertyToID("_StepSize");
             public static readonly int SsrDepthPyramidMaxMip = Shader.PropertyToID("_SsrDepthPyramidMaxMip");
             public static readonly int SsrColorPyramidMaxMip = Shader.PropertyToID("_SsrColorPyramidMaxMip");
             public static readonly int SsrDownsamplingDivider = Shader.PropertyToID("_SsrDownsamplingDivider");
@@ -37,6 +41,7 @@ namespace Game.Core.PostProcessing
             
             public static readonly int SSR_Lighting_Texture = Shader.PropertyToID("SSR_Lighting_Texture");
             public static readonly int _DepthPyramidMipLevelOffsets = MemberNameHelpers.ShaderPropertyID();
+            public static readonly int ShaderVariablesScreenSpaceReflection = MemberNameHelpers.ShaderPropertyID();
 
             public static string GetDebugKeyword(ScreenSpaceReflection.DebugMode debugMode)
             {
@@ -154,8 +159,10 @@ namespace Game.Core.PostProcessing
 
         public override void Render(CommandBuffer cmd, RTHandle source, RTHandle target, ref RenderingData renderingData)
         {
-            SetupMaterials(renderingData.cameraData.camera);
             ref var cameraData = ref renderingData.cameraData;
+            var vp = PostProcessingUtils.CalculateNonJitterViewProjMatrix(ref cameraData);
+            m_Variables.InvViewProjMatrix = vp.inverse;
+            SetupMaterials(renderingData.cameraData.camera);
             
             using (new ProfilingScope(cmd, m_TracingSampler))
             {
@@ -163,22 +170,32 @@ namespace Game.Core.PostProcessing
                 {
                 }
                 else
-                {
+                { 
+                    SharedPropertyBlock.Clear();
+                    // We need to set the "_BlitScaleBias" uniform for user materials with shaders relying on core Blit.hlsl to work
+                    SharedPropertyBlock.SetVector(ShaderConstants._BlitScaleBias, new Vector4(1, 1, 0, 0));
+                    
+                    cmd.SetRenderTarget(m_SsrHitPointRT);
                     if (settings.mode.value == ScreenSpaceReflection.RaytraceModes.LinearTracing)
                     {
-                        Blit(cmd, source, m_SsrHitPointRT, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Test);
+                        // Blit(cmd, source, m_SsrHitPointRT, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Test);
+                        cmd.DrawProcedural(Matrix4x4.identity, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Test, MeshTopology.Triangles, 3, 1, SharedPropertyBlock);
                     }
                     else
                     {
                         if (m_DepthPyramidMipLevelOffsetsBuffer == null)
                             m_DepthPyramidMipLevelOffsetsBuffer = new ComputeBuffer(15, sizeof(int) * 2);
 
+                        SharedPropertyBlock.Clear();
                         var offsetBuffer = context.DepthMipChainInfo.GetOffsetBufferData(m_DepthPyramidMipLevelOffsetsBuffer);
-                        m_ScreenSpaceReflectionMaterial.SetBuffer(ShaderConstants._DepthPyramidMipLevelOffsets, offsetBuffer);
-                        Blit(cmd, source, m_SsrHitPointRT, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.HizTest);
+                        SharedPropertyBlock.SetBuffer(ShaderConstants._DepthPyramidMipLevelOffsets, offsetBuffer);
+                        cmd.DrawProcedural(Matrix4x4.identity, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.HizTest, MeshTopology.Triangles, 3, 1, SharedPropertyBlock);
                     }
                 }
             }
+            
+            // Blit(cmd, m_SsrHitPointRT, target);
+            // return;
 
             using (new ProfilingScope(cmd, m_ReprojectionSampler))
             {
@@ -189,6 +206,7 @@ namespace Game.Core.PostProcessing
                 }
                 else
                 {
+                    //如果不启用多次弹射的话,就是使用cameraColorTargetHandle 但是这张RT是没有Mipmap的 结果就是不跟光滑度走Mipmnap 直接变为强度
                     preFrameColorRT = cameraData.renderer.cameraColorTargetHandle;
                 }
                 SharedPropertyBlock.Clear();
@@ -196,6 +214,10 @@ namespace Game.Core.PostProcessing
                 SharedPropertyBlock.SetTexture(ShaderConstants.SsrHitPointTexture, m_SsrHitPointRT);
                 // We need to set the "_BlitScaleBias" uniform for user materials with shaders relying on core Blit.hlsl to work
                 SharedPropertyBlock.SetVector(ShaderConstants._BlitScaleBias, new Vector4(1, 1, 0, 0));
+                
+                // m_ScreenSpaceReflectionMaterial.SetTexture(ShaderConstants.SsrHitPointTexture, m_SsrHitPointRT);
+                // m_ScreenSpaceReflectionMaterial.SetTexture(PipelineShaderIDs._ColorPyramidTexture, preFrameColorRT);
+                // Blit(cmd, source, m_SsrLightingRT, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Reproject);
                 
                 cmd.SetRenderTarget(m_SsrLightingRT);
                 cmd.DrawProcedural(Matrix4x4.identity, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Reproject, MeshTopology.Triangles, 3, 1, SharedPropertyBlock);

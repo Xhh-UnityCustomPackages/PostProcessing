@@ -28,6 +28,11 @@ namespace Game.Core.PostProcessing
     {
         private struct ShaderVariablesGlobal
         {
+            public Matrix4x4 ViewMatrix;
+            public Matrix4x4 ViewProjMatrix;
+            public Matrix4x4 InvViewProjMatrix;
+            public Matrix4x4 PrevInvViewProjMatrix;
+            
             public Vector4 ColorPyramidUvScaleAndLimitPrevFrame;
         }
         
@@ -90,12 +95,6 @@ namespace Game.Core.PostProcessing
         {
             m_FrameCount = 0;
             m_HistoryRTSystem?.ReleaseAll();
-            
-            if (m_HistoryRTSystem != null)
-            {
-                m_HistoryRTSystem.Dispose();
-                m_HistoryRTSystem = null;
-            }
             m_MipGenerator?.Release();
         }
 
@@ -117,13 +116,19 @@ namespace Game.Core.PostProcessing
         {
             PrepareGlobalVariables(ref renderingData);
             ConstantBuffer.PushGlobal(cmd, m_ShaderVariablesGlobal, PipelineShaderIDs.ShaderVariablesGlobal);
+            cmd.SetGlobalVector(PipelineShaderIDs._ColorPyramidUvScaleAndLimitPrevFrame, m_ShaderVariablesGlobal.ColorPyramidUvScaleAndLimitPrevFrame);
         }
 
         private void PrepareGlobalVariables(ref RenderingData renderingData, RTHandle rtHandle = null)
         {
             // Match HDRP View Projection Matrix, pre-handle reverse z.
-            // m_ShaderVariablesGlobal.ViewMatrix = renderingData.cameraData.camera.worldToCameraMatrix;
+            m_ShaderVariablesGlobal.ViewMatrix = renderingData.cameraData.camera.worldToCameraMatrix;
             
+            m_ShaderVariablesGlobal.ViewProjMatrix = PostProcessingUtils.CalculateViewProjMatrix(ref renderingData.cameraData);
+            
+            var lastInvViewProjMatrix = m_ShaderVariablesGlobal.InvViewProjMatrix;
+            m_ShaderVariablesGlobal.InvViewProjMatrix = m_ShaderVariablesGlobal.ViewProjMatrix.inverse;
+            m_ShaderVariablesGlobal.PrevInvViewProjMatrix = FrameCount > 1 ? m_ShaderVariablesGlobal.InvViewProjMatrix : lastInvViewProjMatrix;
             m_ShaderVariablesGlobal.ColorPyramidUvScaleAndLimitPrevFrame
                 = PostProcessingUtils.ComputeViewportScaleAndLimit(m_HistoryRTSystem.rtHandleProperties.previousViewportSize,
                     m_HistoryRTSystem.rtHandleProperties.previousRenderTargetSize);

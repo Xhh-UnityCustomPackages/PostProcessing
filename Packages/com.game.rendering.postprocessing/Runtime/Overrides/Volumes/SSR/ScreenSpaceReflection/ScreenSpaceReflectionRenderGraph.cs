@@ -40,6 +40,7 @@ namespace Game.Core.PostProcessing
         private struct ScreenSpaceReflectionVariables
         {
             public Matrix4x4 ProjectionMatrix;
+            public Matrix4x4 InvViewProjMatrix;//No Jitter InvVP
             
             public float Intensity;
             public float Thickness;
@@ -98,7 +99,7 @@ namespace Game.Core.PostProcessing
             m_Variables.ThicknessScale = 1.0f / (1.0f + thickness);;
             m_Variables.ThicknessBias = -n / (f - n) * (thickness * m_Variables.ThicknessScale);
             // m_Variables.Steps = settings.steps.value;
-            // m_Variables.StepSize = settings.stepSize.value;
+            m_Variables.StepSize = settings.stepSize.value;
             m_Variables.RoughnessFadeEnd = roughnessFadeEnd;
             m_Variables.RoughnessFadeRcpLength = roughnessFadeRcpLength;
             m_Variables.RoughnessFadeEndTimesRcpLength = roughnessFadeEndTimesRcpLength;
@@ -126,12 +127,14 @@ namespace Game.Core.PostProcessing
         {
             PrepareVariables(camera);
             m_ScreenSpaceReflectionMaterial.SetVector(ShaderConstants.Params1,
-                new Vector4(settings.vignette.value, settings.distanceFade.value, settings.maximumMarchDistance.value, settings.maximumIterationCount.value));
-            
+                new Vector4(settings.vignette.value, 0, settings.maximumMarchDistance.value, settings.maximumIterationCount.value));
+            m_ScreenSpaceReflectionMaterial.SetMatrix(ShaderConstants.SSR_ProjectionMatrix, m_Variables.ProjectionMatrix);
+            m_ScreenSpaceReflectionMaterial.SetMatrix(ShaderConstants.SsrInvViewProjMatrix, m_Variables.InvViewProjMatrix);
             m_ScreenSpaceReflectionMaterial.SetFloat(ShaderConstants.SsrIntensity, m_Variables.Intensity);
             m_ScreenSpaceReflectionMaterial.SetFloat(ShaderConstants.Thickness, m_Variables.Thickness);
             m_ScreenSpaceReflectionMaterial.SetFloat(ShaderConstants.SsrThicknessScale, m_Variables.ThicknessScale);
             m_ScreenSpaceReflectionMaterial.SetFloat(ShaderConstants.SsrThicknessBias, m_Variables.ThicknessBias);
+            m_ScreenSpaceReflectionMaterial.SetFloat(ShaderConstants.StepSize, m_Variables.StepSize);
             m_ScreenSpaceReflectionMaterial.SetFloat(ShaderConstants.SsrRoughnessFadeEnd, m_Variables.RoughnessFadeEnd);
             m_ScreenSpaceReflectionMaterial.SetFloat(ShaderConstants.SsrRoughnessFadeEndTimesRcpLength, m_Variables.RoughnessFadeEndTimesRcpLength);
             m_ScreenSpaceReflectionMaterial.SetFloat(ShaderConstants.SsrRoughnessFadeRcpLength, m_Variables.RoughnessFadeRcpLength);

@@ -88,10 +88,15 @@ namespace Game.Core.PostProcessing
             var attribute = PostProcessAttribute.GetAttribute(GetType());
             profilingSampler = new ProfilingSampler(attribute?.Name);
         }
-
+        
         protected void Blit(CommandBuffer cmd, RTHandle source, RTHandle destination, Material material, int passIndex = 0)
         {
             Blitter.BlitCameraTexture(cmd, source, destination, material, passIndex);
+        }
+
+        protected void Blit(CommandBuffer cmd, RTHandle source, RTHandle destination, RenderBufferLoadAction loadAction, RenderBufferStoreAction storeAction, Material material, int passIndex)
+        {
+            Blitter.BlitCameraTexture(cmd, source, destination, loadAction, storeAction, material, passIndex);
         }
 
         protected void Blit(CommandBuffer cmd, RTHandle source, RTHandle destination)

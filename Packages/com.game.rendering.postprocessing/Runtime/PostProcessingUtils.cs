@@ -1,6 +1,8 @@
 using System.Collections;
 using System.Collections.Generic;
+using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
 namespace Game.Core.PostProcessing
@@ -15,6 +17,7 @@ namespace Game.Core.PostProcessing
         
         
         public static readonly int ShaderVariablesGlobal = MemberNameHelpers.ShaderPropertyID();
+        public static readonly int _ColorPyramidUvScaleAndLimitPrevFrame = MemberNameHelpers.ShaderPropertyID();
     }
 
     public static class PostProcessingRenderPassEvent
@@ -62,6 +65,35 @@ namespace Game.Core.PostProcessing
                 ComputeViewportScale(viewportSize.y, bufferSize.y),                 // Scale(y)
                 ComputeViewportLimit(viewportSize.x, bufferSize.x),                 // Limit(x)
                 ComputeViewportLimit(viewportSize.y, bufferSize.y));                // Limit(y)
+        }
+        
+        public static Matrix4x4 CalculateNonJitterViewProjMatrix(ref CameraData cameraData)
+        {
+            Matrix4x4 viewMat = cameraData.GetViewMatrix();
+            Matrix4x4 projMat = cameraData.GetGPUProjectionMatrixNoJitter();
+            return math.mul(projMat, viewMat);
+        }
+        
+        public static float4x4 CalculateViewProjMatrix(ref UniversalCameraData cameraData, RTHandle color)
+        {
+            float4x4 viewMat = cameraData.GetViewMatrix();
+            float4x4 projMat = GetGPUProjectionMatrix(ref cameraData, color);
+            return math.mul(projMat, viewMat);
+        }
+
+        private static Matrix4x4 GetGPUProjectionMatrix(ref UniversalCameraData cameraData, RTHandle color, int viewIndex = 0)
+        {
+            TemporalAA.JitterFunc jitterFunc = cameraData.IsSTPEnabled() ? StpUtils.s_JitterFunc : TemporalAA.s_JitterFunc;
+            Matrix4x4 jitterMat = TemporalAA.CalculateJitterMatrix(cameraData, jitterFunc);
+            // GetGPUProjectionMatrix takes a projection matrix and returns a GfxAPI adjusted version, does not set or get any state.
+            return jitterMat * GL.GetGPUProjectionMatrix(cameraData.GetProjectionMatrixNoJitter(viewIndex), cameraData.IsRenderTargetProjectionMatrixFlipped(color));
+        }
+                
+        public static float4x4 CalculateViewProjMatrix(ref CameraData cameraData)
+        {
+            float4x4 viewMat = cameraData.GetViewMatrix();
+            float4x4 projMat = cameraData.GetGPUProjectionMatrix();
+            return math.mul(projMat, viewMat);
         }
         
         #region Math
