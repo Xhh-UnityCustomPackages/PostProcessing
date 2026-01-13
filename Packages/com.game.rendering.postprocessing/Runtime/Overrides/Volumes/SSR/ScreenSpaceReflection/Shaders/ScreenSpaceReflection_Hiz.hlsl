@@ -116,8 +116,8 @@ Result Hiz_Trace(half3 csOrigin,
     half3 Q0 = csOrigin * k0;           //View空间起点 (齐次化)
     half3 Q1 = csEndPoint * k1;         //View空间终点 (齐次化)
 
-    P1 = (GetSquaredDistance(P0, P1) < 0.0001) ? P0 + half2(_SsrHitPointTexture_TexelSize.x, _SsrHitPointTexture_TexelSize.y) : P1;
-    // P1 = (GetSquaredDistance(P0, P1) < 0.0001) ? P0 + half2(0.01, 0.01) : P1;
+    // P1 = (GetSquaredDistance(P0, P1) < 0.0001) ? P0 + half2(_SsrHitPointTexture_TexelSize.x, _SsrHitPointTexture_TexelSize.y) : P1;
+    P1 = (GetSquaredDistance(P0, P1) < 0.0001) ? P0 + half2(0.01, 0.01) : P1;
     half2 delta = P1 - P0;
     bool permute = false;
 
@@ -217,7 +217,7 @@ float4 FragTestHiZ(Varyings input) : SV_Target
     float3 hitPointVS = ray.origin;
     Result result = Hiz_Trace(ray.origin,
                                    ray.direction,
-                                   _SsrHitPointTexture_TexelSize,
+                                   _ScreenSize,
                                    jitter,
                                    reflectRayVS,
                                    _MaximumIterationCount,

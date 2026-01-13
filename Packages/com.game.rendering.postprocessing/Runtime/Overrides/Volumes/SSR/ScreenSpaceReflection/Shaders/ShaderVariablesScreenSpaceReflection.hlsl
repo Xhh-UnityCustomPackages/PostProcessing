@@ -4,7 +4,6 @@
 // Should match ScreenSpaceReflectionTracePass.ScreenSpaceReflectionVariables
 CBUFFER_START (ShaderVariablesScreenSpaceReflection)
 float4x4 _SSR_ProjectionMatrix;
-float4x4 _SsrInvViewProjMatrix;
 
 float _SSRIntensity;
 float _Thickness;

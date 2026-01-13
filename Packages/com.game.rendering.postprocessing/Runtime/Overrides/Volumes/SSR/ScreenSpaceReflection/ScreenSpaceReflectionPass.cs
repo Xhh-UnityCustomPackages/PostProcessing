@@ -12,12 +12,8 @@ namespace Game.Core.PostProcessing
         {
             internal static readonly int SsrLightingTexture = Shader.PropertyToID("_SsrLightingTexture");
             internal static readonly int SsrHitPointTexture = Shader.PropertyToID("_SsrHitPointTexture");
-            internal static readonly int _SSR_TestTex_TexelSize = Shader.PropertyToID("_SsrHitPointTexture_TexelSize");
 
             internal static readonly int Params1 = Shader.PropertyToID("_Params1");
-
-            public static readonly int SSR_ProjectionMatrix = Shader.PropertyToID("_SSR_ProjectionMatrix");
-            public static readonly int SsrInvViewProjMatrix = Shader.PropertyToID("_SsrInvViewProjMatrix");
             
             public static readonly int SsrIntensity = Shader.PropertyToID("_SSRIntensity");
             public static readonly int Thickness = Shader.PropertyToID("_Thickness");
@@ -68,9 +64,9 @@ namespace Game.Core.PostProcessing
                 }
             }
 
-            public static string GetMultiBounceKeyword(bool enableMultiBounce)
+            public static string GetMultiBounceKeyword(bool enableMipmap)
             {
-                return enableMultiBounce ? "SSR_MULTI_BOUNCE" : "_";
+                return enableMipmap ? "SSR_MULTI_BOUNCE" : "_";
             }
         }
 
@@ -83,7 +79,8 @@ namespace Game.Core.PostProcessing
         }
 
 
-        RenderTextureDescriptor m_ScreenSpaceReflectionDescriptor;
+        RenderTextureDescriptor m_SSRTestDescriptor;
+        RenderTextureDescriptor m_SSRColorDescriptor;
         readonly string[] m_ShaderKeywords = new string[3];
         Material m_ScreenSpaceReflectionMaterial;
         private readonly MaterialPropertyBlock SharedPropertyBlock = new();
@@ -111,7 +108,7 @@ namespace Game.Core.PostProcessing
         public override PostProcessPassInput postProcessPassInput =>
             settings.mode.value == ScreenSpaceReflection.RaytraceModes.HiZTracing ? 
                 PostProcessPassInput.ColorPyramid | PostProcessPassInput.DepthPyramid :
-                settings.enableMultiBounce.value ? PostProcessPassInput.ColorPyramid : PostProcessPassInput.None;
+                settings.enableMipmap.value ? PostProcessPassInput.ColorPyramid : PostProcessPassInput.PreviousFrameColor;
 
         public override void Setup()
         {
@@ -133,8 +130,8 @@ namespace Game.Core.PostProcessing
         {
             GetSSRDesc(renderingData.cameraData.cameraTargetDescriptor);
 
-            RenderingUtils.ReAllocateHandleIfNeeded(ref m_SsrHitPointRT, m_ScreenSpaceReflectionDescriptor, FilterMode.Point, name: "SSR_Hit_Point_Texture");
-            RenderingUtils.ReAllocateHandleIfNeeded(ref m_SsrLightingRT, m_ScreenSpaceReflectionDescriptor, FilterMode.Bilinear, name: "SSR_Lighting_Texture");
+            RenderingUtils.ReAllocateHandleIfNeeded(ref m_SsrHitPointRT, m_SSRTestDescriptor, FilterMode.Point, name: "SSR_Hit_Point_Texture");
+            RenderingUtils.ReAllocateHandleIfNeeded(ref m_SsrLightingRT, m_SSRColorDescriptor, FilterMode.Bilinear, name: "SSR_Lighting_Texture");
 
             m_NeedAccumulate = renderingData.cameraData.cameraType == CameraType.Game
                                && settings.usedAlgorithm.value == ScreenSpaceReflection.ScreenSpaceReflectionAlgorithm.PBRAccumulation;
@@ -160,8 +157,6 @@ namespace Game.Core.PostProcessing
         public override void Render(CommandBuffer cmd, RTHandle source, RTHandle target, ref RenderingData renderingData)
         {
             ref var cameraData = ref renderingData.cameraData;
-            var vp = PostProcessingUtils.CalculateNonJitterViewProjMatrix(ref cameraData);
-            m_Variables.InvViewProjMatrix = vp.inverse;
             SetupMaterials(renderingData.cameraData.camera);
             
             using (new ProfilingScope(cmd, m_TracingSampler))
@@ -193,22 +188,11 @@ namespace Game.Core.PostProcessing
                     }
                 }
             }
-            
-            // Blit(cmd, m_SsrHitPointRT, target);
-            // return;
 
             using (new ProfilingScope(cmd, m_ReprojectionSampler))
             {
-                RTHandle preFrameColorRT;
-                if (settings.enableMultiBounce.value)
-                {
-                    preFrameColorRT = context.GetPreviousFrameColorRT(cameraData, out bool isNewFrame);
-                }
-                else
-                {
-                    //如果不启用多次弹射的话,就是使用cameraColorTargetHandle 但是这张RT是没有Mipmap的 结果就是不跟光滑度走Mipmnap 直接变为强度
-                    preFrameColorRT = cameraData.renderer.cameraColorTargetHandle;
-                }
+                RTHandle preFrameColorRT = context.GetPreviousFrameColorRT(cameraData, out bool isNewFrame);
+              
                 SharedPropertyBlock.Clear();
                 SharedPropertyBlock.SetTexture(PipelineShaderIDs._ColorPyramidTexture, preFrameColorRT);
                 SharedPropertyBlock.SetTexture(ShaderConstants.SsrHitPointTexture, m_SsrHitPointRT);
@@ -283,8 +267,8 @@ namespace Game.Core.PostProcessing
             var ssrAccumPrev = context.GetPreviousFrameRT((int)FrameHistoryType.ScreenSpaceReflectionAccumulation);
             // var preFrameColorRT = context.GetPreviousFrameColorRT(cameraData, out bool isNewFrame);
             
-            int groupsX = GraphicsUtility.DivRoundUp(m_ScreenSpaceReflectionDescriptor.width, 8);
-            int groupsY = GraphicsUtility.DivRoundUp(m_ScreenSpaceReflectionDescriptor.height, 8);
+            int groupsX = GraphicsUtility.DivRoundUp(m_SSRTestDescriptor.width, 8);
+            int groupsY = GraphicsUtility.DivRoundUp(m_SSRTestDescriptor.height, 8);
             
             // cmd.DispatchCompute(m_ComputeShader, kernel, groupsX, groupsY, 1);
         }

@@ -87,7 +87,6 @@ Shader "Hidden/PostProcessing/ScreenSpaceReflection"
                 #if DEBUG_SCREEN_SPACE_REFLECTION
                 return resolve;
                 #elif SPLIT_SCREEN_SPACE_REFLECTION
-
                 if (uv.x < SEPARATION_POS - _BlitTexture_TexelSize.x * 1)
                 {
                     return sourceColor;

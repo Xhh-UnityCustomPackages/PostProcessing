@@ -7,10 +7,8 @@ namespace Game.Core.PostProcessing
 {
     public partial class ExposureRenderer : PostProcessVolumeRenderer<Exposure>
     {
-        private ProfilingSampler m_ProfilingSampler_FixedExposure;
-        private ProfilingSampler m_ProfilingSampler_DynamicExposure;
-        
-        
+        private static readonly ProfilingSampler m_FixedExposureSampler = new ("Fixed Exposure");
+        private static readonly ProfilingSampler m_DynamicExposureSampler = new("Dynamic Exposure");
         
         public override void DoRenderGraph(RenderGraph renderGraph, TextureHandle source, TextureHandle destination, ContextContainer frameData)
         {
@@ -31,9 +29,6 @@ namespace Game.Core.PostProcessing
                 PrepareExposurePassData(passData, cameraData.camera);
                 passData.exposureMode = settings.mode.value;
 
-                passData.profilingSampler_FixedExposure = m_ProfilingSampler_FixedExposure;
-                passData.profilingSampler_DynamicExposure = m_ProfilingSampler_DynamicExposure;
-
                 passData.nextExposure = m_ExposureTexturesInfo.current;
                 
                 RTHandle exposureRT = m_ExposureTexturesInfo.current;
@@ -52,14 +47,14 @@ namespace Game.Core.PostProcessing
                     
                     if (data.exposureMode == Exposure.ExposureMode.Fixed)
                     {
-                        using (new ProfilingScope(cmd, data.profilingSampler_FixedExposure))
+                        using (new ProfilingScope(cmd, m_FixedExposureSampler))
                         {
                             DoFixedExposureRenderGraph(cmd, data);
                         }
                     }
                     else
                     {
-                        using (new ProfilingScope(cmd, data.profilingSampler_FixedExposure))
+                        using (new ProfilingScope(cmd, m_DynamicExposureSampler))
                         {
                             DoHistogramBasedExposure(cmd, data);
                         }

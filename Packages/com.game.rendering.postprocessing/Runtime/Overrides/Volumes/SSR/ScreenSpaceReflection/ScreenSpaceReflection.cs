@@ -26,7 +26,7 @@ namespace Game.Core.PostProcessing
         public EnumParameter<ScreenSpaceReflectionAlgorithm> usedAlgorithm = new (ScreenSpaceReflectionAlgorithm.Approximation);
 
         [Tooltip("是否开启光线多次弹射,开启后会使用上一帧反射后的屏幕颜色,实现时域上的多次反弹")]
-        public BoolParameter enableMultiBounce = new (true);
+        public BoolParameter enableMipmap = new (true);
         
         [Space(6)]
         [Tooltip("强度")]
@@ -104,7 +104,6 @@ namespace Game.Core.PostProcessing
         {
             Half,
             Full,
-            Double
         }
         
         /// <summary>
@@ -154,12 +153,12 @@ namespace Game.Core.PostProcessing
                     maximumIterationCount.value = 64;
                     break;
                 case Preset.Superb:
-                    resolution.value = Resolution.Double;
+                    resolution.value = Resolution.Full;
                     stepSize.value = 6f;
                     maximumIterationCount.value = 128;
                     break;
                 case Preset.Ultra:
-                    resolution.value = Resolution.Double;
+                    resolution.value = Resolution.Full;
                     stepSize.value = 4f;
                     maximumIterationCount.value = 256;
                     break;

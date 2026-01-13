@@ -53,6 +53,9 @@ namespace Game.Core.PostProcessing
         private BufferedRTHandleSystem m_HistoryRTSystem = new();
         private ShaderVariablesGlobal m_ShaderVariablesGlobal;
         
+        public bool RequireHistoryColor { get; internal set; }
+        public RTHandle CameraPreviousColorTextureRT;
+        
         private bool m_Init = false;
 
         public void Setup(Camera camera)
@@ -96,6 +99,7 @@ namespace Game.Core.PostProcessing
             m_FrameCount = 0;
             m_HistoryRTSystem?.ReleaseAll();
             m_MipGenerator?.Release();
+            CameraPreviousColorTextureRT?.Release();
         }
 
         #region GlobalVariables
@@ -174,6 +178,13 @@ namespace Game.Core.PostProcessing
         /// <returns></returns>
         public RTHandle GetPreviousFrameColorRT(CameraData cameraData, out bool isNewFrame)
         {
+            // Using history color
+            isNewFrame = true;
+            if (RequireHistoryColor)
+            {
+                return CameraPreviousColorTextureRT;
+            }
+            
             // Using color pyramid
             // if (cameraData.cameraType == CameraType.Game)
             {
@@ -185,12 +196,8 @@ namespace Game.Core.PostProcessing
                 }
             }
             
-            // Using history color
-            isNewFrame = true;
-            // if (RequireHistoryColor)
-            // {
-            //     return CameraPreviousColorTextureRT;
-            // }
+           
+           
             
             // Fallback to opaque texture if exist.
             return cameraData.renderer.cameraColorTargetHandle;

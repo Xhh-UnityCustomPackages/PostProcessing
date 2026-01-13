@@ -8,39 +8,24 @@ namespace Game.Core.PostProcessing
 {
     public partial class ScreenSpaceReflectionRenderer : PostProcessVolumeRenderer<ScreenSpaceReflection>
     {
-        private class TracingPassData
+        private class ScreenSpaceReflectionPassData
         {
             public Material Material;
-            public TextureHandle HitPointTexture;
-            public TextureHandle DepthStencilTexture;
-            public TextureHandle NormalTexture;
-            // public TextureHandle DepthPyramidTexture;
-        }
-
-        private class ReprojectionPassData
-        {
-            public Material Material;
-            
-            public TextureHandle HitPointTexture;
-            public TextureHandle ColorPyramidTexture;
+            // Input
+            public TextureHandle DepthTexture;
             public TextureHandle MotionVectorTexture;
             public TextureHandle NormalTexture;
+            public TextureHandle GBuffer2;
+            // --
+            public TextureHandle HitPointTexture;
             public TextureHandle SsrLightingTexture;
-            public TextureHandle SsrAccumTexture;
-        }
 
-        private class CombinePassData
-        {
-            public Material Material;
-            public TextureHandle SsrLightingTextureRW;
-            public TextureHandle sourceTexture;
-            public TextureHandle targetTexture;
+            public TextureHandle CameraColorTexture;
         }
         
         private struct ScreenSpaceReflectionVariables
         {
             public Matrix4x4 ProjectionMatrix;
-            public Matrix4x4 InvViewProjMatrix;//No Jitter InvVP
             
             public float Intensity;
             public float Thickness;
@@ -128,8 +113,7 @@ namespace Game.Core.PostProcessing
             PrepareVariables(camera);
             m_ScreenSpaceReflectionMaterial.SetVector(ShaderConstants.Params1,
                 new Vector4(settings.vignette.value, 0, settings.maximumMarchDistance.value, settings.maximumIterationCount.value));
-            m_ScreenSpaceReflectionMaterial.SetMatrix(ShaderConstants.SSR_ProjectionMatrix, m_Variables.ProjectionMatrix);
-            m_ScreenSpaceReflectionMaterial.SetMatrix(ShaderConstants.SsrInvViewProjMatrix, m_Variables.InvViewProjMatrix);
+            // m_ScreenSpaceReflectionMaterial.SetMatrix(ShaderConstants.SSR_ProjectionMatrix, m_Variables.ProjectionMatrix);
             m_ScreenSpaceReflectionMaterial.SetFloat(ShaderConstants.SsrIntensity, m_Variables.Intensity);
             m_ScreenSpaceReflectionMaterial.SetFloat(ShaderConstants.Thickness, m_Variables.Thickness);
             m_ScreenSpaceReflectionMaterial.SetFloat(ShaderConstants.SsrThicknessScale, m_Variables.ThicknessScale);
@@ -143,19 +127,11 @@ namespace Game.Core.PostProcessing
             m_ScreenSpaceReflectionMaterial.SetInteger(ShaderConstants.SsrColorPyramidMaxMip, m_Variables.ColorPyramidMaxMip);
             m_ScreenSpaceReflectionMaterial.SetFloat(ShaderConstants.SsrDownsamplingDivider, m_Variables.DownsamplingDivider);
             
-            Vector4 testTex_texelSize = new Vector4(
-                1.0f / m_ScreenSpaceReflectionDescriptor.width,
-                1.0f / m_ScreenSpaceReflectionDescriptor.height,
-                m_ScreenSpaceReflectionDescriptor.width,
-                m_ScreenSpaceReflectionDescriptor.height
-            );
-            m_ScreenSpaceReflectionMaterial.SetVector(ShaderConstants._SSR_TestTex_TexelSize, testTex_texelSize);
-            
             // -------------------------------------------------------------------------------------------------
             // local shader keywords
             m_ShaderKeywords[0] = ShaderConstants.GetDebugKeyword(settings.debugMode.value);
             m_ShaderKeywords[1] = ShaderConstants.GetApproxKeyword(settings.usedAlgorithm.value);
-            m_ShaderKeywords[2] = ShaderConstants.GetMultiBounceKeyword(settings.enableMultiBounce.value);
+            m_ShaderKeywords[2] = ShaderConstants.GetMultiBounceKeyword(settings.enableMipmap.value);
             m_ScreenSpaceReflectionMaterial.shaderKeywords = m_ShaderKeywords;
             if (settings.debugMode.value == ScreenSpaceReflection.DebugMode.Split)
             {
@@ -171,10 +147,6 @@ namespace Game.Core.PostProcessing
                 scaleFactor = 0.5f;
                
             }
-            else if (settings.resolution.value == ScreenSpaceReflection.Resolution.Double)
-            {
-                scaleFactor = 2.0f;
-            }
 
             return scaleFactor;
         }
@@ -186,7 +158,7 @@ namespace Game.Core.PostProcessing
 
             if (false)
             {
-                int size = Mathf.ClosestPowerOfTwo(Mathf.Min(m_ScreenSpaceReflectionDescriptor.width, m_ScreenSpaceReflectionDescriptor.height));
+                int size = Mathf.ClosestPowerOfTwo(Mathf.Min(m_SSRTestDescriptor.width, m_SSRTestDescriptor.height));
                 width = height = size;
             }
             
@@ -194,10 +166,15 @@ namespace Game.Core.PostProcessing
             width *= scaleFactor;
             height *= scaleFactor;
 
-            m_ScreenSpaceReflectionDescriptor = desc;
-            m_ScreenSpaceReflectionDescriptor.width = Mathf.CeilToInt(width);
-            m_ScreenSpaceReflectionDescriptor.height = Mathf.CeilToInt(height);
-            GetCompatibleDescriptor(ref m_ScreenSpaceReflectionDescriptor, GraphicsFormat.R16G16B16A16_SFloat);
+            m_SSRTestDescriptor = desc;
+            m_SSRTestDescriptor.width = Mathf.CeilToInt(width);
+            m_SSRTestDescriptor.height = Mathf.CeilToInt(height);
+            GetCompatibleDescriptor(ref m_SSRTestDescriptor, GraphicsFormat.R16G16B16A16_SFloat);
+
+            m_SSRColorDescriptor = m_SSRTestDescriptor;
+            m_SSRColorDescriptor.width = desc.width;
+            m_SSRColorDescriptor.height = desc.height;
+            m_SSRColorDescriptor.colorFormat = desc.colorFormat;
         }
 
         public override void DoRenderGraph(RenderGraph renderGraph, TextureHandle source, TextureHandle destination, ContextContainer frameData)
@@ -214,124 +191,75 @@ namespace Game.Core.PostProcessing
             TextureHandle cameraDepthTexture = resourceData.cameraDepthTexture;
             TextureHandle motionVectorTexture = resourceData.motionVectorColor;
             TextureHandle colorPyramidTexture = resourceData.cameraColor;
-            
-            var hitPointTexture = UniversalRenderer.CreateRenderGraphTexture(renderGraph, m_ScreenSpaceReflectionDescriptor, "SSR_Hit_Point_Texture", false);
-            var ssrLightingTexture = UniversalRenderer.CreateRenderGraphTexture(renderGraph, m_ScreenSpaceReflectionDescriptor, "SSR_Lighting_Texture", false);
 
-            // Execute tracing pass
-            TextureHandle tracedHitPoint;
-            tracedHitPoint = RenderTracingRasterPass(renderGraph, hitPointTexture, cameraDepthTexture, cameraNormalsTexture);
-            
-            // Execute reprojection pass
-            TextureHandle reprojectedResult;
-            reprojectedResult = RenderReprojectionRasterPass(renderGraph, tracedHitPoint, colorPyramidTexture, motionVectorTexture, cameraNormalsTexture, ssrLightingTexture);
+            var hitPointTexture = UniversalRenderer.CreateRenderGraphTexture(renderGraph, m_SSRTestDescriptor, "SSR_Hit_Point_Texture", false);
+            var ssrLightingTexture = UniversalRenderer.CreateRenderGraphTexture(renderGraph, m_SSRTestDescriptor, "SSR_Lighting_Texture", false);
 
-            // Execute accumulation pass for PBR mode
-            TextureHandle finalResult;
-            if (true)
-                finalResult = RenderAccumulationPass(renderGraph, colorPyramidTexture, motionVectorTexture, reprojectedResult, source, destination);
-            else
-                finalResult = reprojectedResult;
+            using (var builder = renderGraph.AddUnsafePass<ScreenSpaceReflectionPassData>(profilingSampler.name, out var passData))
+            {
+                passData.Material = m_ScreenSpaceReflectionMaterial;
+
+                passData.DepthTexture = cameraDepthTexture;
+                builder.UseTexture(cameraDepthTexture, AccessFlags.Read);
+
+                passData.NormalTexture = cameraNormalsTexture;
+                builder.UseTexture(cameraNormalsTexture, AccessFlags.Read);
+
+                passData.MotionVectorTexture = motionVectorTexture;
+                builder.UseTexture(cameraNormalsTexture, AccessFlags.Read);
+
+                passData.GBuffer2 = gBuffer[2];
+                builder.UseTexture(gBuffer[2], AccessFlags.Read);
+                
+                passData.HitPointTexture = hitPointTexture;
+                builder.UseTexture(hitPointTexture, AccessFlags.ReadWrite);
+                
+                passData.SsrLightingTexture = ssrLightingTexture;
+                builder.UseTexture(ssrLightingTexture, AccessFlags.Write);
+
+                passData.CameraColorTexture = colorPyramidTexture;
+                builder.UseTexture(colorPyramidTexture, AccessFlags.ReadWrite);
+                
+                // builder.UseTexture(destination, AccessFlags.Write);
+                
+                builder.AllowPassCulling(false);
+                
+                builder.SetRenderFunc((ScreenSpaceReflectionPassData data, UnsafeGraphContext context) =>
+                {
+                    var cmd = CommandBufferHelpers.GetNativeCommandBuffer(context.cmd);
+                    // var cmd = context.cmd;
+                    using (new ProfilingScope(cmd, m_TracingSampler))
+                    {
+                        var propertyBlock = new MaterialPropertyBlock();
+                        propertyBlock.SetTexture(ShaderConstants._CameraDepthTexture, data.DepthTexture);
+                        propertyBlock.SetVector(ShaderConstants._BlitScaleBias, new Vector4(1, 1, 0, 0));
+                        cmd.SetRenderTarget(data.HitPointTexture);
+                        cmd.DrawProcedural(Matrix4x4.identity, data.Material, (int)ShaderPasses.Test, MeshTopology.Triangles, 3, 1, propertyBlock);
+                    }
+
+                    using (new ProfilingScope(cmd, m_ReprojectionSampler))
+                    {
+                        var propertyBlock = new MaterialPropertyBlock();
+                        propertyBlock.SetTexture(ShaderConstants._BlitTexture, colorPyramidTexture);
+                        propertyBlock.SetTexture(ShaderConstants.SsrHitPointTexture, data.HitPointTexture);
+                        propertyBlock.SetVector(ShaderConstants._BlitScaleBias, new Vector4(1, 1, 0, 0));
+                        propertyBlock.SetTexture(ShaderConstants._GBuffer2, data.GBuffer2);
+                        
+                        cmd.SetRenderTarget(ssrLightingTexture);
+                        cmd.DrawProcedural(Matrix4x4.identity, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Reproject, MeshTopology.Triangles, 3, 1, propertyBlock);
+                    }
+
+                    // Apply SSR
+                    {
+                        // m_ScreenSpaceReflectionMaterial.SetTexture(ShaderConstants.SsrLightingTexture, ssrLightingTexture);
+                        // cmd.SetRenderTarget(destination);
+                        // Blitter.BlitCameraTexture(cmd, source, destination, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Composite);
+                    }
+                });
+            }
             
             // Set global texture for SSR result
-            RenderGraphUtils.SetGlobalTexture(renderGraph, ShaderConstants.SSR_Lighting_Texture, finalResult);
-        }
-
-        private TextureHandle RenderTracingRasterPass(RenderGraph renderGraph, in TextureHandle hitPointTexture, TextureHandle depthStencilTexture, TextureHandle normalTexture)
-        {
-            using (var builder = renderGraph.AddRasterRenderPass<TracingPassData>("SSR Tracing (Raster)", out var passData, m_TracingSampler))
-            {
-                passData.Material = m_ScreenSpaceReflectionMaterial;
-                
-                passData.DepthStencilTexture = depthStencilTexture;
-                builder.UseTexture(depthStencilTexture, AccessFlags.Read);
-                
-                passData.NormalTexture = normalTexture;
-                builder.UseTexture(normalTexture, AccessFlags.Read);
-                passData.HitPointTexture = hitPointTexture;
-                // builder.UseTexture(hitPointTexture, AccessFlags.Write);
-                builder.SetRenderAttachment(hitPointTexture, 0, AccessFlags.WriteAll);
-                builder.AllowPassCulling(false);
-                builder.SetRenderFunc((TracingPassData data, RasterGraphContext ctx) =>
-                {
-                    var propertyBlock = new MaterialPropertyBlock();
-                    propertyBlock.SetTexture(ShaderConstants._CameraDepthTexture, data.DepthStencilTexture);
-                    propertyBlock.SetVector(ShaderConstants._BlitScaleBias, new Vector4(1, 1, 0, 0));
-                    
-                    // Blitter.BlitCameraTexture(ctx.cmd, sourceTextureHdl,  passData.HitPointTexture, data.Material, (int)ShaderPasses.Test);
-                    ctx.cmd.DrawProcedural(Matrix4x4.identity, data.Material, (int)ShaderPasses.Test, MeshTopology.Triangles, 3, 1, propertyBlock);
-                });
-                
-                return passData.HitPointTexture;
-            }
-        }
-
-        private TextureHandle RenderReprojectionRasterPass(RenderGraph renderGraph, TextureHandle hitPointTexture,
-            TextureHandle colorPyramidTexture, TextureHandle motionVectorTexture, TextureHandle normalTexture,
-            TextureHandle ssrLightingTexture)
-        {
-            using (var builder = renderGraph.AddRasterRenderPass<ReprojectionPassData>("SSR Reprojection (Raster)", out var passData, m_ReprojectionSampler))
-            {
-                passData.Material = m_ScreenSpaceReflectionMaterial;
-                
-                passData.NormalTexture = normalTexture;
-                builder.UseTexture(normalTexture, AccessFlags.Read);
-                
-                // passData.MotionVectorTexture = motionVectorTexture;
-                // builder.UseTexture(motionVectorTexture, AccessFlags.Read);
-                
-                passData.HitPointTexture = hitPointTexture;
-                builder.UseTexture(hitPointTexture, AccessFlags.Read);
-
-                passData.ColorPyramidTexture = colorPyramidTexture;
-                builder.UseTexture(colorPyramidTexture, AccessFlags.Read);
-
-                passData.SsrLightingTexture = ssrLightingTexture;
-                
-                builder.SetRenderAttachment(ssrLightingTexture, 0, AccessFlags.WriteAll);
-                
-                builder.AllowPassCulling(false);
-                builder.SetRenderFunc((ReprojectionPassData data, RasterGraphContext ctx) =>
-                {
-                    var propertyBlock = new MaterialPropertyBlock();
-                    propertyBlock.SetVector(ShaderConstants._BlitScaleBias, new Vector4(1, 1, 0, 0));
-                    propertyBlock.SetTexture(ShaderConstants.SsrHitPointTexture, data.HitPointTexture);
-                    propertyBlock.SetTexture(ShaderConstants._BlitTexture, data.ColorPyramidTexture);
-                    propertyBlock.SetTexture(ShaderConstants._GBuffer2, data.NormalTexture);
-                    ctx.cmd.DrawProcedural(Matrix4x4.identity, data.Material, (int)ShaderPasses.Reproject, MeshTopology.Triangles, 3, 1, propertyBlock);
-                });
-                
-                return passData.SsrLightingTexture;
-            }
-        }
-
-
-        private TextureHandle RenderAccumulationPass(RenderGraph renderGraph, 
-            TextureHandle colorPyramidTexture, TextureHandle motionVectorTexture,
-            TextureHandle ssrLightingTextureRW, 
-            TextureHandle source, TextureHandle destination)
-        {
-            using (var builder = renderGraph.AddUnsafePass<CombinePassData>("SSR Accumulation", out var passData, m_AccumulationSampler))
-            {
-                passData.Material = m_ScreenSpaceReflectionMaterial;
-                
-                passData.SsrLightingTextureRW = ssrLightingTextureRW;
-                builder.UseTexture(ssrLightingTextureRW, AccessFlags.Read);
-                
-                passData.sourceTexture = source;
-                builder.UseTexture(source, AccessFlags.Read);
-                passData.targetTexture = destination;
-                builder.UseTexture(destination, AccessFlags.ReadWrite);
-                
-                builder.AllowPassCulling(false);
-                builder.SetRenderFunc((CombinePassData data, UnsafeGraphContext ctx) =>
-                {
-                    var cmd = CommandBufferHelpers.GetNativeCommandBuffer(ctx.cmd);
-                    data.Material.SetTexture(ShaderConstants.SsrLightingTexture, data.SsrLightingTextureRW);
-                    Blitter.BlitCameraTexture(cmd, data.sourceTexture, data.targetTexture, data.Material, (int)ShaderPasses.Composite);
-                });
-                return passData.SsrLightingTextureRW;
-            }
+            // RenderGraphUtils.SetGlobalTexture(renderGraph, ShaderConstants.SSR_Lighting_Texture, finalResult);
         }
 
     }

@@ -80,11 +80,11 @@ namespace Game.Core.PostProcessing
         private PostProcessRenderPass m_AfterRenderingSkybox, m_BeforeRenderingPostProcessing, m_AfterRenderingPostProcessing;
         UberPostProcess m_UberPostProcessing;
         private static PostProcessFeatureContext m_Context;
-
-
+        
         private SetGlobalVariablesPass m_SetGlobalVariablesPass;
         private ColorPyramidPass m_ColorPyramidPass;
         private DepthPyramidPass m_HizDepthGenerator;
+        private CopyHistoryColorPass m_CopyHistoryColorPass;
         
         private ScreenSpaceShadowsPass m_SSShadowsPass = null;
         private ScreenSpaceShadowsPostPass m_SSShadowsPostPass = null;
@@ -227,6 +227,13 @@ namespace Game.Core.PostProcessing
 
                 m_ColorPyramidPass ??= new ColorPyramidPass(m_Context);
                 renderer.EnqueuePass(m_ColorPyramidPass);
+            }
+
+            m_Context.RequireHistoryColor = postProcessPassInput.HasFlag(PostProcessPassInput.PreviousFrameColor);
+            if (postProcessPassInput.HasFlag(PostProcessPassInput.PreviousFrameColor))
+            {
+                m_CopyHistoryColorPass ??= CopyHistoryColorPass.Create(m_Context);
+                renderer.EnqueuePass(m_CopyHistoryColorPass);
             }
 
             if (postProcessPassInput.HasFlag(PostProcessPassInput.ScreenSpaceShadow))

@@ -26,19 +26,13 @@ struct Result
     float iterationCount;
 };
 
-
-
 TEXTURE2D(_SsrHitPointTexture);
 TEXTURE2D(_SsrLightingTexture);
 
 TEXTURE2D(_SsrAccumPrev);
 
-TEXTURE2D_HALF(_GBuffer0);
-TEXTURE2D_HALF(_GBuffer1);
 TEXTURE2D_HALF(_GBuffer2);
 
-
-float4 _SsrHitPointTexture_TexelSize;
 
 float4 _Params1;     // x: vignette intensity, y: distance fade, z: maximum march distance, w: intensity
 

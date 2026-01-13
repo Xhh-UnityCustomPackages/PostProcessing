@@ -150,9 +150,6 @@ namespace Game.Core.PostProcessing
             public RTHandle exposureDebugData;
             public RTHandle tmpTarget1024;
             public RTHandle tmpTarget32;
-
-            public ProfilingSampler profilingSampler_FixedExposure;
-            public ProfilingSampler profilingSampler_DynamicExposure;
         }
         
         DynamicExposureData m_DynamicExposureData;
@@ -160,9 +157,6 @@ namespace Game.Core.PostProcessing
         
         public override void Setup()
         {
-            m_ProfilingSampler_FixedExposure = new ("Fixed Exposure");
-            m_ProfilingSampler_DynamicExposure = new("Dynamic Exposure");
-            
             m_DynamicExposureData = new();
             
             // Setup a default exposure textures and clear it to neutral values so that the exposure

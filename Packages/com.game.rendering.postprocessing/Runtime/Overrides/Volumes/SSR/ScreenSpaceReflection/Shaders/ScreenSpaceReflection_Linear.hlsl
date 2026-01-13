@@ -114,8 +114,8 @@ Result Linear2D_Trace(half3 csOrigin,
     k1 = lerp(k1, k0, alpha);
     Q1 = lerp(Q1, Q0, alpha);
     */
-    P1 = (GetSquaredDistance(P0, P1) < 0.0001) ? P0 + half2(_SsrHitPointTexture_TexelSize.x, _SsrHitPointTexture_TexelSize.y) : P1;
-    // P1 = (GetSquaredDistance(P0, P1) < 0.0001) ? P0 + half2(0.01, 0.01) : P1;
+    // P1 = (GetSquaredDistance(P0, P1) < 0.0001) ? P0 + half2(_SsrHitPointTexture_TexelSize.x, _SsrHitPointTexture_TexelSize.y) : P1;
+    P1 = (GetSquaredDistance(P0, P1) < 0.0001) ? P0 + half2(0.01, 0.01) : P1;
     half2 delta = P1 - P0;
     bool permute = false;
 
