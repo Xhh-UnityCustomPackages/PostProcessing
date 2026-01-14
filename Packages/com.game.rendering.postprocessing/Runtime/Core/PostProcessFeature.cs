@@ -79,11 +79,11 @@ namespace Game.Core.PostProcessing
         private PostProcessRenderPass m_BeforeRenderingOpaques, m_AfterRenderingOpaques;
         private PostProcessRenderPass m_AfterRenderingSkybox, m_BeforeRenderingPostProcessing, m_AfterRenderingPostProcessing;
         UberPostProcess m_UberPostProcessing;
-        private static PostProcessFeatureContext m_Context;
+        private PostProcessFeatureContext m_Context;
         
         private SetGlobalVariablesPass m_SetGlobalVariablesPass;
         private ColorPyramidPass m_ColorPyramidPass;
-        private DepthPyramidPass m_HizDepthGenerator;
+        private DepthPyramidPass m_DepthPyramidPass;
         private CopyHistoryColorPass m_CopyHistoryColorPass;
         
         private ScreenSpaceShadowsPass m_SSShadowsPass = null;
@@ -214,8 +214,8 @@ namespace Game.Core.PostProcessing
         {
             if (postProcessPassInput.HasFlag(PostProcessPassInput.DepthPyramid))
             {
-                m_HizDepthGenerator ??= new DepthPyramidPass(m_Context);
-                renderer.EnqueuePass(m_HizDepthGenerator);
+                m_DepthPyramidPass ??= new DepthPyramidPass(m_Context);
+                renderer.EnqueuePass(m_DepthPyramidPass);
             }
 
             if (postProcessPassInput.HasFlag(PostProcessPassInput.ColorPyramid))
@@ -273,8 +273,12 @@ namespace Game.Core.PostProcessing
             m_UberPostProcessing.Dispose();
             PyramidBlur.Release();
             
+            m_CopyHistoryColorPass?.Dispose();
+            m_CopyHistoryColorPass = null;
             m_SSShadowsPass?.Dispose();
-            m_HizDepthGenerator?.Dispose();
+            m_DepthPyramidPass?.Dispose();
+            m_DepthPyramidPass = null;
+            // m_ColorPyramidPass?.Dispose();
             
             m_Context.Dispose();
             

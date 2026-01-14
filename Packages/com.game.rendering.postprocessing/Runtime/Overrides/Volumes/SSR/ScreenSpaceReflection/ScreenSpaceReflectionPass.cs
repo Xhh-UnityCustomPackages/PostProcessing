@@ -91,6 +91,7 @@ namespace Game.Core.PostProcessing
         RTHandle m_SsrLightingRT;
         private bool m_NeedAccumulate; //usePBRAlgo
         private float m_ScreenSpaceAccumulationResolutionScale;
+        private bool m_First = true;
         
         private readonly int m_AccumulateNoWorldSpeedRejectionBothKernel;
         private readonly int m_AccumulateSmoothSpeedRejectionBothKernel;
@@ -102,13 +103,15 @@ namespace Game.Core.PostProcessing
         private readonly ProfilingSampler m_TracingSampler = new("SSR Tracing");
         private readonly ProfilingSampler m_ReprojectionSampler = new("SSR Reprojection");
         private readonly ProfilingSampler m_AccumulationSampler = new("SSR Accumulation");
+        
+        static RTHandle m_BlackTextureRTH;
 
         public override ScriptableRenderPassInput input => ScriptableRenderPassInput.Depth | ScriptableRenderPassInput.Normal | ScriptableRenderPassInput.Motion;
 
         public override PostProcessPassInput postProcessPassInput =>
             settings.mode.value == ScreenSpaceReflection.RaytraceModes.HiZTracing ? 
                 PostProcessPassInput.ColorPyramid | PostProcessPassInput.DepthPyramid :
-                settings.enableMipmap.value ? PostProcessPassInput.ColorPyramid : PostProcessPassInput.PreviousFrameColor;
+                PostProcessPassInput.ColorPyramid | PostProcessPassInput.PreviousFrameColor;
 
         public override void Setup()
         {
@@ -124,6 +127,11 @@ namespace Game.Core.PostProcessing
             {
                 m_ComputeShader = GraphicsSettings.GetRenderPipelineSettings<ScreenSpaceReflectionResources>().screenSpaceReflectionCS;
             }
+            
+            var m_BlackTexture = new Texture2D(1, 1, GraphicsFormat.R8G8B8A8_SRGB, TextureCreationFlags.None) { name = "Black Texture" };
+            m_BlackTexture.SetPixel(0, 0, Color.black);
+            m_BlackTexture.Apply();
+            m_BlackTextureRTH = RTHandles.Alloc(m_BlackTexture);
         }
 
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
@@ -138,19 +146,7 @@ namespace Game.Core.PostProcessing
 
             if (m_NeedAccumulate)
             {
-                AllocateScreenSpaceAccumulationHistoryBuffer(GetScaleFactor());
-            }
-        }
-
-        private void AllocateScreenSpaceAccumulationHistoryBuffer(float scaleFactor)
-        {
-            if (!Mathf.Approximately(scaleFactor, m_ScreenSpaceAccumulationResolutionScale) || context.GetCurrentFrameRT((int)FrameHistoryType.ScreenSpaceReflectionAccumulation) == null)
-            {
-                context.ReleaseHistoryFrameRT((int)FrameHistoryType.ScreenSpaceReflectionAccumulation);
-
-                var ssrAlloc = new PostProcessFeatureContext.CustomHistoryAllocator(new Vector2(scaleFactor, scaleFactor), GraphicsFormat.R16G16B16A16_SFloat, "SSR_Accum Packed history");
-                context.AllocHistoryFrameRT((int)FrameHistoryType.ScreenSpaceReflectionAccumulation, ssrAlloc.Allocator, 2);
-                m_ScreenSpaceAccumulationResolutionScale = scaleFactor;
+                postProcessCamera.AllocateScreenSpaceAccumulationHistoryBuffer(GetScaleFactor());
             }
         }
 
@@ -182,7 +178,7 @@ namespace Game.Core.PostProcessing
                             m_DepthPyramidMipLevelOffsetsBuffer = new ComputeBuffer(15, sizeof(int) * 2);
 
                         SharedPropertyBlock.Clear();
-                        var offsetBuffer = context.DepthMipChainInfo.GetOffsetBufferData(m_DepthPyramidMipLevelOffsetsBuffer);
+                        var offsetBuffer = postProcessCamera.DepthMipChainInfo.GetOffsetBufferData(m_DepthPyramidMipLevelOffsetsBuffer);
                         SharedPropertyBlock.SetBuffer(ShaderConstants._DepthPyramidMipLevelOffsets, offsetBuffer);
                         cmd.DrawProcedural(Matrix4x4.identity, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.HizTest, MeshTopology.Triangles, 3, 1, SharedPropertyBlock);
                     }
@@ -192,7 +188,21 @@ namespace Game.Core.PostProcessing
             using (new ProfilingScope(cmd, m_ReprojectionSampler))
             {
                 RTHandle preFrameColorRT = context.GetPreviousFrameColorRT(cameraData, out bool isNewFrame);
-              
+                if (preFrameColorRT == null)
+                {
+                    preFrameColorRT = m_BlackTextureRTH;
+                }
+                // if (settings.enableMipmap.value)
+                // {
+                //     preFrameColorRT = context.GetPreviousFrameColorRT(cameraData, out bool isNewFrame);
+                //     m_First = true;
+                // }
+                // else
+                // {
+                //     preFrameColorRT = m_First ? source : context.GetCurrentFrameRT(cameraData.cameraType, (int)FrameHistoryType.ScreenSpaceReflectionAccumulation);
+                //     m_First = false;
+                // }
+
                 SharedPropertyBlock.Clear();
                 SharedPropertyBlock.SetTexture(PipelineShaderIDs._ColorPyramidTexture, preFrameColorRT);
                 SharedPropertyBlock.SetTexture(ShaderConstants.SsrHitPointTexture, m_SsrHitPointRT);
@@ -232,6 +242,10 @@ namespace Game.Core.PostProcessing
             cmd.SetGlobalTexture(ShaderConstants.SSR_Lighting_Texture, finalResult);
             m_ScreenSpaceReflectionMaterial.SetTexture(ShaderConstants.SsrLightingTexture, finalResult);
             Blit(cmd, source, target, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Composite);
+            
+            
+            // var histroy = context.GetPreviousFrameRT(cameraData.cameraType, (int)FrameHistoryType.ScreenSpaceReflectionAccumulation);
+            // Blit(cmd, target, histroy);
         }
 
 
@@ -263,8 +277,8 @@ namespace Game.Core.PostProcessing
 
            
             
-            var ssrAccum = context.GetCurrentFrameRT((int)FrameHistoryType.ScreenSpaceReflectionAccumulation);
-            var ssrAccumPrev = context.GetPreviousFrameRT((int)FrameHistoryType.ScreenSpaceReflectionAccumulation);
+            var ssrAccum = postProcessCamera.GetCurrentFrameRT((int)FrameHistoryType.ScreenSpaceReflectionAccumulation);
+            var ssrAccumPrev = postProcessCamera.GetPreviousFrameRT((int)FrameHistoryType.ScreenSpaceReflectionAccumulation);
             // var preFrameColorRT = context.GetPreviousFrameColorRT(cameraData, out bool isNewFrame);
             
             int groupsX = GraphicsUtility.DivRoundUp(m_SSRTestDescriptor.width, 8);
@@ -281,7 +295,7 @@ namespace Game.Core.PostProcessing
 
             m_SsrLightingRT?.Release();
             m_SsrHitPointRT?.Release();
-            
+            m_BlackTextureRTH?.Release();
             CoreUtils.SafeRelease(m_DepthPyramidMipLevelOffsetsBuffer);
         }
     }

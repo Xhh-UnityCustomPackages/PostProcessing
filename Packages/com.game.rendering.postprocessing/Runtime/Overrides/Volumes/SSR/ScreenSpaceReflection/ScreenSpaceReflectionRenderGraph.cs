@@ -89,7 +89,7 @@ namespace Game.Core.PostProcessing
             m_Variables.RoughnessFadeRcpLength = roughnessFadeRcpLength;
             m_Variables.RoughnessFadeEndTimesRcpLength = roughnessFadeEndTimesRcpLength;
             m_Variables.EdgeFadeRcpLength = edgeFadeRcpLength;//照搬的HDRP 但是这个实际效果过度太硬了
-            m_Variables.DepthPyramidMaxMip = context.DepthMipChainInfo.mipLevelCount - 1;
+            m_Variables.DepthPyramidMaxMip = postProcessCamera.DepthMipChainInfo.mipLevelCount - 1;
             m_Variables.ColorPyramidMaxMip = context.ColorPyramidHistoryMipCount - 1;
             m_Variables.DownsamplingDivider = GetScaleFactor();
             m_Variables.ProjectionMatrix = SSR_ProjectToPixelMatrix;
@@ -143,10 +143,7 @@ namespace Game.Core.PostProcessing
         {
             float scaleFactor = 1.0f;
             if (settings.resolution.value == ScreenSpaceReflection.Resolution.Half)
-            {
                 scaleFactor = 0.5f;
-               
-            }
 
             return scaleFactor;
         }

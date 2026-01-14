@@ -85,7 +85,7 @@ namespace Game.Core.PostProcessing
 
             if (postProcessRenderer.IsActive(ref renderingData))
             {
-                postProcessRenderer.SetupInternal(this, m_PostProcessFeatureData, m_Context);
+                postProcessRenderer.SetupInternal(this, ref renderingData, m_PostProcessFeatureData, m_Context);
                 postProcessRenderer.AddRenderPasses(ref renderingData);
 
                 m_ActivePostProcessRenderers.Add(postProcessRenderer);

@@ -36,8 +36,9 @@ namespace Game.Core.PostProcessing
         
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
         {
+            var postProcessCamera = m_Context.GetPostProcessCamera(renderingData.cameraData.camera);
             var cameraTargetDescriptor = renderingData.cameraData.cameraTargetDescriptor;
-            var mipChainSize = m_Context.DepthMipChainInfo.textureSize;
+            var mipChainSize = postProcessCamera.DepthMipChainInfo.textureSize;
             var depthDescriptor = cameraTargetDescriptor;
             depthDescriptor.enableRandomWrite = true;
             depthDescriptor.width = mipChainSize.x;
@@ -68,7 +69,8 @@ namespace Game.Core.PostProcessing
                 // Depth Pyramid
                 using (new ProfilingScope(cmd, DepthPyramidSampler))
                 {
-                    m_Context.MipGenerator.RenderMinDepthPyramid(cmd, m_HiZDepthRT, m_Context.DepthMipChainInfo);
+                    var postProcessCamera = m_Context.GetPostProcessCamera(renderingData.cameraData.camera);
+                    m_Context.MipGenerator.RenderMinDepthPyramid(cmd, m_HiZDepthRT, postProcessCamera.DepthMipChainInfo);
                 }
             }
 

@@ -17,12 +17,14 @@ namespace Game.Core.PostProcessing
             renderPassEvent = PostProcessingRenderPassEvent.ColorPyramidPass;
             m_Context = context;
         }
-        
+
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
         {
-            if (m_Context.GetCurrentFrameRT((int)FrameHistoryType.ColorBufferMipChain) == null)
+            var postProcessCamera = m_Context.GetPostProcessCamera(renderingData.cameraData.camera);
+            if (postProcessCamera == null) return;
+            if (postProcessCamera.GetCurrentFrameRT((int)FrameHistoryType.ColorBufferMipChain) == null)
             {
-                m_Context.AllocHistoryFrameRT((int)FrameHistoryType.ColorBufferMipChain, HistoryBufferAllocatorFunction, 1);
+                postProcessCamera.AllocHistoryFrameRT((int)FrameHistoryType.ColorBufferMipChain, HistoryBufferAllocatorFunction, 1);
             }
         }
         
@@ -41,13 +43,15 @@ namespace Game.Core.PostProcessing
         
         public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
         {
+            var postProcessCamera = m_Context.GetPostProcessCamera(renderingData.cameraData.camera);
+            if (postProcessCamera == null) return;
             var camera = renderingData.cameraData.camera;
             var cameraColor = renderingData.cameraData.renderer.cameraColorTargetHandle;
             var cmd = CommandBufferPool.Get();
             using (new ProfilingScope(cmd, profilingSampler))
             {
                 // Color Pyramid
-                var colorPyramidRT = m_Context.GetCurrentFrameRT((int)FrameHistoryType.ColorBufferMipChain);
+                var colorPyramidRT = postProcessCamera.GetCurrentFrameRT((int)FrameHistoryType.ColorBufferMipChain);
 
                 cmd.SetGlobalTexture(PipelineShaderIDs._ColorPyramidTexture, colorPyramidRT);
                 Vector2Int pyramidSize = new Vector2Int(camera.pixelWidth, camera.pixelHeight);

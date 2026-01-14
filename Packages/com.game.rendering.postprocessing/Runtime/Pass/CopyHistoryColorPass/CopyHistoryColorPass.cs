@@ -9,8 +9,9 @@ namespace Game.Core.PostProcessing
     {
         public static CopyHistoryColorPass Create(PostProcessFeatureContext context)
         {
-            var blitMaterial = CoreUtils.CreateEngineMaterial("Hidden/Universal/CoreBlit");
-            var samplingMaterial = CoreUtils.CreateEngineMaterial("Hidden/Universal Render Pipeline/Sampling");
+            var shadersResources = GraphicsSettings.GetRenderPipelineSettings<UniversalRenderPipelineRuntimeShaders>();
+            var blitMaterial = CoreUtils.CreateEngineMaterial(shadersResources.coreBlitPS);
+            var samplingMaterial = CoreUtils.CreateEngineMaterial(shadersResources.samplingPS);
             return new CopyHistoryColorPass(context, samplingMaterial, blitMaterial);
         }
         
@@ -31,11 +32,33 @@ namespace Game.Core.PostProcessing
         {
             var descriptor = renderingData.cameraData.cameraTargetDescriptor;
             ConfigureDescriptor(Downsampling.None, ref descriptor, out var filterMode);
-            RenderingUtils.ReAllocateIfNeeded(ref m_Context.CameraPreviousColorTextureRT, descriptor, filterMode, TextureWrapMode.Clamp, name: "_CameraPreviousColorTexture");
-            ConfigureTarget(m_Context.CameraPreviousColorTextureRT);
+            var postProcessCamera = m_Context.GetPostProcessCamera(renderingData.cameraData.camera);
+            if (postProcessCamera == null)
+            {
+                return;
+            }
+
+            RenderingUtils.ReAllocateHandleIfNeeded(ref postProcessCamera.CameraPreviousColorTextureRT, descriptor, filterMode, TextureWrapMode.Clamp, name: "_CameraPreviousColorTexture");
+            ConfigureTarget(postProcessCamera.CameraPreviousColorTextureRT);
             ConfigureClear(ClearFlag.Color, Color.clear);
-            Setup(renderingData.cameraData.renderer.cameraColorTargetHandle, m_Context.CameraPreviousColorTextureRT, Downsampling.None);
+            Setup(renderingData.cameraData.renderer.cameraColorTargetHandle, postProcessCamera.CameraPreviousColorTextureRT, Downsampling.None);
             base.OnCameraSetup(cmd, ref renderingData);
+        }
+
+        public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
+        {
+            var postProcessCamera = m_Context.GetPostProcessCamera(renderingData.cameraData.camera);
+            if (postProcessCamera == null)
+            {
+                return;
+            }
+            base.Execute(context, ref renderingData);
+        }
+
+        public void Dispose()
+        {
+            CoreUtils.Destroy(m_BlitMaterial);
+            CoreUtils.Destroy(m_SamplingMaterial);
         }
     }
 }
