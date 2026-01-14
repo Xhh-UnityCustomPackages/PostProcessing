@@ -90,7 +90,7 @@ namespace Game.Core.PostProcessing
             m_Variables.RoughnessFadeEndTimesRcpLength = roughnessFadeEndTimesRcpLength;
             m_Variables.EdgeFadeRcpLength = edgeFadeRcpLength;//照搬的HDRP 但是这个实际效果过度太硬了
             m_Variables.DepthPyramidMaxMip = postProcessCamera.DepthMipChainInfo.mipLevelCount - 1;
-            m_Variables.ColorPyramidMaxMip = context.ColorPyramidHistoryMipCount - 1;
+            m_Variables.ColorPyramidMaxMip = postProcessCamera.ColorPyramidHistoryMipCount - 1;
             m_Variables.DownsamplingDivider = GetScaleFactor();
             m_Variables.ProjectionMatrix = SSR_ProjectToPixelMatrix;
 
@@ -188,9 +188,11 @@ namespace Game.Core.PostProcessing
             TextureHandle cameraDepthTexture = resourceData.cameraDepthTexture;
             TextureHandle motionVectorTexture = resourceData.motionVectorColor;
             TextureHandle colorPyramidTexture = resourceData.cameraColor;
-
-            var hitPointTexture = UniversalRenderer.CreateRenderGraphTexture(renderGraph, m_SSRTestDescriptor, "SSR_Hit_Point_Texture", false);
-            var ssrLightingTexture = UniversalRenderer.CreateRenderGraphTexture(renderGraph, m_SSRTestDescriptor, "SSR_Lighting_Texture", false);
+            
+            RenderingUtils.ReAllocateHandleIfNeeded(ref m_SsrHitPointRT, m_SSRTestDescriptor, FilterMode.Point, name: "SSR_Hit_Point_Texture");
+            RenderingUtils.ReAllocateHandleIfNeeded(ref m_SsrLightingRT, m_SSRColorDescriptor, FilterMode.Bilinear, name: "SSR_Lighting_Texture");
+            var hitPointTexture = renderGraph.ImportTexture(m_SsrHitPointRT);
+            var ssrLightingTexture = renderGraph.ImportTexture(m_SsrLightingRT);
 
             using (var builder = renderGraph.AddUnsafePass<ScreenSpaceReflectionPassData>(profilingSampler.name, out var passData))
             {
@@ -217,7 +219,7 @@ namespace Game.Core.PostProcessing
                 passData.CameraColorTexture = colorPyramidTexture;
                 builder.UseTexture(colorPyramidTexture, AccessFlags.ReadWrite);
                 
-                // builder.UseTexture(destination, AccessFlags.Write);
+                builder.UseTexture(source, AccessFlags.Read);
                 
                 builder.AllowPassCulling(false);
                 
@@ -237,7 +239,7 @@ namespace Game.Core.PostProcessing
                     using (new ProfilingScope(cmd, m_ReprojectionSampler))
                     {
                         var propertyBlock = new MaterialPropertyBlock();
-                        propertyBlock.SetTexture(ShaderConstants._BlitTexture, colorPyramidTexture);
+                        propertyBlock.SetTexture(ShaderConstants._BlitTexture, data.CameraColorTexture);
                         propertyBlock.SetTexture(ShaderConstants.SsrHitPointTexture, data.HitPointTexture);
                         propertyBlock.SetVector(ShaderConstants._BlitScaleBias, new Vector4(1, 1, 0, 0));
                         propertyBlock.SetTexture(ShaderConstants._GBuffer2, data.GBuffer2);
@@ -248,9 +250,9 @@ namespace Game.Core.PostProcessing
 
                     // Apply SSR
                     {
-                        // m_ScreenSpaceReflectionMaterial.SetTexture(ShaderConstants.SsrLightingTexture, ssrLightingTexture);
+                        m_ScreenSpaceReflectionMaterial.SetTexture(ShaderConstants.SsrLightingTexture, ssrLightingTexture);
                         // cmd.SetRenderTarget(destination);
-                        // Blitter.BlitCameraTexture(cmd, source, destination, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Composite);
+                        Blitter.BlitCameraTexture(cmd, source, destination, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Composite);
                     }
                 });
             }

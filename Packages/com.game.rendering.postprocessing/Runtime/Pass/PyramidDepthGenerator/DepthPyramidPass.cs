@@ -6,6 +6,7 @@ using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using Unity.Mathematics;
 using UnityEngine.Experimental.Rendering;
+using UnityEngine.Rendering.RenderGraphModule;
 
 namespace Game.Core.PostProcessing
 {
@@ -82,6 +83,91 @@ namespace Game.Core.PostProcessing
         {
             m_HiZDepthRT?.Release();
         }
+
+        class CopyDepthPassData
+        {
+            public TextureHandle inputDepth;
+            public TextureHandle outputDepth;
+            public GPUCopy GPUCopy;
+            public int width;
+            public int height;
+        }
         
+        class GenerateDepthPyramidPassData
+        {
+            public TextureHandle depthTexture;
+            public PackedMipChainInfo mipInfo;
+            public MipGenerator mipGenerator;
+        }
+
+        void CopyDepthBufferIfNeeded(RenderGraph renderGraph, Camera hdCamera, TextureHandle depthTexture, TextureHandle outDepthTexture)
+        {
+            using (var builder = renderGraph.AddUnsafePass<CopyDepthPassData>("Copy depth buffer", out var passData, CopyDepthSampler))
+            {
+                passData.inputDepth = depthTexture;
+                passData.outputDepth = outDepthTexture;
+                
+                passData.GPUCopy = m_Context.GPUCopy;
+                passData.width = hdCamera.pixelWidth;
+                passData.height = hdCamera.pixelHeight;
+                
+                builder.AllowPassCulling(false);
+                builder.SetRenderFunc(
+                    (CopyDepthPassData data, UnsafeGraphContext context) =>
+                    {
+                        var cmd = CommandBufferHelpers.GetNativeCommandBuffer(context.cmd);
+                        // TODO: maybe we don't actually need the top MIP level?
+                        // That way we could avoid making the copy, and build the MIP hierarchy directly.
+                        // The downside is that our SSR tracing accuracy would decrease a little bit.
+                        // But since we never render SSR at full resolution, this may be acceptable.
+
+                        // TODO: reading the depth buffer with a compute shader will cause it to decompress in place.
+                        // On console, to preserve the depth test performance, we must NOT decompress the 'm_CameraDepthStencilBuffer' in place.
+                        // We should call decompressDepthSurfaceToCopy() and decompress it to 'm_CameraDepthBufferMipChain'.
+                        data.GPUCopy.SampleCopyChannel_xyzw2x(cmd, data.inputDepth, data.outputDepth, new RectInt(0, 0, data.width, data.height));
+                    });
+            }
+        }
+
+        public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
+        {
+            var cameraData = frameData.Get<UniversalCameraData>();
+            var resourceData = frameData.Get<UniversalResourceData>();
+            
+            var postProcessCamera = m_Context.GetPostProcessCamera(cameraData.camera);
+            if (postProcessCamera == null) return;
+
+            var cameraTargetDescriptor = cameraData.cameraTargetDescriptor;
+            var mipChainSize = postProcessCamera.DepthMipChainInfo.textureSize;
+            var depthDescriptor = cameraTargetDescriptor;
+            depthDescriptor.enableRandomWrite = true;
+            depthDescriptor.width = mipChainSize.x;
+            depthDescriptor.height = mipChainSize.y;
+            depthDescriptor.graphicsFormat = GraphicsFormat.R32_SFloat;
+            depthDescriptor.depthBufferBits = 0;
+            RenderingUtils.ReAllocateHandleIfNeeded(ref m_HiZDepthRT, depthDescriptor, name: "CameraDepthBufferMipChain");
+            var depthPyramidTexture = renderGraph.ImportTexture(m_HiZDepthRT);
+
+            var camerDepthTexture = resourceData.cameraDepth;
+            
+            // If the depth buffer hasn't been already copied by the decal or low res depth buffer pass, then we do the copy here.
+            CopyDepthBufferIfNeeded(renderGraph, cameraData.camera, camerDepthTexture, depthPyramidTexture);
+            
+            using (var builder = renderGraph.AddUnsafePass<GenerateDepthPyramidPassData>("Generate Depth Buffer MIP Chain", out var passData, DepthPyramidSampler))
+            {
+                passData.depthTexture = depthPyramidTexture;
+                passData.mipInfo = postProcessCamera.DepthMipChainInfo;
+                passData.mipGenerator = m_Context.MipGenerator;
+                builder.AllowPassCulling(false);
+                builder.SetRenderFunc(
+                    (GenerateDepthPyramidPassData data, UnsafeGraphContext context) =>
+                    {
+                        var cmd = CommandBufferHelpers.GetNativeCommandBuffer(context.cmd);
+                        data.mipGenerator.RenderMinDepthPyramid(cmd, data.depthTexture, data.mipInfo);
+                    });
+
+                // m_HiZDepthRT = passData.depthTexture;
+            }
+        }
     }
 }

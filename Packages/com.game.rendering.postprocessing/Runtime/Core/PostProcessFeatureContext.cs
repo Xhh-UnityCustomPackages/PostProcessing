@@ -28,10 +28,10 @@ namespace Game.Core.PostProcessing
         private GPUCopy m_GPUCopy;
         public GPUCopy GPUCopy => m_GPUCopy;
         private MipGenerator m_MipGenerator;
-        public  MipGenerator MipGenerator => m_MipGenerator;
+        public MipGenerator MipGenerator => m_MipGenerator;
         
        
-        public int ColorPyramidHistoryMipCount { get; internal set; }
+       
         
         private ShaderVariablesGlobal m_ShaderVariablesGlobal;
         
@@ -82,9 +82,9 @@ namespace Game.Core.PostProcessing
             {
                 data.Dispose();
             }
+            m_CameraDataMap.Clear();
             m_MipGenerator?.Release();
        
-            ColorPyramidHistoryMipCount = 1;
         }
 
         #region GlobalVariables

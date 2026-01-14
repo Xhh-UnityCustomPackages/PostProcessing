@@ -36,6 +36,8 @@ namespace Game.Core.PostProcessing
         private PackedMipChainInfo m_DepthBufferMipChainInfo = new();
         public PackedMipChainInfo DepthMipChainInfo => m_DepthBufferMipChainInfo;
 
+        public int ColorPyramidHistoryMipCount { get; internal set; }
+        
         float m_ScreenSpaceAccumulationResolutionScale = 0.0f; // Use another scale if AO & SSR don't have the same resolution
 
         public PostProcessCamera()
@@ -51,6 +53,8 @@ namespace Game.Core.PostProcessing
                 // m_HistoryRTSystem = null;
             }
             CameraPreviousColorTextureRT?.Release();
+            
+            ColorPyramidHistoryMipCount = 1;
         }
 
         public void UpdateFrame(ref RenderingData renderingData)

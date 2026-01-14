@@ -278,7 +278,7 @@ namespace Game.Core.PostProcessing
             m_SSShadowsPass?.Dispose();
             m_DepthPyramidPass?.Dispose();
             m_DepthPyramidPass = null;
-            // m_ColorPyramidPass?.Dispose();
+            m_ColorPyramidPass?.Dispose();
             
             m_Context.Dispose();
             

@@ -25,7 +25,7 @@ namespace Game.Core.PostProcessing
         public const RenderPassEvent SetGlobalVariablesPass = RenderPassEvent.AfterRenderingPrePasses + 0;
         // ================================= Depth Prepass ================================================ //
         // Screen space effect need ignore transparent post depth since normal is not matched with depth.
-        public const RenderPassEvent DepthPyramidPass = RenderPassEvent.AfterRenderingPrePasses + 1;
+        public const RenderPassEvent DepthPyramidPass = RenderPassEvent.AfterRenderingGbuffer + 1;//这个目前使用RenderGraph下顺序又说不同 反正应该实在CopyDepth之后
         // ==================================== Transparency =============================================== //
 
         public const RenderPassEvent ColorPyramidPass = RenderPassEvent.AfterRenderingTransparents + 4;
