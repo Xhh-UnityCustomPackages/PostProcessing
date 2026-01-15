@@ -131,7 +131,7 @@ namespace Game.Core.PostProcessing
             // local shader keywords
             m_ShaderKeywords[0] = ShaderConstants.GetDebugKeyword(settings.debugMode.value);
             m_ShaderKeywords[1] = ShaderConstants.GetApproxKeyword(settings.usedAlgorithm.value);
-            m_ShaderKeywords[2] = ShaderConstants.GetMultiBounceKeyword(settings.enableMipmap.value);
+            m_ShaderKeywords[2] = ShaderConstants.GetUseMipmapKeyword(settings.enableMipmap.value);
             m_ScreenSpaceReflectionMaterial.shaderKeywords = m_ShaderKeywords;
             if (settings.debugMode.value == ScreenSpaceReflection.DebugMode.Split)
             {
@@ -193,6 +193,28 @@ namespace Game.Core.PostProcessing
             RenderingUtils.ReAllocateHandleIfNeeded(ref m_SsrLightingRT, m_SSRColorDescriptor, FilterMode.Bilinear, name: "SSR_Lighting_Texture");
             var hitPointTexture = renderGraph.ImportTexture(m_SsrHitPointRT);
             var ssrLightingTexture = renderGraph.ImportTexture(m_SsrLightingRT);
+            
+            var colorBufferMipChainTexture = TextureHandle.nullHandle;
+            if (settings.enableMipmap.value)
+            {
+                var colorBufferMipChain = postProcessCamera.GetCurrentFrameRT((int)FrameHistoryType.ColorBufferMipChain);
+                if (colorBufferMipChain != null)
+                    colorBufferMipChainTexture = renderGraph.ImportTexture(colorBufferMipChain);
+
+                if (colorBufferMipChainTexture.IsValid())
+                {
+                    colorPyramidTexture = colorBufferMipChainTexture;
+                }
+            }
+            else
+            {
+                var previousColorTexture = renderGraph.ImportTexture(postProcessCamera.CameraPreviousColorTextureRT);
+                if (colorBufferMipChainTexture.IsValid())
+                {
+                    colorPyramidTexture = previousColorTexture;
+                }
+            }
+            
 
             using (var builder = renderGraph.AddUnsafePass<ScreenSpaceReflectionPassData>(profilingSampler.name, out var passData))
             {
@@ -239,20 +261,24 @@ namespace Game.Core.PostProcessing
                     using (new ProfilingScope(cmd, m_ReprojectionSampler))
                     {
                         var propertyBlock = new MaterialPropertyBlock();
-                        propertyBlock.SetTexture(ShaderConstants._BlitTexture, data.CameraColorTexture);
+                        propertyBlock.SetTexture(PipelineShaderIDs._ColorPyramidTexture, data.CameraColorTexture);
                         propertyBlock.SetTexture(ShaderConstants.SsrHitPointTexture, data.HitPointTexture);
                         propertyBlock.SetVector(ShaderConstants._BlitScaleBias, new Vector4(1, 1, 0, 0));
                         propertyBlock.SetTexture(ShaderConstants._GBuffer2, data.GBuffer2);
                         
                         cmd.SetRenderTarget(ssrLightingTexture);
-                        cmd.DrawProcedural(Matrix4x4.identity, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Reproject, MeshTopology.Triangles, 3, 1, propertyBlock);
+                        cmd.DrawProcedural(Matrix4x4.identity, data.Material, (int)ShaderPasses.Reproject, MeshTopology.Triangles, 3, 1, propertyBlock);
+                    }
+
+                    using (new ProfilingScope(cmd, m_AccumulationSampler))
+                    {
                     }
 
                     // Apply SSR
                     {
                         m_ScreenSpaceReflectionMaterial.SetTexture(ShaderConstants.SsrLightingTexture, ssrLightingTexture);
                         // cmd.SetRenderTarget(destination);
-                        Blitter.BlitCameraTexture(cmd, source, destination, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Composite);
+                        Blitter.BlitCameraTexture(cmd, source, destination, data.Material, (int)ShaderPasses.Composite);
                     }
                 });
             }

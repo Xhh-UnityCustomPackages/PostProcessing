@@ -279,8 +279,10 @@ namespace Game.Core.PostProcessing
             m_DepthPyramidPass?.Dispose();
             m_DepthPyramidPass = null;
             m_ColorPyramidPass?.Dispose();
+            m_ColorPyramidPass = null;
             
             m_Context.Dispose();
+            m_Context = null;
             
 #if UNITY_EDITOR
             m_DebugHandler.Dispose();

@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -8,7 +9,7 @@ using UnityEngine.Rendering.Universal;
 
 namespace Game.Core.PostProcessing
 {
-    public class ColorPyramidPass : ScriptableRenderPass
+    public class ColorPyramidPass : ScriptableRenderPass, IDisposable
     {
         private readonly PostProcessFeatureContext m_Context;
         

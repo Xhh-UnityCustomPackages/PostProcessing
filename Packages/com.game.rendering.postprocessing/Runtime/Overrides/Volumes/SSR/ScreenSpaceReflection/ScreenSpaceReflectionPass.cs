@@ -64,9 +64,9 @@ namespace Game.Core.PostProcessing
                 }
             }
 
-            public static string GetMultiBounceKeyword(bool enableMipmap)
+            public static string GetUseMipmapKeyword(bool enableMipmap)
             {
-                return enableMipmap ? "SSR_MULTI_BOUNCE" : "_";
+                return enableMipmap ? "SSR_USE_COLOR_PYRAMID" : "_";
             }
         }
 
@@ -109,9 +109,8 @@ namespace Game.Core.PostProcessing
         public override ScriptableRenderPassInput input => ScriptableRenderPassInput.Depth | ScriptableRenderPassInput.Normal | ScriptableRenderPassInput.Motion;
 
         public override PostProcessPassInput postProcessPassInput =>
-            settings.mode.value == ScreenSpaceReflection.RaytraceModes.HiZTracing ? 
-                PostProcessPassInput.ColorPyramid | PostProcessPassInput.DepthPyramid :
-                PostProcessPassInput.ColorPyramid | PostProcessPassInput.PreviousFrameColor;
+            settings.mode.value == ScreenSpaceReflection.RaytraceModes.HiZTracing ? PostProcessPassInput.ColorPyramid | PostProcessPassInput.DepthPyramid :
+            settings.enableMipmap.value ? PostProcessPassInput.ColorPyramid : PostProcessPassInput.PreviousFrameColor;
 
         public override void Setup()
         {
@@ -187,22 +186,21 @@ namespace Game.Core.PostProcessing
 
             using (new ProfilingScope(cmd, m_ReprojectionSampler))
             {
-                RTHandle preFrameColorRT = context.GetPreviousFrameColorRT(cameraData, out bool isNewFrame);
-                if (preFrameColorRT == null)
+                RTHandle preFrameColorRT = source;
+                if (settings.enableMipmap.value)
                 {
-                    preFrameColorRT = m_BlackTextureRTH;
+                    var colorBufferMipChain = postProcessCamera.GetCurrentFrameRT((int)FrameHistoryType.ColorBufferMipChain);
+                    if (colorBufferMipChain != null)
+                    {
+                        preFrameColorRT = colorBufferMipChain;
+                    }
                 }
-                // if (settings.enableMipmap.value)
-                // {
-                //     preFrameColorRT = context.GetPreviousFrameColorRT(cameraData, out bool isNewFrame);
-                //     m_First = true;
-                // }
-                // else
-                // {
-                //     preFrameColorRT = m_First ? source : context.GetCurrentFrameRT(cameraData.cameraType, (int)FrameHistoryType.ScreenSpaceReflectionAccumulation);
-                //     m_First = false;
-                // }
-
+                else
+                {
+                    if (postProcessCamera.CameraPreviousColorTextureRT != null)
+                        preFrameColorRT = postProcessCamera.CameraPreviousColorTextureRT;
+                }
+                
                 SharedPropertyBlock.Clear();
                 SharedPropertyBlock.SetTexture(PipelineShaderIDs._ColorPyramidTexture, preFrameColorRT);
                 SharedPropertyBlock.SetTexture(ShaderConstants.SsrHitPointTexture, m_SsrHitPointRT);
@@ -279,7 +277,6 @@ namespace Game.Core.PostProcessing
             
             var ssrAccum = postProcessCamera.GetCurrentFrameRT((int)FrameHistoryType.ScreenSpaceReflectionAccumulation);
             var ssrAccumPrev = postProcessCamera.GetPreviousFrameRT((int)FrameHistoryType.ScreenSpaceReflectionAccumulation);
-            // var preFrameColorRT = context.GetPreviousFrameColorRT(cameraData, out bool isNewFrame);
             
             int groupsX = GraphicsUtility.DivRoundUp(m_SSRTestDescriptor.width, 8);
             int groupsY = GraphicsUtility.DivRoundUp(m_SSRTestDescriptor.height, 8);

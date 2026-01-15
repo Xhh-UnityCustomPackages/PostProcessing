@@ -14,7 +14,7 @@ namespace Game.Core.PostProcessing
         public static readonly int _DepthPyramid = MemberNameHelpers.ShaderPropertyID();
         public static readonly int _DepthPyramidMipLevelOffsets = MemberNameHelpers.ShaderPropertyID();
         public static readonly int _ColorPyramidTexture = MemberNameHelpers.ShaderPropertyID();
-        
+        public static readonly int _CameraPreviousColorTexture = MemberNameHelpers.ShaderPropertyID();
         
         public static readonly int ShaderVariablesGlobal = MemberNameHelpers.ShaderPropertyID();
         public static readonly int _ColorPyramidUvScaleAndLimitPrevFrame = MemberNameHelpers.ShaderPropertyID();

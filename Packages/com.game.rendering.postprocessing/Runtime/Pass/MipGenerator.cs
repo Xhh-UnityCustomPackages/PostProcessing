@@ -301,6 +301,10 @@ namespace Game.Core.PostProcessing
 
             float sourceScaleX = size.x / (float)hardwareTextureSize.x;
             float sourceScaleY = size.y / (float)hardwareTextureSize.y;
+            // Mark! 这里有所修改 为了适配RenderScale
+            sourceScaleX = sourceScaleY = 1;
+            srcMipWidth = hardwareTextureSize.x;
+            srcMipHeight = hardwareTextureSize.y;
             
             // Copies src mip0 to dst mip0
             // Note that we still use a fragment shader to do the first copy because fragment are faster at copying

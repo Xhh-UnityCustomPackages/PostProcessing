@@ -7,8 +7,6 @@ using UnityEngine.Rendering.Universal;
 
 namespace Game.Core.PostProcessing
 {
-   
-
     // HDRP 有一个HDCamera 可以方便的把各个View的信息配置在里面 实现RT 数据的分离
     public class PostProcessFeatureContext
     {
@@ -30,8 +28,6 @@ namespace Game.Core.PostProcessing
         private MipGenerator m_MipGenerator;
         public MipGenerator MipGenerator => m_MipGenerator;
         
-       
-       
         
         private ShaderVariablesGlobal m_ShaderVariablesGlobal;
         
@@ -46,8 +42,7 @@ namespace Game.Core.PostProcessing
 
             if (!m_CameraDataMap.ContainsKey(camera.cameraType))
             {
-                PostProcessCamera data = new();
-                data.camera = camera;
+                PostProcessCamera data = new(camera);
                 m_CameraDataMap.Add(camera.cameraType, data);
             }
         }
@@ -124,39 +119,6 @@ namespace Game.Core.PostProcessing
                     historyRTSystem.rtHandleProperties.previousRenderTargetSize);
         }
 
-
-        #endregion
-
-
-        #region Histroy
-
-        public RTHandle GetPreviousFrameColorRT(CameraData cameraData, out bool isNewFrame)
-        {
-            var postProcessCamera = GetPostProcessCamera(cameraData.camera);
-            // Using color pyramid
-            if (cameraData.cameraType == CameraType.Game)
-            {
-                var previewsColorRT = postProcessCamera.GetCurrentFrameRT((int)FrameHistoryType.ColorBufferMipChain);
-                if (previewsColorRT != null)
-                {
-                    isNewFrame = true;
-                    return previewsColorRT;
-                }
-            }
-            
-            // Using history color
-            isNewFrame = true;
-            if (RequireHistoryColor)
-            {
-                return postProcessCamera.CameraPreviousColorTextureRT;
-            }
-            
-            // Fallback to opaque texture if exist.
-            return cameraData.renderer.cameraColorTargetHandle;
-            return UniversalRenderingUtility.GetOpaqueTexture(cameraData.renderer);
-        }
-
-       
 
         #endregion
     }

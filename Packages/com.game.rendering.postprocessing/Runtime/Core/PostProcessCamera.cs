@@ -40,8 +40,9 @@ namespace Game.Core.PostProcessing
         
         float m_ScreenSpaceAccumulationResolutionScale = 0.0f; // Use another scale if AO & SSR don't have the same resolution
 
-        public PostProcessCamera()
+        public PostProcessCamera(Camera camera)
         {
+            this.camera = camera;
             m_DepthBufferMipChainInfo.Allocate();
         }
 
@@ -62,6 +63,15 @@ namespace Game.Core.PostProcessing
             var descriptor = renderingData.cameraData.cameraTargetDescriptor;
             var viewportSize = new Vector2Int(descriptor.width, descriptor.height);
             m_HistoryRTSystem.SwapAndSetReferenceSize(descriptor.width, descriptor.height);
+            
+            // Since we do not use RTHandleScale, ensure render texture size correct
+            if (m_HistoryRTSystem.rtHandleProperties.currentRenderTargetSize.x > descriptor.width
+                || m_HistoryRTSystem.rtHandleProperties.currentRenderTargetSize.y > descriptor.height)
+            {
+                m_HistoryRTSystem.ResetReferenceSize(descriptor.width, descriptor.height);
+                // _exposureTextures.Clear();
+            }
+            
             m_DepthBufferMipChainInfo.ComputePackedMipChainInfo(viewportSize, 0);
         }
 

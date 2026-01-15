@@ -5,12 +5,12 @@
 #include "Packages/com.game.rendering.postprocessing/ShaderLibrary/DeclareMotionVectorTexture.hlsl"
 #include "Packages/com.game.rendering.postprocessing/ShaderLibrary/DeclareColorPyramidTexture.hlsl"
 #include "Packages/com.game.rendering.postprocessing/ShaderLibrary/BilateralFilter.hlsl"
-#include "Packages/com.game.rendering.postprocessing/ShaderLibrary/ShaderVariables.hlsl"
+#include "Packages/com.game.rendering.postprocessing/ShaderLibrary/ShaderVariablesGlobal.hlsl"
 
 #define MIN_GGX_ROUGHNESS           0.00001f
 #define MAX_GGX_ROUGHNESS           0.99999f
 
-#if SSR_MULTI_BOUNCE
+#if SSR_USE_COLOR_PYRAMID
 #define ColorPyramidUvScaleAndLimitPrevFrame _ColorPyramidUvScaleAndLimitPrevFrame
 #else
 #define ColorPyramidUvScaleAndLimitPrevFrame float4(1, 1, 1, 1)
@@ -222,7 +222,11 @@ float4 ScreenSpaceReflectionReprojection(uint2 positionSS0)
     #ifdef SSR_APPROX
     
     //是否使用Mip 不使用的话 就没有粗糙度变化
+    #if SSR_USE_COLOR_PYRAMID 
     float3 color = SAMPLE_TEXTURE2D_X_LOD(_ColorPyramidTexture, sampler_PointClamp, prevFrameUV, mipLevel).rgb;
+    #else
+    float3 color = SAMPLE_TEXTURE2D_X_LOD(_ColorPyramidTexture, sampler_PointClamp, prevFrameUV, 0).rgb;
+    #endif
     
     // Disable SSR for negative, infinite and NaN history values.
     uint3 intCol   = asuint(color);

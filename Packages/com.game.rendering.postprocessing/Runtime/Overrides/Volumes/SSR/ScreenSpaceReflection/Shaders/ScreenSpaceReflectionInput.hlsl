@@ -33,7 +33,6 @@ TEXTURE2D(_SsrAccumPrev);
 
 TEXTURE2D_HALF(_GBuffer2);
 
-
 float4 _Params1;     // x: vignette intensity, y: distance fade, z: maximum march distance, w: intensity
 
 //Debug

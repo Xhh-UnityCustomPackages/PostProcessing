@@ -148,7 +148,7 @@ namespace Game.Core.PostProcessing
             RenderingUtils.ReAllocateHandleIfNeeded(ref m_HiZDepthRT, depthDescriptor, name: "CameraDepthBufferMipChain");
             var depthPyramidTexture = renderGraph.ImportTexture(m_HiZDepthRT);
 
-            var camerDepthTexture = resourceData.cameraDepth;
+            var camerDepthTexture = resourceData.cameraDepthTexture;
             
             // If the depth buffer hasn't been already copied by the decal or low res depth buffer pass, then we do the copy here.
             CopyDepthBufferIfNeeded(renderGraph, cameraData.camera, camerDepthTexture, depthPyramidTexture);

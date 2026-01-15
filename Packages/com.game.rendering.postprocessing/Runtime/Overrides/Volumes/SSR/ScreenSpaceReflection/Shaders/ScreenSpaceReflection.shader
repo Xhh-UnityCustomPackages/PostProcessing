@@ -50,7 +50,7 @@ Shader "Hidden/PostProcessing/ScreenSpaceReflection"
             #pragma multi_compile_fragment _ _REFLECTION_PROBE_BLENDING
             #pragma multi_compile_fragment _ _REFLECTION_PROBE_BOX_PROJECTION
             #pragma multi_compile_fragment _ SSR_APPROX
-            #pragma multi_compile_fragment _ SSR_MULTI_BOUNCE
+            #pragma multi_compile_fragment _ SSR_USE_COLOR_PYRAMID
 
             #pragma vertex Vert
             #pragma fragment FragSSRReprojection

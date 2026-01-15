@@ -34,6 +34,7 @@ namespace Game.Core.PostProcessing
 
         internal void SetupInternal(PostProcessRenderPass renderPass,  ref RenderingData renderingData, PostProcessFeatureData data, PostProcessFeatureContext context)
         {
+            postProcessCamera = context.GetPostProcessCamera(renderingData.cameraData.camera);//这个需要每帧更新
             if (m_Initialized)
                 return;
             m_Initialized = true;
@@ -41,7 +42,6 @@ namespace Game.Core.PostProcessing
             m_RenderPass = renderPass;
             postProcessFeatureData = data;
             this.context = context;
-            postProcessCamera = context.GetPostProcessCamera(renderingData.cameraData.camera);
             Setup();
         }
 
