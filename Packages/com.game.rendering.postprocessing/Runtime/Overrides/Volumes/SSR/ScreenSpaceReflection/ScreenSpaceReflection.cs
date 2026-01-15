@@ -41,7 +41,7 @@ namespace Game.Core.PostProcessing
         // public ClampedFloatParameter distanceFade = new(0.2f, 0f, 1f);
         
         [Tooltip("边缘渐变")]
-        [InspectorName("Screen Edge Fade Distance")]
+        [InspectorName("Screen Edge Fade Distance (屏幕边缘淡出)")]
         public ClampedFloatParameter vignette = new(1f, 0f, 1f);
         
         [Header("Performance")]

@@ -21,22 +21,35 @@ namespace Game.Core.PostProcessing
         /// Screen Space Reflection Accumulation.
         /// </summary>
         ScreenSpaceReflectionAccumulation,
+        /// <summary>
+        /// Depth buffer for temporal effects.
+        /// </summary>
+        Depth,
     }
 
-    public class PostProcessCamera
+    public partial class PostProcessCamera
     {
         BufferedRTHandleSystem m_HistoryRTSystem = new BufferedRTHandleSystem();
-
         public BufferedRTHandleSystem historyRTSystem => m_HistoryRTSystem;
 
         public Camera camera;
         
+        /// <summary>
+        /// Color texture before post-processing of previous frame
+        /// </summary>
         public RTHandle CameraPreviousColorTextureRT;
+        
+        /// <summary>
+        /// Depth pyramid of current frame
+        /// </summary>
+        public RTHandle DepthPyramidRT;
         
         private PackedMipChainInfo m_DepthBufferMipChainInfo = new();
         public PackedMipChainInfo DepthMipChainInfo => m_DepthBufferMipChainInfo;
 
         public int ColorPyramidHistoryMipCount { get; internal set; }
+        public bool ResetPostProcessingHistory { get; internal set; } = false;
+        public bool DidResetPostProcessingHistoryInLastFrame { get; internal set; }
         
         float m_ScreenSpaceAccumulationResolutionScale = 0.0f; // Use another scale if AO & SSR don't have the same resolution
 
@@ -54,11 +67,13 @@ namespace Game.Core.PostProcessing
                 // m_HistoryRTSystem = null;
             }
             CameraPreviousColorTextureRT?.Release();
-            
             ColorPyramidHistoryMipCount = 1;
+            // Exposure
+            RTHandles.Release(m_EmptyExposureTexture);
+            RTHandles.Release(m_DebugExposureData);
         }
 
-        public void UpdateFrame(ref RenderingData renderingData)
+        public void UpdateRenderTextures(ref RenderingData renderingData)
         {
             var descriptor = renderingData.cameraData.cameraTargetDescriptor;
             var viewportSize = new Vector2Int(descriptor.width, descriptor.height);
@@ -69,10 +84,32 @@ namespace Game.Core.PostProcessing
                 || m_HistoryRTSystem.rtHandleProperties.currentRenderTargetSize.y > descriptor.height)
             {
                 m_HistoryRTSystem.ResetReferenceSize(descriptor.width, descriptor.height);
-                // _exposureTextures.Clear();
+                m_ExposureTextures.Clear();
             }
             
             m_DepthBufferMipChainInfo.ComputePackedMipChainInfo(viewportSize, 0);
+            
+            m_Exposure = VolumeManager.instance.stack.GetComponent<Exposure>();
+            SetupExposureTextures();
+        }
+        
+        public void UpdateRenderTextures(UniversalCameraData cameraData)
+        {
+            var descriptor = cameraData.cameraTargetDescriptor;
+            var viewportSize = new Vector2Int(descriptor.width, descriptor.height);
+            m_HistoryRTSystem.SwapAndSetReferenceSize(descriptor.width, descriptor.height);
+
+            // Since we do not use RTHandleScale, ensure render texture size correct
+            if (m_HistoryRTSystem.rtHandleProperties.currentRenderTargetSize.x > descriptor.width
+                || m_HistoryRTSystem.rtHandleProperties.currentRenderTargetSize.y > descriptor.height)
+            {
+                m_HistoryRTSystem.ResetReferenceSize(descriptor.width, descriptor.height);
+                m_ExposureTextures.Clear();
+            }
+
+            m_DepthBufferMipChainInfo.ComputePackedMipChainInfo(viewportSize, 0);
+            m_Exposure = VolumeManager.instance.stack.GetComponent<Exposure>();
+            SetupExposureTextures();
         }
 
         #region History

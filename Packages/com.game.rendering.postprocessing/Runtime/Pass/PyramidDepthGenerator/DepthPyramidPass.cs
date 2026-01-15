@@ -13,7 +13,7 @@ namespace Game.Core.PostProcessing
     /// <summary>
     /// 非Mip形式的HiZ 算法 照搬HDRP版本
     /// </summary>
-    public class DepthPyramidPass : ScriptableRenderPass
+    public class DepthPyramidPass : ScriptableRenderPass, IDisposable
     {
         private static readonly ProfilingSampler CopyDepthSampler = new("Copy Depth Buffer");
         private static readonly ProfilingSampler DepthPyramidSampler = new("Depth Pyramid");

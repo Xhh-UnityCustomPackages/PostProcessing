@@ -81,6 +81,7 @@ namespace Game.Core.PostProcessing
         UberPostProcess m_UberPostProcessing;
         private PostProcessFeatureContext m_Context;
         
+        private SetupPass m_SetupPass;
         private SetGlobalVariablesPass m_SetGlobalVariablesPass;
         private ColorPyramidPass m_ColorPyramidPass;
         private DepthPyramidPass m_DepthPyramidPass;
@@ -133,10 +134,11 @@ namespace Game.Core.PostProcessing
 
             m_UberPostProcessing = new UberPostProcess(postProcessFeatureData);
             m_SetGlobalVariablesPass = new SetGlobalVariablesPass(m_Context);
+            m_SetupPass = new(this, m_Context);
             
 #if UNITY_EDITOR
             m_DebugHandler = new DebugHandler();
-            m_DebugHandler.Init();
+            m_DebugHandler.Init(m_Context);
 #endif
         }
 
@@ -150,6 +152,12 @@ namespace Game.Core.PostProcessing
 
         public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
         {
+            var camera = renderingData.cameraData.camera;
+            if (camera.cameraType == CameraType.Preview || camera.cameraType == CameraType.Reflection || camera.cameraType == CameraType.VR)
+            {
+                return;
+            }
+            
             if (m_Settings.m_PostProcessFeatureData == null)
             {
 #if UNITY_EDITOR
@@ -163,15 +171,10 @@ namespace Game.Core.PostProcessing
 
             CheckRenderingMode(renderer);
             
-            var camera = renderingData.cameraData.camera;
-            if (camera.cameraType == CameraType.Preview || camera.cameraType == CameraType.Reflection || camera.cameraType == CameraType.VR)
-            {
-                return;
-            }
-
             m_Context.Setup(camera);
-            m_Context.UpdateFrame(ref renderingData);
             
+            // Setup pass must run first (handles configuration for both Unity 2022 and 2023)
+            renderer.EnqueuePass(m_SetupPass);
             
             // AfterRenderingPrePasses
             renderer.EnqueuePass(m_SetGlobalVariablesPass);
@@ -261,6 +264,12 @@ namespace Game.Core.PostProcessing
             m_RenderingMode = UniversalRenderingUtility.GetRenderingMode(renderer);
         }
 
+        private static void SafeDispose<TDisposable>(ref TDisposable disposable) where TDisposable : class, IDisposable
+        {
+            disposable?.Dispose();
+            disposable = null;
+        }
+        
         protected override void Dispose(bool disposing)
         {
             m_BeforeRenderingOpaques.Dispose(disposing);
@@ -273,17 +282,12 @@ namespace Game.Core.PostProcessing
             m_UberPostProcessing.Dispose();
             PyramidBlur.Release();
             
-            m_CopyHistoryColorPass?.Dispose();
-            m_CopyHistoryColorPass = null;
+            SafeDispose(ref m_CopyHistoryColorPass);
             m_SSShadowsPass?.Dispose();
-            m_DepthPyramidPass?.Dispose();
-            m_DepthPyramidPass = null;
-            m_ColorPyramidPass?.Dispose();
-            m_ColorPyramidPass = null;
-            
-            m_Context.Dispose();
-            m_Context = null;
-            
+            SafeDispose(ref m_DepthPyramidPass);
+            SafeDispose(ref m_ColorPyramidPass);
+            SafeDispose(ref m_Context);
+            SafeDispose(ref m_SetupPass);
 #if UNITY_EDITOR
             m_DebugHandler.Dispose();
 #endif

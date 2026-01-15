@@ -20,7 +20,7 @@ namespace Game.Core.PostProcessing
         public DebugDisplaySettingsPostProcessing PostProcessingSetting => m_PostProcessingSetting;
         public bool AreAnySettingsActive => m_PostProcessingSetting.AreAnySettingsActive;
 
-        public void Init()
+        public void Init(PostProcessFeatureContext context)
         {
             m_PostProcessingSetting = AddPanel(new DebugDisplaySettingsPostProcessing());
             
@@ -40,7 +40,7 @@ namespace Game.Core.PostProcessing
             debugImageHistogramCS = AssetDatabase.LoadAssetAtPath<ComputeShader>(PostProcessingUtils.packagePath + "/Runtime/Overrides/Volumes/Exposure/Shaders/DebugHistogramImage.compute");
             debugExposure = AssetDatabase.LoadAssetAtPath<Shader>(PostProcessingUtils.packagePath + "/Runtime/Overrides/Volumes/Exposure/Shaders/DebugExposure.shader");
 #endif
-            m_ExposureDebugPass = new ExposureDebugPass(debugExposure, debugImageHistogramCS, m_PostProcessingSetting.exposureDebugSettings);
+            m_ExposureDebugPass = new ExposureDebugPass(context, debugExposure, debugImageHistogramCS, m_PostProcessingSetting.exposureDebugSettings);
         }
 
         public void EnqueuePass(ScriptableRenderer renderer)

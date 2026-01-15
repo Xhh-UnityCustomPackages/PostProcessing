@@ -6,7 +6,7 @@ using UnityEngine.Rendering.Universal;
 namespace Game.Core.PostProcessing
 {
     [PostProcess("Screen Space Global Illumination", PostProcessInjectionPoint.AfterRenderingSkybox, SupportRenderPath.Deferred)]
-    public class ScreenSpaceGlobalIlluminationRenderer : PostProcessVolumeRenderer<ScreenSpaceGlobalIllumination>
+    public partial class ScreenSpaceGlobalIlluminationRenderer : PostProcessVolumeRenderer<ScreenSpaceGlobalIllumination>
     {
         private static class Properties
         {
@@ -273,9 +273,8 @@ namespace Game.Core.PostProcessing
             }
         }
 
-        private void PrepareVariables(ref CameraData cameraData)
+        private void PrepareVariables(Camera camera)
         {
-            var camera = cameraData.camera;
             var volume = VolumeManager.instance.stack.GetComponent<ScreenSpaceGlobalIllumination>();
 
             // Calculate thickness parameters
@@ -397,7 +396,7 @@ namespace Game.Core.PostProcessing
            
 
             // Prepare shader variables
-            PrepareVariables(ref cameraData);
+            PrepareVariables(cameraData.camera);
 
             using (new ProfilingScope(cmd, profilingSampler))
             {

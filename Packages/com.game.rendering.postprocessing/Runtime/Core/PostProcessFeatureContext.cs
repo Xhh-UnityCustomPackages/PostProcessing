@@ -8,7 +8,7 @@ using UnityEngine.Rendering.Universal;
 namespace Game.Core.PostProcessing
 {
     // HDRP 有一个HDCamera 可以方便的把各个View的信息配置在里面 实现RT 数据的分离
-    public class PostProcessFeatureContext
+    public class PostProcessFeatureContext : IDisposable
     {
         private struct ShaderVariablesGlobal
         {
@@ -65,7 +65,22 @@ namespace Game.Core.PostProcessing
 
             foreach (var data in m_CameraDataMap.Values)
             {
-                data.UpdateFrame(ref renderingData);
+                data.UpdateRenderTextures(ref renderingData);
+            }
+        }
+
+        public void UpdateFrame(ContextContainer frameData)
+        {
+            m_FrameCount++;
+            if (m_FrameCount >= uint.MaxValue)
+            {
+                m_FrameCount = 0;
+            }
+
+            var cameraData = frameData.Get<UniversalCameraData>();
+            foreach (var data in m_CameraDataMap.Values)
+            {
+                data.UpdateRenderTextures(cameraData);
             }
         }
 

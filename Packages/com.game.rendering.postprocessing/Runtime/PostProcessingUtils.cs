@@ -15,6 +15,7 @@ namespace Game.Core.PostProcessing
         public static readonly int _DepthPyramidMipLevelOffsets = MemberNameHelpers.ShaderPropertyID();
         public static readonly int _ColorPyramidTexture = MemberNameHelpers.ShaderPropertyID();
         public static readonly int _CameraPreviousColorTexture = MemberNameHelpers.ShaderPropertyID();
+        public static readonly int _MotionVectorTexture = MemberNameHelpers.ShaderPropertyID();
         
         public static readonly int ShaderVariablesGlobal = MemberNameHelpers.ShaderPropertyID();
         public static readonly int _ColorPyramidUvScaleAndLimitPrevFrame = MemberNameHelpers.ShaderPropertyID();
@@ -31,7 +32,7 @@ namespace Game.Core.PostProcessing
         public const RenderPassEvent ColorPyramidPass = RenderPassEvent.AfterRenderingTransparents + 4;
     }
 
-    public class PostProcessingUtils
+    public static class PostProcessingUtils
     {
         public static readonly string packagePath = "Packages/com.game.rendering.postprocessing";
 
@@ -42,6 +43,13 @@ namespace Game.Core.PostProcessing
             if (!rt.IsCreated())
                 rt.Create();
         }
+        
+        public static bool IsValid(this RTHandle rtHandle)
+        {
+            return rtHandle != null && rtHandle.rt;
+        }
+        
+        internal static int DivRoundUp(int x, int y) => (x + y - 1) / y;
         
         public static float ComputeViewportScale(int viewportSize, int bufferSize)
         {

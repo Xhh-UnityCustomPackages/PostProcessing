@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System;
+using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Rendering.Universal;
@@ -6,7 +7,7 @@ using UnityEngine.Rendering.Universal.Internal;
 
 namespace Game.Core.PostProcessing
 {
-    public class CopyHistoryColorPass : CopyColorPass
+    public class CopyHistoryColorPass : CopyColorPass, IDisposable
     {
         public static CopyHistoryColorPass Create(PostProcessFeatureContext context)
         {

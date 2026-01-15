@@ -37,56 +37,8 @@ namespace Game.Core.PostProcessing
     [PostProcess("Exposure", PostProcessInjectionPoint.BeforeRenderingPostProcessing)]
     public partial class ExposureRenderer : PostProcessVolumeRenderer<Exposure>
     {
-        public class ExposureTexturesInfo
-        {
-            public CameraType ownerCamera;
-            public RTHandle current;
-            public RTHandle previous;
-
-            public void Clear()
-            {
-                if (current != null)
-                {
-                    current.Release();   
-                }
-                current = null;
-
-                if (previous != null)
-                {
-                    previous.Release();    
-                }
-                
-                previous = null;
-            }
-        
-            public bool CreateExposureRT(in CameraType cameraDataCameraType, in RenderTextureDescriptor desc)
-            {
-                string rtname = CoreUtils.GetTextureAutoName(1, 1, k_ExposureGraphicsFormat, TextureDimension.Tex2D, string.Format("Exposure_Main_{0}", cameraDataCameraType), false, 0);
-                string rtname2 = CoreUtils.GetTextureAutoName(1, 1, k_ExposureGraphicsFormat, TextureDimension.Tex2D, string.Format("Exposure_Second_{0}", cameraDataCameraType), false, 0);
-                var RTHandleSign = RenderingUtils.ReAllocateHandleIfNeeded(ref current, in desc, FilterMode.Point, TextureWrapMode.Clamp, name:rtname);
-                var RTHandleSign2 = RenderingUtils.ReAllocateHandleIfNeeded(ref previous, in desc, FilterMode.Point, TextureWrapMode.Clamp, name:rtname2);
-                return RTHandleSign & RTHandleSign2;
-            }
-        
-            static GraphicsFormat k_ExposureGraphicsFormat
-            {
-                get
-                {
-                    if (SystemInfo.graphicsDeviceType == GraphicsDeviceType.OpenGLES3)
-                    {
-                        return GraphicsFormat.R32G32B32A32_SFloat;
-                    }
-                    else
-                    {
-                        return GraphicsFormat.R32G32_SFloat;
-                    }
-                }
-            }
-        }
-        
         public override bool renderToCamera => false;
         
-        internal const GraphicsFormat k_ExposureFormat = GraphicsFormat.R32G32_SFloat;
         // Exposure data
         private const int k_ExposureCurvePrecision = 128;
         private const int k_HistogramBins = 128;   // Important! If this changes, need to change HistogramExposure.compute
@@ -94,12 +46,8 @@ namespace Game.Core.PostProcessing
         private readonly int[] m_ExposureVariants = new int[4];
         
         private Texture2D m_ExposureCurveTexture;
-        RTHandle m_EmptyExposureTexture; // RGHalf
         private static ComputeBuffer m_HistogramBuffer;
         private readonly int[] m_EmptyHistogram = new int[k_HistogramBins];
-        
-        private static readonly Dictionary<CameraType, ExposureTexturesInfo> m_ExposureInfos = new ();
-        private ExposureTexturesInfo m_ExposureTexturesInfo;
 
 #if UNITY_EDITOR
         private static ExposureDebugSettings m_DebugSettings;
@@ -108,12 +56,6 @@ namespace Game.Core.PostProcessing
         public static ComputeBuffer GetHistogramBuffer()
         {
             return m_HistogramBuffer;
-        }
-
-        public static ExposureTexturesInfo GetExposureTexturesInfo(CameraType cameraType)
-        {
-            m_ExposureInfos.TryGetValue(cameraType, out var info);
-            return info;
         }
 
         class DynamicExposureData
@@ -153,29 +95,11 @@ namespace Game.Core.PostProcessing
         }
         
         DynamicExposureData m_DynamicExposureData;
-        private RenderTextureDescriptor m_RenderDescriptor;
         
         public override void Setup()
         {
             m_DynamicExposureData = new();
             
-            // Setup a default exposure textures and clear it to neutral values so that the exposure
-            // multiplier is 1 and thus has no effect
-            // Beware that 0 in EV100 maps to a multiplier of 0.833 so the EV100 value in this
-            // neutral exposure texture isn't 0
-            m_EmptyExposureTexture = RTHandles.Alloc(1, 1, colorFormat: k_ExposureFormat, enableRandomWrite: true, name: "Empty EV100 Exposure");
-        }
-
-        private ExposureTexturesInfo GetOrCreateExposureInfoFromCurCamera(in CameraType cameraDataCameraType)
-        {
-            if (!m_ExposureInfos.ContainsKey(cameraDataCameraType))
-            {
-                var info = new ExposureTexturesInfo();
-                bool isSuccess = info.CreateExposureRT(in cameraDataCameraType, m_RenderDescriptor);
-                m_ExposureInfos.Add(cameraDataCameraType, info);
-            }
-
-            return m_ExposureInfos[cameraDataCameraType];
         }
 
 #if UNITY_EDITOR
@@ -185,19 +109,6 @@ namespace Game.Core.PostProcessing
             m_DebugExposureData = debugExposureData;
         }
 #endif
-
-        public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
-        {
-            var desc = renderingData.cameraData.cameraTargetDescriptor;
-            desc.width = 1;
-            desc.height = 1;
-            desc.colorFormat = RenderTextureFormat.RFloat;
-            desc.depthBufferBits = 0;
-            desc.enableRandomWrite = true;
-            m_RenderDescriptor = desc;
-
-            m_ExposureTexturesInfo = GetOrCreateExposureInfoFromCurCamera(renderingData.cameraData.cameraType);
-        }
 
         void PrepareExposurePassData(DynamicExposureData passData, Camera camera)
         {
@@ -292,23 +203,10 @@ namespace Game.Core.PostProcessing
                 passData.exposurePreparationKernel = passData.exposureCS.FindKernel("KPrePass");
                 passData.exposureReductionKernel = passData.exposureCS.FindKernel("KReduction");
             }
-            
-            GrabExposureRequiredTextures(camera, out var prevExposure, out var nextExposure);
+
+            postProcessCamera.GrabExposureRequiredTextures(out var prevExposure, out var nextExposure);
             passData.prevExposure = prevExposure;
             passData.nextExposure = nextExposure;
-        }
-
-        void GrabExposureRequiredTextures(Camera camera, out RTHandle prevExposure, out RTHandle nextExposure)
-        {
-            prevExposure = m_ExposureTexturesInfo.current;
-            nextExposure = m_ExposureTexturesInfo.previous;
-            if (IsResetHistoryEnabled())
-            {
-                Debug.Log($"History Reset for camera: {camera.cameraType}");
-                prevExposure = m_EmptyExposureTexture; // Use neutral texture
-            }
-
-            // Debug.LogError($"Prev:{prevExposure.name}- Next:{nextExposure.name}");
         }
         
         public bool IsResetHistoryEnabled()
@@ -331,18 +229,6 @@ namespace Game.Core.PostProcessing
             }
             
             cmd.SetGlobalTexture("_AutoExposureLUT", m_DynamicExposureData.nextExposure);
-            
-            UpdateCurFrameExposureRT(m_ExposureTexturesInfo);
-        }
-        
-        private void UpdateCurFrameExposureRT(ExposureTexturesInfo curCameraExposureTexturesInfo)
-        {
-            if (curCameraExposureTexturesInfo.current == null || curCameraExposureTexturesInfo.previous == null)
-            {
-                return;
-            }
-
-            (curCameraExposureTexturesInfo.current, curCameraExposureTexturesInfo.previous) = (curCameraExposureTexturesInfo.previous, curCameraExposureTexturesInfo.current);
         }
 
         public override void OnCameraCleanup(CommandBuffer cmd)
@@ -485,14 +371,6 @@ namespace Game.Core.PostProcessing
 
         public override void Dispose(bool disposing)
         {
-            foreach (var exposureInfo in m_ExposureInfos.Values)
-            {
-                exposureInfo.Clear();
-            }
-            
-            RTHandles.Release(m_EmptyExposureTexture);
-            m_EmptyExposureTexture = null;
-            
             CoreUtils.SafeRelease(m_HistogramBuffer);
             m_HistogramBuffer = null;
         }
