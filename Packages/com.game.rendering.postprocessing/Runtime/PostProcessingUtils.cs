@@ -7,31 +7,6 @@ using UnityEngine.Rendering.Universal;
 
 namespace Game.Core.PostProcessing
 {
-    //全局变量&关键字
-    static class PipelineShaderIDs
-    {
-        public static readonly int _DepthMipChain = MemberNameHelpers.ShaderPropertyID();
-        public static readonly int _DepthPyramid = MemberNameHelpers.ShaderPropertyID();
-        public static readonly int _DepthPyramidMipLevelOffsets = MemberNameHelpers.ShaderPropertyID();
-        public static readonly int _ColorPyramidTexture = MemberNameHelpers.ShaderPropertyID();
-        public static readonly int _CameraPreviousColorTexture = MemberNameHelpers.ShaderPropertyID();
-        public static readonly int _MotionVectorTexture = MemberNameHelpers.ShaderPropertyID();
-        
-        public static readonly int ShaderVariablesGlobal = MemberNameHelpers.ShaderPropertyID();
-        public static readonly int _ColorPyramidUvScaleAndLimitPrevFrame = MemberNameHelpers.ShaderPropertyID();
-    }
-
-    public static class PostProcessingRenderPassEvent
-    {
-        public const RenderPassEvent SetGlobalVariablesPass = RenderPassEvent.AfterRenderingPrePasses + 0;
-        // ================================= Depth Prepass ================================================ //
-        // Screen space effect need ignore transparent post depth since normal is not matched with depth.
-        public const RenderPassEvent DepthPyramidPass = RenderPassEvent.AfterRenderingGbuffer + 1;//这个目前使用RenderGraph下顺序又说不同 反正应该实在CopyDepth之后
-        // ==================================== Transparency =============================================== //
-
-        public const RenderPassEvent ColorPyramidPass = RenderPassEvent.AfterRenderingTransparents + 4;
-    }
-
     public static class PostProcessingUtils
     {
         public static readonly string packagePath = "Packages/com.game.rendering.postprocessing";
@@ -157,5 +132,57 @@ namespace Game.Core.PostProcessing
         }
 
         #endregion Math
+        
+        static Mesh mesh
+        {
+            get
+            {
+                if (m_mesh != null)
+                    return m_mesh;
+                m_mesh = new Mesh();
+                m_mesh.vertices = new Vector3[]
+                {
+                    new Vector3(-1,-1,0.5f),
+                    new Vector3(-1,1,0.5f),
+                    new Vector3(1,1,0.5f),
+                    new Vector3(1,-1,0.5f)
+                };
+                m_mesh.uv = new Vector2[]
+                {
+                    new Vector2(0,1),
+                    new Vector2(0,0),
+                    new Vector2(1,0),
+                    new Vector2(1,1)
+                };
+
+                m_mesh.SetIndices(new int[] { 0, 1, 2, 3 }, MeshTopology.Quads, 0);
+                return m_mesh;
+            }
+        }
+
+        static Mesh m_mesh;
+
+
+        public static void BlitMRT(this CommandBuffer buffer, RenderTargetIdentifier[] colorIdentifier, RenderTargetIdentifier depthIdentifier, Material mat, int pass)
+        {
+            buffer.SetRenderTarget(colorIdentifier, depthIdentifier);
+            buffer.DrawMesh(mesh, Matrix4x4.identity, mat, 0, pass);
+        }
+        
+        public static void ValidateComputeBuffer(ref ComputeBuffer cb, int size, int stride, ComputeBufferType type = ComputeBufferType.Default)
+        {
+            if (cb == null || cb.count < size)
+            {
+                CoreUtils.SafeRelease(cb);
+                cb = new ComputeBuffer(size, stride, type);
+            }
+        }
+        
+        internal static Vector4 GetMouseCoordinates(ref CameraData camera)
+        {
+            // We request the mouse post based on the type of the camera
+            Vector2 mousePixelCoord = MousePositionDebug.instance.GetMousePosition(camera.pixelHeight, camera.cameraType == CameraType.SceneView);
+            return new Vector4(mousePixelCoord.x, mousePixelCoord.y, RTHandles.rtHandleProperties.rtHandleScale.x * mousePixelCoord.x / camera.pixelWidth, RTHandles.rtHandleProperties.rtHandleScale.y * mousePixelCoord.y / camera.pixelHeight);
+        }
     }
 }

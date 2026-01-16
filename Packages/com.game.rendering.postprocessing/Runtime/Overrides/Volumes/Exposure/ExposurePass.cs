@@ -5,7 +5,6 @@ using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
-using static Game.Core.PostProcessing.GraphicsUtility;
 
 namespace Game.Core.PostProcessing
 {
@@ -173,7 +172,7 @@ namespace Game.Core.PostProcessing
             
             if (isHistogramBased)
             {
-                ValidateComputeBuffer(ref m_HistogramBuffer, k_HistogramBins, sizeof(uint));
+                PostProcessingUtils.ValidateComputeBuffer(ref m_HistogramBuffer, k_HistogramBins, sizeof(uint));
                 m_HistogramBuffer.SetData(m_EmptyHistogram);    // Clear the histogram
                 
                 Vector2 histogramFraction = settings.histogramPercentages.value / 100.0f;

@@ -10,8 +10,8 @@ namespace Game.Core.PostProcessing
 {
     public partial class PostProcessRenderPass : ScriptableRenderPass
     {
-        List<PostProcessRenderer> m_PostProcessRenderers;
-        List<PostProcessRenderer> m_ActivePostProcessRenderers;
+        private readonly List<PostProcessRenderer> m_PostProcessRenderers;
+        private readonly List<PostProcessRenderer> m_ActivePostProcessRenderers;
         string m_PassName;
 
         PostProcessFeatureData m_PostProcessFeatureData;
@@ -97,7 +97,7 @@ namespace Game.Core.PostProcessing
             return true;
         }
 
-        public bool Setup(ref RenderingData renderingData, ref PostProcessPassInput postProcessPassInput)
+        private bool Setup(ref RenderingData renderingData, ref PostProcessPassInput postProcessPassInput)
         {
             bool isSceneView = renderingData.cameraData.isSceneViewCamera;
             // TODO isPreviewCamera

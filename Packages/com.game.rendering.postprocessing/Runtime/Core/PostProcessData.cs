@@ -44,14 +44,10 @@ namespace Game.Core.PostProcessing
         
         private ShaderVariablesGlobal m_ShaderVariablesGlobal;
         
-        
-        private GPUCopy m_GPUCopy;
-        public GPUCopy GPUCopy => m_GPUCopy;
-        private MipGenerator m_MipGenerator;
-        public MipGenerator MipGenerator => m_MipGenerator;
-        
-        BufferedRTHandleSystem m_HistoryRTSystem = new BufferedRTHandleSystem();
-        public BufferedRTHandleSystem historyRTSystem => m_HistoryRTSystem;
+        public GPUCopy GPUCopy { get; private set; }
+        public MipGenerator MipGenerator { get; private set; }
+
+        BufferedRTHandleSystem m_HistoryRTSystem = new ();
 
         private Camera camera;
         
@@ -77,25 +73,24 @@ namespace Game.Core.PostProcessing
 
         public PostProcessData()
         {
-            m_GPUCopy = new GPUCopy();
-            m_MipGenerator = new MipGenerator();
+            GPUCopy = new GPUCopy();
+            MipGenerator = new MipGenerator();
             m_DepthBufferMipChainInfo.Allocate();
+            InitExposure();
         }
 
         public void Dispose()
         {
             m_FrameCount = 0;
-            m_MipGenerator?.Release();
-            if (m_HistoryRTSystem != null)
-            {
-                m_HistoryRTSystem.Dispose();
-                // m_HistoryRTSystem = null;
-            }
+            MipGenerator.Release();
+            m_HistoryRTSystem.Dispose();
             CameraPreviousColorTextureRT?.Release();
             ColorPyramidHistoryMipCount = 1;
             // Exposure
             RTHandles.Release(m_EmptyExposureTexture);
+            m_EmptyExposureTexture = null;
             RTHandles.Release(m_DebugExposureData);
+            m_DebugExposureData = null;
         }
 
         public void Update(ref RenderingData renderingData)
@@ -108,6 +103,7 @@ namespace Game.Core.PostProcessing
             
             UpdateCameraData(renderingData.cameraData);
             UpdateRenderTextures(ref renderingData);
+            UpdateVolumeParameters();
         }
 
         private void UpdateRenderTextures(ref RenderingData renderingData)
@@ -126,7 +122,6 @@ namespace Game.Core.PostProcessing
             
             m_DepthBufferMipChainInfo.ComputePackedMipChainInfo(viewportSize, 0);
             
-            m_Exposure = VolumeManager.instance.stack.GetComponent<Exposure>();
             SetupExposureTextures();
         }
 
@@ -145,6 +140,7 @@ namespace Game.Core.PostProcessing
             }
             UpdateCameraData(cameraData);
             UpdateRenderTextures(cameraData);
+            UpdateVolumeParameters();
         }
         
         private void UpdateRenderTextures(UniversalCameraData cameraData)
@@ -162,7 +158,7 @@ namespace Game.Core.PostProcessing
             }
 
             m_DepthBufferMipChainInfo.ComputePackedMipChainInfo(viewportSize, 0);
-            m_Exposure = VolumeManager.instance.stack.GetComponent<Exposure>();
+           
             SetupExposureTextures();
         }
         
@@ -171,7 +167,12 @@ namespace Game.Core.PostProcessing
             camera = cameraData.camera;
         }
 
-        
+        private void UpdateVolumeParameters()
+        {
+            m_Exposure = VolumeManager.instance.stack.GetComponent<Exposure>();
+        }
+
+
         #region GlobalVariables
         
         
@@ -204,8 +205,8 @@ namespace Game.Core.PostProcessing
             m_ShaderVariablesGlobal.InvViewProjMatrix = m_ShaderVariablesGlobal.ViewProjMatrix.inverse;
             m_ShaderVariablesGlobal.PrevInvViewProjMatrix = FrameCount > 1 ? m_ShaderVariablesGlobal.InvViewProjMatrix : lastInvViewProjMatrix;
             m_ShaderVariablesGlobal.ColorPyramidUvScaleAndLimitPrevFrame
-                = PostProcessingUtils.ComputeViewportScaleAndLimit(historyRTSystem.rtHandleProperties.previousViewportSize,
-                    historyRTSystem.rtHandleProperties.previousRenderTargetSize);
+                = PostProcessingUtils.ComputeViewportScaleAndLimit(m_HistoryRTSystem.rtHandleProperties.previousViewportSize,
+                    m_HistoryRTSystem.rtHandleProperties.previousRenderTargetSize);
         }
 
 

@@ -78,8 +78,8 @@ namespace Game.Core.PostProcessing
             int actualWidth = cameraData.cameraTargetDescriptor.width;
             int actualHeight = cameraData.cameraTargetDescriptor.height;
             // Evaluate the dispatch parameters
-            int numTilesX = GraphicsUtility.DivRoundUp(actualWidth, 8);
-            int numTilesY = GraphicsUtility.DivRoundUp(actualHeight, 8);
+            int numTilesX = PostProcessingUtils.DivRoundUp(actualWidth, 8);
+            int numTilesY = PostProcessingUtils.DivRoundUp(actualHeight, 8);
             m_PassData.numTilesX = numTilesX;
             m_PassData.numTilesY = numTilesY;
 
@@ -197,8 +197,8 @@ namespace Game.Core.PostProcessing
                 int actualWidth = cameraData.cameraTargetDescriptor.width;
                 int actualHeight = cameraData.cameraTargetDescriptor.height;
                 // Evaluate the dispatch parameters
-                int numTilesX = GraphicsUtility.DivRoundUp(actualWidth, 8);
-                int numTilesY = GraphicsUtility.DivRoundUp(actualHeight, 8);
+                int numTilesX = PostProcessingUtils.DivRoundUp(actualWidth, 8);
+                int numTilesY = PostProcessingUtils.DivRoundUp(actualHeight, 8);
                 passData.numTilesX = numTilesX;
                 passData.numTilesY = numTilesY;
                 

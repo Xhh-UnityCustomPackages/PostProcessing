@@ -242,7 +242,7 @@ namespace Game.Core.PostProcessing
                 CoreUtils.SetKeyword(cmd, cs, "ENABLE_CHECKERBOARD", cbCount != 0);
 
                 Vector2Int dstSize = info.mipLevelSizes[dstIndex0];
-                cmd.DispatchCompute(cs, kernel, GraphicsUtility.DivRoundUp(dstSize.x, 8), GraphicsUtility.DivRoundUp(dstSize.y, 8), texture.volumeDepth);
+                cmd.DispatchCompute(cs, kernel, PostProcessingUtils.DivRoundUp(dstSize.x, 8), PostProcessingUtils.DivRoundUp(dstSize.y, 8), texture.volumeDepth);
 
                 dstIndex0 += minCount;
             }

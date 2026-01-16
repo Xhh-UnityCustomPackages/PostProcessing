@@ -16,8 +16,9 @@ namespace Game.Core.PostProcessing
             displayName = "CRT Screen";
         }
 
-        public override bool IsActive() => true;
+        public override bool IsActive() => Enable.value;
 
+        public BoolParameter Enable = new (false);
         [Header("屏幕扭曲")]
         public Vector2Parameter Curvature = new (Vector2.one);
         [Header("屏幕扫描线")]

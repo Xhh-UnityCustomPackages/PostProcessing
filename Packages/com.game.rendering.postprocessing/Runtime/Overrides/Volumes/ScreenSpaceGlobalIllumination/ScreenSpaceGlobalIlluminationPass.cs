@@ -318,8 +318,8 @@ namespace Game.Core.PostProcessing
             
             // Dispatch compute shader
             int tileSize = 8;
-            int tilesX = GraphicsUtility.DivRoundUp((int)_rtWidth, tileSize);
-            int tilesY = GraphicsUtility.DivRoundUp((int)_rtHeight, tileSize);
+            int tilesX = PostProcessingUtils.DivRoundUp((int)_rtWidth, tileSize);
+            int tilesY = PostProcessingUtils.DivRoundUp((int)_rtHeight, tileSize);
             cmd.DispatchCompute(_ssgiComputeShader, kernel, tilesX, tilesY, 1);
         }
 
@@ -366,8 +366,8 @@ namespace Game.Core.PostProcessing
 
             // Dispatch compute shader
             int tileSize = 8;
-            int tilesX = GraphicsUtility.DivRoundUp((int)_rtWidth, tileSize);
-            int tilesY = GraphicsUtility.DivRoundUp((int)_rtHeight, tileSize);
+            int tilesX = PostProcessingUtils.DivRoundUp((int)_rtWidth, tileSize);
+            int tilesY = PostProcessingUtils.DivRoundUp((int)_rtHeight, tileSize);
             cmd.DispatchCompute(_ssgiComputeShader, kernel, tilesX, tilesY, 1);
         }
         

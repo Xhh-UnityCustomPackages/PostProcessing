@@ -21,7 +21,7 @@ namespace Game.Core.PostProcessing
             Custom
         }
         
-
+        public BoolParameter Enable = new BoolParameter(false);
 
         [Header("Fog")]
         public ClampedFloatParameter fogIntensity = new ClampedFloatParameter(1f, 0f, 1f);
@@ -62,7 +62,7 @@ namespace Game.Core.PostProcessing
         public FloatParameter noiseScale = new FloatParameter(30);
         public Vector3Parameter noiseSpeed = new Vector3Parameter(new Vector3(0.5f, 0f, 0.5f));
 
-        public override bool IsActive() => fogIntensity.value > 0f;
+        public override bool IsActive() => Enable.value && fogIntensity.value > 0f;
     }
 
 

@@ -278,8 +278,8 @@ namespace Game.Core.PostProcessing
             var ssrAccum = postProcessData.GetCurrentFrameRT((int)FrameHistoryType.ScreenSpaceReflectionAccumulation);
             var ssrAccumPrev = postProcessData.GetPreviousFrameRT((int)FrameHistoryType.ScreenSpaceReflectionAccumulation);
             
-            int groupsX = GraphicsUtility.DivRoundUp(m_SSRTestDescriptor.width, 8);
-            int groupsY = GraphicsUtility.DivRoundUp(m_SSRTestDescriptor.height, 8);
+            int groupsX = PostProcessingUtils.DivRoundUp(m_SSRTestDescriptor.width, 8);
+            int groupsY = PostProcessingUtils.DivRoundUp(m_SSRTestDescriptor.height, 8);
             
             // cmd.DispatchCompute(m_ComputeShader, kernel, groupsX, groupsY, 1);
         }

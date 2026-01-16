@@ -17,11 +17,9 @@ namespace Game.Core.PostProcessing
             // multiplier is 1 and thus has no effect
             // Beware that 0 in EV100 maps to a multiplier of 0.833 so the EV100 value in this
             // neutral exposure texture isn't 0
-            if(m_EmptyExposureTexture==null)
             m_EmptyExposureTexture = RTHandles.Alloc(1, 1, colorFormat: ExposureFormat,
                 enableRandomWrite: true, name: "Empty EV100 Exposure");
 
-            if(m_DebugExposureData==null)
             m_DebugExposureData = RTHandles.Alloc(1, 1, colorFormat: ExposureFormat,
                 enableRandomWrite: true, name: "Debug Exposure Info");
         }
@@ -113,7 +111,6 @@ namespace Game.Core.PostProcessing
         
         private void SetupExposureTextures()
         {
-            InitExposure();
             var currentTexture = GetCurrentFrameRT((int)FrameHistoryType.Exposure);
             if (currentTexture == null)
             {

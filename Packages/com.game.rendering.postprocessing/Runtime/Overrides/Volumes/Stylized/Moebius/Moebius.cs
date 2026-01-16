@@ -17,7 +17,7 @@ namespace Game.Core.PostProcessing
             displayName = "莫比斯 (Moebius)";
         }
 
-        public override bool IsActive() => true;
+        public override bool IsActive() => Enable.value;
 
         public enum SobelSource
         {
@@ -32,6 +32,7 @@ namespace Game.Core.PostProcessing
             Normal,
         }
 
+        public BoolParameter Enable = new (false);
         public EnumParameter<SobelSource> sobelSource = new(SobelSource.Depth);
         [Tooltip("用于手绘效果的Noise")]
         public TextureParameter noise = new (null);

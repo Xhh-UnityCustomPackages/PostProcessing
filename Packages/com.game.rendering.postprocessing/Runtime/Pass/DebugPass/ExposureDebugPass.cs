@@ -4,7 +4,6 @@ using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Rendering.Universal;
-using static Game.Core.PostProcessing.GraphicsUtility;
 
 namespace Game.Core.PostProcessing
 {
@@ -147,7 +146,7 @@ namespace Game.Core.PostProcessing
              data.debugExposureMaterial.SetVector(ExposureShaderIDs._Variants, exposureVariants);
              data.debugExposureMaterial.SetVector(ExposureShaderIDs._ExposureParams, exposureParams);
              data.debugExposureMaterial.SetVector(ExposureShaderIDs._ExposureParams2, new Vector4(0.0f, 0.0f, ColorUtils.lensImperfectionExposureScale, ColorUtils.s_LightMeterCalibrationConstant));
-             data.debugExposureMaterial.SetVector(ExposureShaderIDs._MousePixelCoord, GetMouseCoordinates(ref renderingData.cameraData));
+             data.debugExposureMaterial.SetVector(ExposureShaderIDs._MousePixelCoord, PostProcessingUtils.GetMouseCoordinates(ref renderingData.cameraData));
              data.debugExposureMaterial.SetTexture(ExposureShaderIDs._SourceTexture, data.colorBuffer);
              data.debugExposureMaterial.SetTexture(ExposureShaderIDs._DebugFullScreenTexture, data.debugFullScreenTexture);
 
@@ -199,7 +198,7 @@ namespace Game.Core.PostProcessing
                  return;
              
              
-             ValidateComputeBuffer(ref m_DebugImageHistogramBuffer, k_DebugImageHistogramBins, 4 * sizeof(uint));
+             PostProcessingUtils.ValidateComputeBuffer(ref m_DebugImageHistogramBuffer, k_DebugImageHistogramBins, 4 * sizeof(uint));
              m_DebugImageHistogramBuffer.SetData(m_EmptyDebugImageHistogram); // Clear the histogram
              
              data.imageHistogram = m_DebugImageHistogramBuffer;

@@ -46,7 +46,8 @@ namespace Game.Core.PostProcessing
 
         public enum DebugMode { Disabled, EffectOnly, ViewNormals }
 
-
+        public BoolParameter Enable = new (false);
+        
         [Header("(Make sure Post Processing and Depth Texture are enabled.)")]
         public ClampedFloatParameter intensity = new ClampedFloatParameter(1f, 0f, 1f);
         public ClampedFloatParameter distanceFade = new ClampedFloatParameter(0f, 0f, 1f);
@@ -88,7 +89,7 @@ namespace Game.Core.PostProcessing
         public EnumParameter<OutputEffectTo> output = new(OutputEffectTo.Screen);
 
 
-        public override bool IsActive() => intensity.value > 0;
+        public override bool IsActive() => Enable.value && intensity.value > 0;
     }
 
 

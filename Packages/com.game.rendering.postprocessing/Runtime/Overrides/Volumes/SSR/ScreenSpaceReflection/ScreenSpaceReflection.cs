@@ -33,7 +33,7 @@ namespace Game.Core.PostProcessing
         public ClampedFloatParameter intensity = new(1f, 0f, 5f);
         
         [Tooltip("Controls the smoothness value at which HDRP activates SSR and the smoothness-controlled fade out stops.")]
-        public ClampedFloatParameter minSmoothness = new (0.9f, 0.0f, 1.0f);
+        public ClampedFloatParameter minSmoothness = new (0f, 0.0f, 1.0f);
         [Tooltip("Controls the smoothness value at which the smoothness-controlled fade out starts. The fade is in the range [Min Smoothness, Smoothness Fade Start]")]
         public ClampedFloatParameter smoothnessFadeStart = new (0.9f, 0.0f, 1.0f);
         
