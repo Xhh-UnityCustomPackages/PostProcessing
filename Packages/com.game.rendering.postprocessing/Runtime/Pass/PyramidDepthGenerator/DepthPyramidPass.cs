@@ -5,6 +5,7 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using Unity.Mathematics;
+using UnityEditor.AssetImporters;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
 
@@ -18,20 +19,16 @@ namespace Game.Core.PostProcessing
         private static readonly ProfilingSampler CopyDepthSampler = new("Copy Depth Buffer");
         private static readonly ProfilingSampler DepthPyramidSampler = new("Depth Pyramid");
         
-        private static RTHandle m_HiZDepthRT;
+        private RTHandle m_HiZDepthRT;
         
         private readonly PostProcessData m_Data;
-        public static RTHandle HiZDepthRT => m_HiZDepthRT;
 
         public DepthPyramidPass(PostProcessData data)
         {
             profilingSampler = new ProfilingSampler(nameof(DepthPyramidPass));
             renderPassEvent = PostProcessingRenderPassEvent.DepthPyramidPass;
             m_Data = data;
-        }
-        
-        public override void Configure(CommandBuffer cmd, RenderTextureDescriptor cameraTextureDescriptor)
-        {
+            
             ConfigureInput(ScriptableRenderPassInput.Depth);
         }
         
@@ -98,7 +95,7 @@ namespace Game.Core.PostProcessing
             public MipGenerator mipGenerator;
         }
 
-        void CopyDepthBufferIfNeeded(RenderGraph renderGraph, Camera hdCamera, TextureHandle depthTexture, TextureHandle outDepthTexture)
+        void CopyDepthBufferIfNeeded(RenderGraph renderGraph, RenderTextureDescriptor desc, TextureHandle depthTexture, TextureHandle outDepthTexture)
         {
             using (var builder = renderGraph.AddUnsafePass<CopyDepthPassData>("Copy depth buffer", out var passData, CopyDepthSampler))
             {
@@ -106,8 +103,8 @@ namespace Game.Core.PostProcessing
                 passData.outputDepth = outDepthTexture;
                 
                 passData.GPUCopy = m_Data.GPUCopy;
-                passData.width = hdCamera.pixelWidth;
-                passData.height = hdCamera.pixelHeight;
+                passData.width = desc.width;
+                passData.height = desc.height;
                 
                 builder.AllowPassCulling(false);
                 builder.SetRenderFunc(
@@ -146,7 +143,7 @@ namespace Game.Core.PostProcessing
             var camerDepthTexture = resourceData.cameraDepthTexture;
             
             // If the depth buffer hasn't been already copied by the decal or low res depth buffer pass, then we do the copy here.
-            CopyDepthBufferIfNeeded(renderGraph, cameraData.camera, camerDepthTexture, depthPyramidTexture);
+            CopyDepthBufferIfNeeded(renderGraph, cameraTargetDescriptor, camerDepthTexture, depthPyramidTexture);
             
             using (var builder = renderGraph.AddUnsafePass<GenerateDepthPyramidPassData>("Generate Depth Buffer MIP Chain", out var passData, DepthPyramidSampler))
             {
@@ -160,8 +157,6 @@ namespace Game.Core.PostProcessing
                         var cmd = CommandBufferHelpers.GetNativeCommandBuffer(context.cmd);
                         data.mipGenerator.RenderMinDepthPyramid(cmd, data.depthTexture, data.mipInfo);
                     });
-
-                // m_HiZDepthRT = passData.depthTexture;
             }
         }
     }

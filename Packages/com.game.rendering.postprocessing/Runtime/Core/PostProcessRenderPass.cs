@@ -135,9 +135,6 @@ namespace Game.Core.PostProcessing
             RenderingUtils.ReAllocateHandleIfNeeded(ref m_TempRT1, sourceDesc, name: "_TempRT1");
         }
 
-        // 在OnCameraSetup之后Execute之前，暂时先不放在这个阶段
-        public override void Configure(CommandBuffer cmd, RenderTextureDescriptor cameraTextureDescriptor) { }
-
         public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
         {
             var cmd = CommandBufferPool.Get(m_PassName);

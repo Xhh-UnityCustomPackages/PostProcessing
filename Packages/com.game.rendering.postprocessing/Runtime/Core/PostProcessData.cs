@@ -117,7 +117,6 @@ namespace Game.Core.PostProcessing
         private void UpdateRenderTextures(ref RenderingData renderingData)
         {
             var descriptor = renderingData.cameraData.cameraTargetDescriptor;
-            var viewportSize = new Vector2Int(descriptor.width, descriptor.height);
             m_HistoryRTSystem.SwapAndSetReferenceSize(descriptor.width, descriptor.height);
             
             // Since we do not use RTHandleScale, ensure render texture size correct
@@ -128,6 +127,8 @@ namespace Game.Core.PostProcessing
                 m_ExposureTextures.Clear();
             }
             
+            // var viewportSize = new Vector2Int(renderingData.cameraData.camera.pixelWidth, renderingData.cameraData.camera.pixelHeight);
+            var viewportSize = new Vector2Int(descriptor.width, descriptor.height);
             m_DepthBufferMipChainInfo.ComputePackedMipChainInfo(viewportSize, 0);
             
             SetupExposureTextures();
@@ -154,7 +155,7 @@ namespace Game.Core.PostProcessing
         private void UpdateRenderTextures(UniversalCameraData cameraData)
         {
             var descriptor = cameraData.cameraTargetDescriptor;
-            var viewportSize = new Vector2Int(descriptor.width, descriptor.height);
+            
             m_HistoryRTSystem.SwapAndSetReferenceSize(descriptor.width, descriptor.height);
 
             // Since we do not use RTHandleScale, ensure render texture size correct
@@ -165,6 +166,8 @@ namespace Game.Core.PostProcessing
                 m_ExposureTextures.Clear();
             }
 
+            // var viewportSize = new Vector2Int(cameraData.camera.pixelWidth, cameraData.camera.pixelHeight);
+            var viewportSize = new Vector2Int(descriptor.width, descriptor.height);
             m_DepthBufferMipChainInfo.ComputePackedMipChainInfo(viewportSize, 0);
            
             SetupExposureTextures();
