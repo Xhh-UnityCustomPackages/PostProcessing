@@ -13,7 +13,7 @@ namespace Game.Core.PostProcessing
          private const int k_DebugImageHistogramBins = 256;   // Important! If this changes, need to change HistogramExposure.compute
          private readonly int[] m_EmptyDebugImageHistogram = new int[k_DebugImageHistogramBins * 4];
         
-         private PostProcessFeatureContext m_Context;
+         private PostProcessData m_Data;
          
          private Exposure settings;
          private ComputeBuffer m_DebugImageHistogramBuffer;
@@ -52,11 +52,11 @@ namespace Game.Core.PostProcessing
              public RTHandle source;
          }
 
-         public ExposureDebugPass(PostProcessFeatureContext context, Shader DebugExposure, ComputeShader debugImageHistogramCS, ExposureDebugSettings debugSettings)
+         public ExposureDebugPass(PostProcessData data, Shader DebugExposure, ComputeShader debugImageHistogramCS, ExposureDebugSettings debugSettings)
          {
              profilingSampler = new ProfilingSampler("Exposure Debug");
              renderPassEvent = RenderPassEvent.AfterRendering;
-             m_Context = context;
+             m_Data = data;
              m_DebugSettings = debugSettings;
              m_DebugExposure = new();
              m_DebugExposure.debugSettings = m_DebugSettings;
@@ -87,8 +87,7 @@ namespace Game.Core.PostProcessing
              var cmd = CommandBufferPool.Get();
              using (new ProfilingScope(cmd, profilingSampler))
              {
-                 var postProcessCamera = m_Context.GetPostProcessCamera(renderingData.cameraData.camera);
-                 ExposureRenderer.SetDebugSetting(m_DebugSettings, postProcessCamera.GetExposureDebugData());
+                 ExposureRenderer.SetDebugSetting(m_DebugSettings, m_Data.GetExposureDebugData());
                  var colorBeforePostProcess = renderingData.cameraData.renderer.GetCameraColorFrontBuffer(cmd);
                  DoGenerateDebugImageHistogram(cmd, renderingData.cameraData.camera, colorBeforePostProcess, m_DebugImageHistogramData);
                  var colorAfterPostProcess = renderingData.cameraData.renderer.GetCameraColorBackBuffer(cmd);
@@ -101,9 +100,7 @@ namespace Game.Core.PostProcessing
 
          public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
          {
-             var cameraData = frameData.Get<UniversalCameraData>();
-             var postProcessCamera = m_Context.GetPostProcessCamera(cameraData.camera);
-             ExposureRenderer.SetDebugSetting(m_DebugSettings, postProcessCamera.GetExposureDebugData());
+             ExposureRenderer.SetDebugSetting(m_DebugSettings, m_Data.GetExposureDebugData());
          }
 #endif
         // private void PrepareDebugExposureData(UniversalCameraData cameraData)
@@ -122,8 +119,7 @@ namespace Game.Core.PostProcessing
 
         private void DoDebugExposure(CommandBuffer cmd, ref RenderingData renderingData, RTHandle sourceTexture, DebugExposureData data)
          {
-             var postProcessCamera = m_Context.GetPostProcessCamera(renderingData.cameraData.camera);
-             data.debugExposureData = postProcessCamera.GetExposureDebugData();
+             data.debugExposureData = m_Data.GetExposureDebugData();
              
              
              var camera = renderingData.cameraData.camera;
@@ -155,8 +151,8 @@ namespace Game.Core.PostProcessing
              data.debugExposureMaterial.SetTexture(ExposureShaderIDs._SourceTexture, data.colorBuffer);
              data.debugExposureMaterial.SetTexture(ExposureShaderIDs._DebugFullScreenTexture, data.debugFullScreenTexture);
 
-             data.previousExposure = postProcessCamera.GetPreviousExposureTexture();
-             data.currentExposure = postProcessCamera.GetExposureTexture();
+             data.previousExposure = m_Data.GetPreviousExposureTexture();
+             data.currentExposure = m_Data.GetExposureTexture();
              data.debugExposureMaterial.SetTexture(ExposureShaderIDs._PreviousExposureTexture, data.previousExposure);
              data.debugExposureMaterial.SetTexture(ExposureShaderIDs._ExposureTexture, data.currentExposure);
 

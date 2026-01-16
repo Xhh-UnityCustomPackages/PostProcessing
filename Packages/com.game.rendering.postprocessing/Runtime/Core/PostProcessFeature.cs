@@ -79,7 +79,7 @@ namespace Game.Core.PostProcessing
         private PostProcessRenderPass m_BeforeRenderingOpaques, m_AfterRenderingOpaques;
         private PostProcessRenderPass m_AfterRenderingSkybox, m_BeforeRenderingPostProcessing, m_AfterRenderingPostProcessing;
         UberPostProcess m_UberPostProcessing;
-        private PostProcessFeatureContext m_Context;
+        private PostProcessData m_Data;
         
         private SetupPass m_SetupPass;
         private SetGlobalVariablesPass m_SetGlobalVariablesPass;
@@ -102,43 +102,43 @@ namespace Game.Core.PostProcessing
             m_RuntimeResources = GraphicsSettings.GetRenderPipelineSettings<PostProcessFeatureRuntimeResources>();
             
             var postProcessFeatureData = m_Settings.m_PostProcessFeatureData;
-            m_Context = new PostProcessFeatureContext();
+            m_Data = new ();
             
             PyramidBlur.Initialize(postProcessFeatureData.materials.DualBlur);
             
             Dictionary<string, PostProcessRenderer> shared = new Dictionary<string, PostProcessRenderer>();
             m_BeforeRenderingGBuffer = new PostProcessRenderPass(PostProcessInjectionPoint.BeforeRenderingGBuffer,
                 InstantiateRenderers(m_Settings.m_RenderersBeforeRenderingGBuffer, shared),
-                postProcessFeatureData, m_Context);
+                postProcessFeatureData, m_Data);
             m_BeforeRenderingDeferredLights = new PostProcessRenderPass(PostProcessInjectionPoint.BeforeRenderingDeferredLights,
                 InstantiateRenderers(m_Settings.m_RenderersBeforeRenderingDeferredLights, shared),
-                postProcessFeatureData, m_Context);
+                postProcessFeatureData, m_Data);
 
             m_BeforeRenderingOpaques = new PostProcessRenderPass(PostProcessInjectionPoint.BeforeRenderingOpaques,
                 InstantiateRenderers(m_Settings.m_RenderersBeforeRenderingOpaques, shared),
-                postProcessFeatureData, m_Context);
+                postProcessFeatureData, m_Data);
             m_AfterRenderingOpaques = new PostProcessRenderPass(PostProcessInjectionPoint.AfterRenderingOpaques,
                 InstantiateRenderers(m_Settings.m_RenderersAfterRenderingOpaques, shared),
-                postProcessFeatureData, m_Context);
+                postProcessFeatureData, m_Data);
 
             m_AfterRenderingSkybox = new PostProcessRenderPass(PostProcessInjectionPoint.AfterRenderingSkybox,
                 InstantiateRenderers(m_Settings.m_RenderersAfterRenderingSkybox, shared),
-                postProcessFeatureData, m_Context);
+                postProcessFeatureData, m_Data);
             // 外挂后处理目前只放在这个位置
             m_BeforeRenderingPostProcessing = new PostProcessRenderPass(PostProcessInjectionPoint.BeforeRenderingPostProcessing,
                 InstantiateRenderers(m_Settings.m_RenderersBeforeRenderingPostProcessing, shared),
-                postProcessFeatureData, m_Context);
+                postProcessFeatureData, m_Data);
             m_AfterRenderingPostProcessing = new PostProcessRenderPass(PostProcessInjectionPoint.AfterRenderingPostProcessing,
                 InstantiateRenderers(m_Settings.m_RenderersAfterRenderingPostProcessing, shared),
-                postProcessFeatureData, m_Context);
+                postProcessFeatureData, m_Data);
 
             m_UberPostProcessing = new UberPostProcess(postProcessFeatureData);
-            m_SetGlobalVariablesPass = new SetGlobalVariablesPass(m_Context);
-            m_SetupPass = new(this, m_Context);
+            m_SetGlobalVariablesPass = new SetGlobalVariablesPass(m_Data);
+            m_SetupPass = new(this, m_Data);
             
 #if UNITY_EDITOR
             m_DebugHandler = new DebugHandler();
-            m_DebugHandler.Init(m_Context);
+            m_DebugHandler.Init(m_Data);
 #endif
         }
 
@@ -170,8 +170,6 @@ namespace Game.Core.PostProcessing
             }
 
             CheckRenderingMode(renderer);
-            
-            m_Context.Setup(camera);
             
             // Setup pass must run first (handles configuration for both Unity 2022 and 2023)
             renderer.EnqueuePass(m_SetupPass);
@@ -217,25 +215,25 @@ namespace Game.Core.PostProcessing
         {
             if (postProcessPassInput.HasFlag(PostProcessPassInput.DepthPyramid))
             {
-                m_DepthPyramidPass ??= new DepthPyramidPass(m_Context);
+                m_DepthPyramidPass ??= new DepthPyramidPass(m_Data);
                 renderer.EnqueuePass(m_DepthPyramidPass);
             }
 
             if (postProcessPassInput.HasFlag(PostProcessPassInput.ColorPyramid))
             {
-                if (m_Context.FrameCount <= 3)
+                if (m_Data.FrameCount <= 3)
                 {
                     return;
                 }
 
-                m_ColorPyramidPass ??= new ColorPyramidPass(m_Context);
+                m_ColorPyramidPass ??= new ColorPyramidPass(m_Data);
                 renderer.EnqueuePass(m_ColorPyramidPass);
             }
 
-            m_Context.RequireHistoryColor = postProcessPassInput.HasFlag(PostProcessPassInput.PreviousFrameColor);
+            m_Data.RequireHistoryColor = postProcessPassInput.HasFlag(PostProcessPassInput.PreviousFrameColor);
             if (postProcessPassInput.HasFlag(PostProcessPassInput.PreviousFrameColor))
             {
-                m_CopyHistoryColorPass ??= CopyHistoryColorPass.Create(m_Context);
+                m_CopyHistoryColorPass ??= CopyHistoryColorPass.Create(m_Data);
                 renderer.EnqueuePass(m_CopyHistoryColorPass);
             }
 
@@ -286,7 +284,7 @@ namespace Game.Core.PostProcessing
             m_SSShadowsPass?.Dispose();
             SafeDispose(ref m_DepthPyramidPass);
             SafeDispose(ref m_ColorPyramidPass);
-            SafeDispose(ref m_Context);
+            SafeDispose(ref m_Data);
             SafeDispose(ref m_SetupPass);
 #if UNITY_EDITOR
             m_DebugHandler.Dispose();

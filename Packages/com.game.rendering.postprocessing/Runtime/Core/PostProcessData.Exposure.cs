@@ -1,10 +1,11 @@
 ﻿using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 
 namespace Game.Core.PostProcessing
 {
-    public partial class PostProcessCamera
+    public partial class PostProcessData
     {
         private static RTHandle m_EmptyExposureTexture; // RGHalf
         private RTHandle m_DebugExposureData;

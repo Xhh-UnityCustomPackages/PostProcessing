@@ -145,7 +145,7 @@ namespace Game.Core.PostProcessing
 
             if (m_NeedAccumulate)
             {
-                postProcessCamera.AllocateScreenSpaceAccumulationHistoryBuffer(GetScaleFactor());
+                postProcessData.AllocateScreenSpaceAccumulationHistoryBuffer(GetScaleFactor());
             }
         }
 
@@ -177,7 +177,7 @@ namespace Game.Core.PostProcessing
                             m_DepthPyramidMipLevelOffsetsBuffer = new ComputeBuffer(15, sizeof(int) * 2);
 
                         SharedPropertyBlock.Clear();
-                        var offsetBuffer = postProcessCamera.DepthMipChainInfo.GetOffsetBufferData(m_DepthPyramidMipLevelOffsetsBuffer);
+                        var offsetBuffer = postProcessData.DepthMipChainInfo.GetOffsetBufferData(m_DepthPyramidMipLevelOffsetsBuffer);
                         SharedPropertyBlock.SetBuffer(ShaderConstants._DepthPyramidMipLevelOffsets, offsetBuffer);
                         cmd.DrawProcedural(Matrix4x4.identity, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.HizTest, MeshTopology.Triangles, 3, 1, SharedPropertyBlock);
                     }
@@ -189,7 +189,7 @@ namespace Game.Core.PostProcessing
                 RTHandle preFrameColorRT = source;
                 if (settings.enableMipmap.value)
                 {
-                    var colorBufferMipChain = postProcessCamera.GetCurrentFrameRT((int)FrameHistoryType.ColorBufferMipChain);
+                    var colorBufferMipChain = postProcessData.GetCurrentFrameRT((int)FrameHistoryType.ColorBufferMipChain);
                     if (colorBufferMipChain != null)
                     {
                         preFrameColorRT = colorBufferMipChain;
@@ -197,8 +197,8 @@ namespace Game.Core.PostProcessing
                 }
                 else
                 {
-                    if (postProcessCamera.CameraPreviousColorTextureRT != null)
-                        preFrameColorRT = postProcessCamera.CameraPreviousColorTextureRT;
+                    if (postProcessData.CameraPreviousColorTextureRT != null)
+                        preFrameColorRT = postProcessData.CameraPreviousColorTextureRT;
                 }
                 
                 SharedPropertyBlock.Clear();
@@ -275,8 +275,8 @@ namespace Game.Core.PostProcessing
 
            
             
-            var ssrAccum = postProcessCamera.GetCurrentFrameRT((int)FrameHistoryType.ScreenSpaceReflectionAccumulation);
-            var ssrAccumPrev = postProcessCamera.GetPreviousFrameRT((int)FrameHistoryType.ScreenSpaceReflectionAccumulation);
+            var ssrAccum = postProcessData.GetCurrentFrameRT((int)FrameHistoryType.ScreenSpaceReflectionAccumulation);
+            var ssrAccumPrev = postProcessData.GetPreviousFrameRT((int)FrameHistoryType.ScreenSpaceReflectionAccumulation);
             
             int groupsX = GraphicsUtility.DivRoundUp(m_SSRTestDescriptor.width, 8);
             int groupsY = GraphicsUtility.DivRoundUp(m_SSRTestDescriptor.height, 8);

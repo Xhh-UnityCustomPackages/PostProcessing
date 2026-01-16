@@ -9,7 +9,7 @@ namespace Game.Core.PostProcessing
 {
     public class CopyHistoryColorPass : CopyColorPass, IDisposable
     {
-        public static CopyHistoryColorPass Create(PostProcessFeatureContext context)
+        public static CopyHistoryColorPass Create(PostProcessData context)
         {
             var shadersResources = GraphicsSettings.GetRenderPipelineSettings<UniversalRenderPipelineRuntimeShaders>();
             var blitMaterial = CoreUtils.CreateEngineMaterial(shadersResources.coreBlitPS);
@@ -17,14 +17,14 @@ namespace Game.Core.PostProcessing
             return new CopyHistoryColorPass(context, samplingMaterial, blitMaterial);
         }
         
-        private readonly PostProcessFeatureContext m_Context;
+        private readonly PostProcessData m_Data;
         private readonly Material m_BlitMaterial;
         private readonly Material m_SamplingMaterial;
         
-        public CopyHistoryColorPass(PostProcessFeatureContext context, Material samplingMaterial, Material copyColorMaterial = null) 
+        public CopyHistoryColorPass(PostProcessData data, Material samplingMaterial, Material copyColorMaterial = null) 
             : base(RenderPassEvent.BeforeRenderingPostProcessing - 1, samplingMaterial, copyColorMaterial, "CopyHistoryColorPass")
         {
-            m_Context = context;
+            m_Data = data;
             m_SamplingMaterial = samplingMaterial;
             m_BlitMaterial = copyColorMaterial;
         }
@@ -34,27 +34,13 @@ namespace Game.Core.PostProcessing
         {
             var descriptor = renderingData.cameraData.cameraTargetDescriptor;
             ConfigureDescriptor(Downsampling.None, ref descriptor, out var filterMode);
-            var postProcessCamera = m_Context.GetPostProcessCamera(renderingData.cameraData.camera);
-            if (postProcessCamera == null)
-            {
-                return;
-            }
+          
 
-            RenderingUtils.ReAllocateHandleIfNeeded(ref postProcessCamera.CameraPreviousColorTextureRT, descriptor, filterMode, TextureWrapMode.Clamp, name: "_CameraPreviousColorTexture");
-            ConfigureTarget(postProcessCamera.CameraPreviousColorTextureRT);
+            RenderingUtils.ReAllocateHandleIfNeeded(ref m_Data.CameraPreviousColorTextureRT, descriptor, filterMode, TextureWrapMode.Clamp, name: "_CameraPreviousColorTexture");
+            ConfigureTarget(m_Data.CameraPreviousColorTextureRT);
             ConfigureClear(ClearFlag.Color, Color.clear);
-            Setup(renderingData.cameraData.renderer.cameraColorTargetHandle, postProcessCamera.CameraPreviousColorTextureRT, Downsampling.None);
+            Setup(renderingData.cameraData.renderer.cameraColorTargetHandle, m_Data.CameraPreviousColorTextureRT, Downsampling.None);
             base.OnCameraSetup(cmd, ref renderingData);
-        }
-
-        public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
-        {
-            var postProcessCamera = m_Context.GetPostProcessCamera(renderingData.cameraData.camera);
-            if (postProcessCamera == null)
-            {
-                return;
-            }
-            base.Execute(context, ref renderingData);
         }
 
         private class PassData
@@ -68,22 +54,17 @@ namespace Game.Core.PostProcessing
         {
             var resource = frameData.Get<UniversalResourceData>();
             var cameraData = frameData.Get<UniversalCameraData>();
-            
-            var postProcessCamera = m_Context.GetPostProcessCamera(cameraData.camera);
-            if (postProcessCamera == null)
-            {
-                return;
-            }
+      
             
             TextureHandle cameraColor = resource.activeColorTexture;
             
             // Allocate history color texture
             var descriptor = cameraData.cameraTargetDescriptor;
             ConfigureDescriptor(Downsampling.None, ref descriptor, out var filterMode);
-            RenderingUtils.ReAllocateHandleIfNeeded(ref postProcessCamera.CameraPreviousColorTextureRT, descriptor, filterMode,
+            RenderingUtils.ReAllocateHandleIfNeeded(ref m_Data.CameraPreviousColorTextureRT, descriptor, filterMode,
                 TextureWrapMode.Clamp, name: "_CameraPreviousColorTexture");
 
-            TextureHandle destinationHandle = renderGraph.ImportTexture(postProcessCamera.CameraPreviousColorTextureRT);
+            TextureHandle destinationHandle = renderGraph.ImportTexture(m_Data.CameraPreviousColorTextureRT);
             
             // Copy color to history
             using (var builder = renderGraph.AddRasterRenderPass<PassData>("Copy History Color", out var passData, profilingSampler))

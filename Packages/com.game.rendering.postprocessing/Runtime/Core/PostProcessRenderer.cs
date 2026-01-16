@@ -19,8 +19,7 @@ namespace Game.Core.PostProcessing
         public ProfilingSampler profilingSampler;
 
         protected PostProcessFeatureData postProcessFeatureData { get; private set; }
-        protected PostProcessFeatureContext context { get; private set; }
-        protected PostProcessCamera postProcessCamera { get; private set; }
+        protected PostProcessData postProcessData { get; private set; }
 
         public virtual ScriptableRenderPassInput input => ScriptableRenderPassInput.None;
         public virtual PostProcessPassInput postProcessPassInput => PostProcessPassInput.None;
@@ -32,16 +31,15 @@ namespace Game.Core.PostProcessing
 
         public abstract bool IsActive(ref RenderingData renderingData);
 
-        internal void SetupInternal(PostProcessRenderPass renderPass,  ref RenderingData renderingData, PostProcessFeatureData data, PostProcessFeatureContext context)
+        internal void SetupInternal(PostProcessRenderPass renderPass,  ref RenderingData renderingData, PostProcessFeatureData data, PostProcessData context)
         {
-            postProcessCamera = context.GetPostProcessCamera(renderingData.cameraData.camera);//这个需要每帧更新
             if (m_Initialized)
                 return;
             m_Initialized = true;
 
+            postProcessData = context;
             m_RenderPass = renderPass;
             postProcessFeatureData = data;
-            this.context = context;
             Setup();
         }
 

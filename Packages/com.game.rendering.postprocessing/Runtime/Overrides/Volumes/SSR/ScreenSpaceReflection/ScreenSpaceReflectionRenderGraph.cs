@@ -89,8 +89,8 @@ namespace Game.Core.PostProcessing
             m_Variables.RoughnessFadeRcpLength = roughnessFadeRcpLength;
             m_Variables.RoughnessFadeEndTimesRcpLength = roughnessFadeEndTimesRcpLength;
             m_Variables.EdgeFadeRcpLength = edgeFadeRcpLength;//照搬的HDRP 但是这个实际效果过度太硬了
-            m_Variables.DepthPyramidMaxMip = postProcessCamera.DepthMipChainInfo.mipLevelCount - 1;
-            m_Variables.ColorPyramidMaxMip = postProcessCamera.ColorPyramidHistoryMipCount - 1;
+            m_Variables.DepthPyramidMaxMip = postProcessData.DepthMipChainInfo.mipLevelCount - 1;
+            m_Variables.ColorPyramidMaxMip = postProcessData.ColorPyramidHistoryMipCount - 1;
             m_Variables.DownsamplingDivider = GetScaleFactor();
             m_Variables.ProjectionMatrix = SSR_ProjectToPixelMatrix;
 
@@ -98,7 +98,7 @@ namespace Game.Core.PostProcessing
             m_Variables.PBRBias = settings.biasFactor.value;
             m_Variables.PBRSpeedRejection = Mathf.Clamp01(settings.speedRejectionParam.value);
             m_Variables.PBRSpeedRejectionScalerFactor = Mathf.Pow(settings.speedRejectionScalerFactor.value * 0.1f, 2.0f);
-            if (context.FrameCount <= 3)
+            if (postProcessData.FrameCount <= 3)
             {
                 m_Variables.AccumulationAmount = 1.0f;
             }
@@ -197,7 +197,7 @@ namespace Game.Core.PostProcessing
             var colorBufferMipChainTexture = TextureHandle.nullHandle;
             if (settings.enableMipmap.value)
             {
-                var colorBufferMipChain = postProcessCamera.GetCurrentFrameRT((int)FrameHistoryType.ColorBufferMipChain);
+                var colorBufferMipChain = postProcessData.GetCurrentFrameRT((int)FrameHistoryType.ColorBufferMipChain);
                 if (colorBufferMipChain != null)
                     colorBufferMipChainTexture = renderGraph.ImportTexture(colorBufferMipChain);
 
@@ -208,7 +208,7 @@ namespace Game.Core.PostProcessing
             }
             else
             {
-                var previousColorTexture = renderGraph.ImportTexture(postProcessCamera.CameraPreviousColorTextureRT);
+                var previousColorTexture = renderGraph.ImportTexture(postProcessData.CameraPreviousColorTextureRT);
                 if (colorBufferMipChainTexture.IsValid())
                 {
                     colorPyramidTexture = previousColorTexture;

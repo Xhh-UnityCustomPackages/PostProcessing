@@ -13,9 +13,9 @@ namespace Game.Core.PostProcessing
         private class SetupPass : ScriptableRenderPass, IDisposable
         {
             private readonly PostProcessFeature m_RendererFeature;
-            private readonly PostProcessFeatureContext m_Context;
+            private readonly PostProcessData m_Context;
 
-            public SetupPass(PostProcessFeature rendererFeature, PostProcessFeatureContext context)
+            public SetupPass(PostProcessFeature rendererFeature, PostProcessData context)
             {
                 m_RendererFeature = rendererFeature;
                 m_Context = context;
@@ -45,15 +45,16 @@ namespace Game.Core.PostProcessing
             }
         }
         
-        private void PerformSetup(ContextContainer frameData, PostProcessFeatureContext context)
+        private void PerformSetup(ContextContainer frameData, PostProcessData context)
         {
-            context.UpdateFrame(frameData);
+            var cameraData = frameData.Get<UniversalCameraData>();
+            context.Update(cameraData);
         }
         
         
-        private void PerformSetup(ref RenderingData renderingData, PostProcessFeatureContext context)
+        private void PerformSetup(ref RenderingData renderingData, PostProcessData context)
         {
-            context.UpdateFrame(ref renderingData);
+            context.Update(ref renderingData);
         }
     }
 }

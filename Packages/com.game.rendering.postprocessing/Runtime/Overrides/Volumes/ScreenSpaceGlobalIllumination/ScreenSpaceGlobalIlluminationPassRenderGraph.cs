@@ -145,21 +145,21 @@ namespace Game.Core.PostProcessing
 
 
             // Import external textures
-            var depthPyramidTexture = renderGraph.ImportTexture(postProcessCamera.DepthPyramidRT);
+            var depthPyramidTexture = renderGraph.ImportTexture(postProcessData.DepthPyramidRT);
             var normalTexture = resource.cameraNormalsTexture;
 
             // Get previous frame color pyramid
-            var preFrameColorRT = postProcessCamera.CameraPreviousColorTextureRT;
+            var preFrameColorRT = postProcessData.CameraPreviousColorTextureRT;
             if (preFrameColorRT == null)
                 return;
 
             var colorPyramidTexture = renderGraph.ImportTexture(preFrameColorRT);
 
             // Get history depth texture
-            var historyDepthRT = postProcessCamera.GetCurrentFrameRT((int)FrameHistoryType.Depth);
+            var historyDepthRT = postProcessData.GetCurrentFrameRT((int)FrameHistoryType.Depth);
             if (!historyDepthRT.IsValid())
             {
-                historyDepthRT = postProcessCamera.DepthPyramidRT;
+                historyDepthRT = postProcessData.DepthPyramidRT;
             }
 
             var historyDepthTexture = renderGraph.ImportTexture(historyDepthRT);
@@ -170,8 +170,8 @@ namespace Game.Core.PostProcessing
             // motionVectorTexture = motionVectorTexture.IsValid() && isNewFrame ? motionVectorTexture : renderGraph.ImportTexture(_rendererData.GetBlackTextureRT());
 
             // Get exposure textures
-            var exposureTexture = renderGraph.ImportTexture(postProcessCamera.GetExposureTexture());
-            var prevExposureTexture = renderGraph.ImportTexture(postProcessCamera.GetPreviousExposureTexture());
+            var exposureTexture = renderGraph.ImportTexture(postProcessData.GetExposureTexture());
+            var prevExposureTexture = renderGraph.ImportTexture(postProcessData.GetPreviousExposureTexture());
 
             // Use async compute for trace and reproject
             bool useAsyncCompute = false; // Can be enabled if needed

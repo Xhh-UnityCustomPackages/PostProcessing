@@ -5,11 +5,11 @@ namespace Game.Core.PostProcessing
 {
     public class SetGlobalVariablesPass : ScriptableRenderPass
     {
-        private PostProcessFeatureContext m_Context;
+        private PostProcessData m_Data;
         
-        public SetGlobalVariablesPass(PostProcessFeatureContext rendererData)
+        public SetGlobalVariablesPass(PostProcessData rendererData)
         {
-            m_Context = rendererData;
+            m_Data = rendererData;
             renderPassEvent = PostProcessingRenderPassEvent.SetGlobalVariablesPass;
             profilingSampler = new ProfilingSampler("Set Global Variables");
         }
@@ -19,7 +19,7 @@ namespace Game.Core.PostProcessing
             var cmd = CommandBufferPool.Get();
             using (new ProfilingScope(cmd, profilingSampler))
             {
-                m_Context.PushGlobalBuffers(cmd, ref renderingData);
+                m_Data.PushGlobalBuffers(cmd, ref renderingData);
                 // m_Context.BindHistoryColor(cmd, renderingData);
                 // m_Context.BindAmbientProbe(cmd);
             }

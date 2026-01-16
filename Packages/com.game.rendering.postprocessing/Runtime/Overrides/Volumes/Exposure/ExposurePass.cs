@@ -204,7 +204,7 @@ namespace Game.Core.PostProcessing
                 passData.exposureReductionKernel = passData.exposureCS.FindKernel("KReduction");
             }
 
-            postProcessCamera.GrabExposureRequiredTextures(out var prevExposure, out var nextExposure);
+            postProcessData.GrabExposureRequiredTextures(out var prevExposure, out var nextExposure);
             passData.prevExposure = prevExposure;
             passData.nextExposure = nextExposure;
         }

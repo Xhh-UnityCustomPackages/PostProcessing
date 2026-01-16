@@ -20,14 +20,14 @@ namespace Game.Core.PostProcessing
         
         private static RTHandle m_HiZDepthRT;
         
-        private readonly PostProcessFeatureContext m_Context;
+        private readonly PostProcessData m_Data;
         public static RTHandle HiZDepthRT => m_HiZDepthRT;
 
-        public DepthPyramidPass(PostProcessFeatureContext context)
+        public DepthPyramidPass(PostProcessData data)
         {
             profilingSampler = new ProfilingSampler(nameof(DepthPyramidPass));
             renderPassEvent = PostProcessingRenderPassEvent.DepthPyramidPass;
-            m_Context = context;
+            m_Data = data;
         }
         
         public override void Configure(CommandBuffer cmd, RenderTextureDescriptor cameraTextureDescriptor)
@@ -37,9 +37,8 @@ namespace Game.Core.PostProcessing
         
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
         {
-            var postProcessCamera = m_Context.GetPostProcessCamera(renderingData.cameraData.camera);
             var cameraTargetDescriptor = renderingData.cameraData.cameraTargetDescriptor;
-            var mipChainSize = postProcessCamera.DepthMipChainInfo.textureSize;
+            var mipChainSize = m_Data.DepthMipChainInfo.textureSize;
             var depthDescriptor = cameraTargetDescriptor;
             depthDescriptor.enableRandomWrite = true;
             depthDescriptor.width = mipChainSize.x;
@@ -64,14 +63,13 @@ namespace Game.Core.PostProcessing
                 using (new ProfilingScope(cmd, CopyDepthSampler))
                 {
                     var cameraDepth = UniversalRenderingUtility.GetDepthTexture(renderingData.cameraData.renderer);
-                    m_Context.GPUCopy.SampleCopyChannel_xyzw2x(cmd, cameraDepth, m_HiZDepthRT,
+                    m_Data.GPUCopy.SampleCopyChannel_xyzw2x(cmd, cameraDepth, m_HiZDepthRT,
                         new RectInt(0, 0, cameraTargetDescriptor.width, cameraTargetDescriptor.height));
                 }
                 // Depth Pyramid
                 using (new ProfilingScope(cmd, DepthPyramidSampler))
                 {
-                    var postProcessCamera = m_Context.GetPostProcessCamera(renderingData.cameraData.camera);
-                    m_Context.MipGenerator.RenderMinDepthPyramid(cmd, m_HiZDepthRT, postProcessCamera.DepthMipChainInfo);
+                    m_Data.MipGenerator.RenderMinDepthPyramid(cmd, m_HiZDepthRT, m_Data.DepthMipChainInfo);
                 }
             }
 
@@ -107,7 +105,7 @@ namespace Game.Core.PostProcessing
                 passData.inputDepth = depthTexture;
                 passData.outputDepth = outDepthTexture;
                 
-                passData.GPUCopy = m_Context.GPUCopy;
+                passData.GPUCopy = m_Data.GPUCopy;
                 passData.width = hdCamera.pixelWidth;
                 passData.height = hdCamera.pixelHeight;
                 
@@ -133,12 +131,9 @@ namespace Game.Core.PostProcessing
         {
             var cameraData = frameData.Get<UniversalCameraData>();
             var resourceData = frameData.Get<UniversalResourceData>();
-            
-            var postProcessCamera = m_Context.GetPostProcessCamera(cameraData.camera);
-            if (postProcessCamera == null) return;
 
             var cameraTargetDescriptor = cameraData.cameraTargetDescriptor;
-            var mipChainSize = postProcessCamera.DepthMipChainInfo.textureSize;
+            var mipChainSize = m_Data.DepthMipChainInfo.textureSize;
             var depthDescriptor = cameraTargetDescriptor;
             depthDescriptor.enableRandomWrite = true;
             depthDescriptor.width = mipChainSize.x;
@@ -156,8 +151,8 @@ namespace Game.Core.PostProcessing
             using (var builder = renderGraph.AddUnsafePass<GenerateDepthPyramidPassData>("Generate Depth Buffer MIP Chain", out var passData, DepthPyramidSampler))
             {
                 passData.depthTexture = depthPyramidTexture;
-                passData.mipInfo = postProcessCamera.DepthMipChainInfo;
-                passData.mipGenerator = m_Context.MipGenerator;
+                passData.mipInfo = m_Data.DepthMipChainInfo;
+                passData.mipGenerator = m_Data.MipGenerator;
                 builder.AllowPassCulling(false);
                 builder.SetRenderFunc(
                     (GenerateDepthPyramidPassData data, UnsafeGraphContext context) =>

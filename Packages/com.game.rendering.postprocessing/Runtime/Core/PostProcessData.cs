@@ -27,12 +27,33 @@ namespace Game.Core.PostProcessing
         Depth,
     }
 
-    public partial class PostProcessCamera
+    public partial class PostProcessData : IDisposable
     {
+        private uint m_FrameCount = 0;
+        public uint FrameCount => m_FrameCount;
+        
+        private struct ShaderVariablesGlobal
+        {
+            public Matrix4x4 ViewMatrix;
+            public Matrix4x4 ViewProjMatrix;
+            public Matrix4x4 InvViewProjMatrix;
+            public Matrix4x4 PrevInvViewProjMatrix;
+            
+            public Vector4 ColorPyramidUvScaleAndLimitPrevFrame;
+        }
+        
+        private ShaderVariablesGlobal m_ShaderVariablesGlobal;
+        
+        
+        private GPUCopy m_GPUCopy;
+        public GPUCopy GPUCopy => m_GPUCopy;
+        private MipGenerator m_MipGenerator;
+        public MipGenerator MipGenerator => m_MipGenerator;
+        
         BufferedRTHandleSystem m_HistoryRTSystem = new BufferedRTHandleSystem();
         public BufferedRTHandleSystem historyRTSystem => m_HistoryRTSystem;
 
-        public Camera camera;
+        private Camera camera;
         
         /// <summary>
         /// Color texture before post-processing of previous frame
@@ -50,17 +71,21 @@ namespace Game.Core.PostProcessing
         public int ColorPyramidHistoryMipCount { get; internal set; }
         public bool ResetPostProcessingHistory { get; internal set; } = false;
         public bool DidResetPostProcessingHistoryInLastFrame { get; internal set; }
+        public bool RequireHistoryColor { get; internal set; }
         
         float m_ScreenSpaceAccumulationResolutionScale = 0.0f; // Use another scale if AO & SSR don't have the same resolution
 
-        public PostProcessCamera(Camera camera)
+        public PostProcessData()
         {
-            this.camera = camera;
+            m_GPUCopy = new GPUCopy();
+            m_MipGenerator = new MipGenerator();
             m_DepthBufferMipChainInfo.Allocate();
         }
 
         public void Dispose()
         {
+            m_FrameCount = 0;
+            m_MipGenerator?.Release();
             if (m_HistoryRTSystem != null)
             {
                 m_HistoryRTSystem.Dispose();
@@ -73,7 +98,19 @@ namespace Game.Core.PostProcessing
             RTHandles.Release(m_DebugExposureData);
         }
 
-        public void UpdateRenderTextures(ref RenderingData renderingData)
+        public void Update(ref RenderingData renderingData)
+        {
+            m_FrameCount++;
+            if (m_FrameCount >= uint.MaxValue)
+            {
+                m_FrameCount = 0;
+            }
+            
+            UpdateCameraData(renderingData.cameraData);
+            UpdateRenderTextures(ref renderingData);
+        }
+
+        private void UpdateRenderTextures(ref RenderingData renderingData)
         {
             var descriptor = renderingData.cameraData.cameraTargetDescriptor;
             var viewportSize = new Vector2Int(descriptor.width, descriptor.height);
@@ -92,8 +129,25 @@ namespace Game.Core.PostProcessing
             m_Exposure = VolumeManager.instance.stack.GetComponent<Exposure>();
             SetupExposureTextures();
         }
+
+        private void UpdateCameraData(CameraData cameraData)
+        {
+            camera = cameraData.camera;
+        }
+
+
+        public void Update(UniversalCameraData cameraData)
+        {
+            m_FrameCount++;
+            if (m_FrameCount >= uint.MaxValue)
+            {
+                m_FrameCount = 0;
+            }
+            UpdateCameraData(cameraData);
+            UpdateRenderTextures(cameraData);
+        }
         
-        public void UpdateRenderTextures(UniversalCameraData cameraData)
+        private void UpdateRenderTextures(UniversalCameraData cameraData)
         {
             var descriptor = cameraData.cameraTargetDescriptor;
             var viewportSize = new Vector2Int(descriptor.width, descriptor.height);
@@ -111,7 +165,52 @@ namespace Game.Core.PostProcessing
             m_Exposure = VolumeManager.instance.stack.GetComponent<Exposure>();
             SetupExposureTextures();
         }
+        
+        private void UpdateCameraData(UniversalCameraData cameraData)
+        {
+            camera = cameraData.camera;
+        }
 
+        
+        #region GlobalVariables
+        
+        
+        /// <summary>
+        /// Push global constant buffers to gpu
+        /// </summary>
+        /// <param name="cmd"></param>
+        /// <param name="renderingData"></param>
+        internal void PushGlobalBuffers(CommandBuffer cmd, ref RenderingData renderingData)
+        {
+            // PushShadowData(cmd);
+            PushGlobalVariables(cmd, ref renderingData);
+        }
+        
+        private void PushGlobalVariables(CommandBuffer cmd, ref RenderingData renderingData)
+        {
+            PrepareGlobalVariables(ref renderingData);
+            ConstantBuffer.PushGlobal(cmd, m_ShaderVariablesGlobal, PipelineShaderIDs.ShaderVariablesGlobal);
+            cmd.SetGlobalVector(PipelineShaderIDs._ColorPyramidUvScaleAndLimitPrevFrame, m_ShaderVariablesGlobal.ColorPyramidUvScaleAndLimitPrevFrame);
+        }
+
+        private void PrepareGlobalVariables(ref RenderingData renderingData, RTHandle rtHandle = null)
+        {
+            // Match HDRP View Projection Matrix, pre-handle reverse z.
+            m_ShaderVariablesGlobal.ViewMatrix = renderingData.cameraData.camera.worldToCameraMatrix;
+            
+            m_ShaderVariablesGlobal.ViewProjMatrix = PostProcessingUtils.CalculateViewProjMatrix(ref renderingData.cameraData);
+            
+            var lastInvViewProjMatrix = m_ShaderVariablesGlobal.InvViewProjMatrix;
+            m_ShaderVariablesGlobal.InvViewProjMatrix = m_ShaderVariablesGlobal.ViewProjMatrix.inverse;
+            m_ShaderVariablesGlobal.PrevInvViewProjMatrix = FrameCount > 1 ? m_ShaderVariablesGlobal.InvViewProjMatrix : lastInvViewProjMatrix;
+            m_ShaderVariablesGlobal.ColorPyramidUvScaleAndLimitPrevFrame
+                = PostProcessingUtils.ComputeViewportScaleAndLimit(historyRTSystem.rtHandleProperties.previousViewportSize,
+                    historyRTSystem.rtHandleProperties.previousRenderTargetSize);
+        }
+
+
+        #endregion
+        
         #region History
 
         internal struct CustomHistoryAllocator

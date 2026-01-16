@@ -18,19 +18,19 @@ namespace Game.Core.PostProcessing
             using (var builder = renderGraph.AddUnsafePass<DynamicExposureData>(profilingSampler.name, out var passData))
             {
                 PrepareExposurePassData(passData, cameraData.camera);
-                postProcessCamera.GrabExposureRequiredTextures(out var prevExposure, out var nextExposure);
+                postProcessData.GrabExposureRequiredTextures(out var prevExposure, out var nextExposure);
                 passData.exposureMode = settings.mode.value;
 
                 var preExposure = renderGraph.ImportTexture(prevExposure);
-                // var nextExposureHandle = renderGraph.ImportTexture(nextExposure);
+                var nextExposureHandle = renderGraph.ImportTexture(nextExposure);
      
 
                 // builder.UseTexture(preExposure);
                 // passData.prevExposure = preExposure;
                 // builder.UseTexture(nextExposureHandle, AccessFlags.Write);
                 // passData.nextExposure = nextExposureHandle;
-                //
-                //
+                
+                
                 // builder.AllowGlobalStateModification(true);
                 // // builder.SetGlobalTextureAfterPass(exposureHandleRG, "_AutoExposureLUT");
                 // builder.SetRenderFunc(static (DynamicExposureData data, UnsafeGraphContext context) =>

@@ -20,7 +20,7 @@ namespace Game.Core.PostProcessing
         public DebugDisplaySettingsPostProcessing PostProcessingSetting => m_PostProcessingSetting;
         public bool AreAnySettingsActive => m_PostProcessingSetting.AreAnySettingsActive;
 
-        public void Init(PostProcessFeatureContext context)
+        public void Init(PostProcessData context)
         {
             m_PostProcessingSetting = AddPanel(new DebugDisplaySettingsPostProcessing());
             

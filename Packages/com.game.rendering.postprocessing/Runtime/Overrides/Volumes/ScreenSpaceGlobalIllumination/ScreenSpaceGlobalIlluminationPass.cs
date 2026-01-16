@@ -294,7 +294,7 @@ namespace Game.Core.PostProcessing
             _giVariables.RayMarchingFallbackHierarchy = (int)volume.rayMiss.value;
 
             // Frame index for temporal sampling
-            _giVariables.IndirectDiffuseFrameIndex = (int)(context.FrameCount % 16);
+            _giVariables.IndirectDiffuseFrameIndex = (int)(postProcessData.FrameCount % 16);
         }
 
         private void ExecuteTrace(CommandBuffer cmd, ref CameraData cameraData)
