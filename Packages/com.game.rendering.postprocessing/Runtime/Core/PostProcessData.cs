@@ -91,6 +91,14 @@ namespace Game.Core.PostProcessing
             m_EmptyExposureTexture = null;
             RTHandles.Release(m_DebugExposureData);
             m_DebugExposureData = null;
+            
+            // Release default texture RTHandle wrappers
+            RTHandles.Release(m_WhiteTextureRTHandle);
+            RTHandles.Release(m_BlackTextureRTHandle);
+            RTHandles.Release(m_GrayTextureRTHandle);
+            m_WhiteTextureRTHandle = null;
+            m_BlackTextureRTHandle = null;
+            m_GrayTextureRTHandle = null;
         }
 
         public void Update(ref RenderingData renderingData)

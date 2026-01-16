@@ -99,7 +99,15 @@ namespace Game.Core.PostProcessing
 
          public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
          {
+             var resource = frameData.Get<UniversalResourceData>();
+             var cameraData = frameData.Get<UniversalCameraData>();
              ExposureRenderer.SetDebugSetting(m_DebugSettings, m_Data.GetExposureDebugData());
+             
+             // Import textures
+             // var colorBeforePostProcess = m_Data.GetPreviousFrameColorRT(frameData, out _);
+             // TextureHandle sourceBeforePostProcess = renderGraph.ImportTexture(colorBeforePostProcess);
+             // TextureHandle colorAfterPostProcess = resource.activeColorTexture;
+             // TextureHandle debugOutputTexture = renderGraph.ImportTexture(m_Data.DebugExposureTexture);
          }
 #endif
         // private void PrepareDebugExposureData(UniversalCameraData cameraData)

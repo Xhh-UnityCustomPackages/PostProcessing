@@ -11,6 +11,37 @@ namespace Game.Core.PostProcessing
         private RTHandle m_DebugExposureData;
         private Exposure m_Exposure;
 
+        private RTHandle m_WhiteTextureRTHandle;
+        private RTHandle m_BlackTextureRTHandle;
+        private RTHandle m_GrayTextureRTHandle;
+        
+        public RTHandle GetWhiteTextureRT()
+        {
+            if (m_WhiteTextureRTHandle == null)
+            {
+                m_WhiteTextureRTHandle = RTHandles.Alloc(Texture2D.whiteTexture);
+            }
+            return m_WhiteTextureRTHandle;
+        }
+        
+        public RTHandle GetBlackTextureRT()
+        {
+            if (m_BlackTextureRTHandle == null)
+            {
+                m_BlackTextureRTHandle = RTHandles.Alloc(Texture2D.blackTexture);
+            }
+            return m_BlackTextureRTHandle;
+        }
+        
+        public RTHandle GetGrayTextureRT()
+        {
+            if (m_GrayTextureRTHandle == null)
+            {
+                m_GrayTextureRTHandle = RTHandles.Alloc(Texture2D.grayTexture);
+            }
+            return m_GrayTextureRTHandle;
+        }
+        
         void InitExposure()
         {
             // Setup a default exposure textures and clear it to neutral values so that the exposure

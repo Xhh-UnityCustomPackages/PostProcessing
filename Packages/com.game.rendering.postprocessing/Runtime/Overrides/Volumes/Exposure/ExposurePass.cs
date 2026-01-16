@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
+using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Rendering.Universal;
 
 namespace Game.Core.PostProcessing
@@ -67,7 +68,6 @@ namespace Game.Core.PostProcessing
             public Texture textureMeteringMask;
             public Texture exposureCurve;
             
-            public Camera camera;
             public Vector2Int viewportSize;
             
             public ComputeBuffer histogramBuffer;
@@ -89,8 +89,6 @@ namespace Game.Core.PostProcessing
             public RTHandle prevExposure;
             public RTHandle nextExposure;
             public RTHandle exposureDebugData;
-            public RTHandle tmpTarget1024;
-            public RTHandle tmpTarget32;
         }
         
         DynamicExposureData m_DynamicExposureData;
@@ -116,7 +114,6 @@ namespace Game.Core.PostProcessing
             passData.histogramExposureCS = runtimeResources.HistogramExposureCS;
             passData.histogramExposureCS.shaderKeywords = null;
             
-            passData.camera = camera;
             passData.viewportSize = new Vector2Int(camera.pixelWidth, camera.pixelHeight);
 
             // Setup variants
@@ -167,7 +164,7 @@ namespace Game.Core.PostProcessing
             float m_DebugExposureCompensation = 0;
             passData.exposureParams = new Vector4(settings.compensation.value + m_DebugExposureCompensation, limitMin, limitMax, 0f);
             passData.exposureParams2 = new Vector4(curveMin, curveMax, ColorUtils.lensImperfectionExposureScale, ColorUtils.s_LightMeterCalibrationConstant);
-
+            
             passData.exposureCurve = m_ExposureCurveTexture;
             
             if (isHistogramBased)
@@ -203,9 +200,6 @@ namespace Game.Core.PostProcessing
                 passData.exposureReductionKernel = passData.exposureCS.FindKernel("KReduction");
             }
 
-            postProcessData.GrabExposureRequiredTextures(out var prevExposure, out var nextExposure);
-            passData.prevExposure = prevExposure;
-            passData.nextExposure = nextExposure;
         }
         
         public bool IsResetHistoryEnabled()
@@ -216,6 +210,10 @@ namespace Game.Core.PostProcessing
         public override void Render(CommandBuffer cmd, RTHandle source, RTHandle destination, ref RenderingData renderingData)
         {
             PrepareExposurePassData(m_DynamicExposureData, renderingData.cameraData.camera);
+            
+            postProcessData.GrabExposureRequiredTextures(out var prevExposure, out var nextExposure);
+            m_DynamicExposureData.prevExposure = prevExposure;
+            m_DynamicExposureData.nextExposure = nextExposure;
             
             if (settings.mode.value == Exposure.ExposureMode.Fixed)
             {
