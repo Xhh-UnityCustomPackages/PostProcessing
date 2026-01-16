@@ -37,6 +37,13 @@ Shader "Hidden/PostProcessing/ScreenSpaceReflection"
 
             #pragma vertex Vert
             #pragma fragment FragTestHiZ
+
+            float4 FragTestHiZ(Varyings input) : SV_Target
+            {
+                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
+                uint2 positionSS = (uint2)(input.texcoord * _ScreenSize.xy);
+                return ScreenSpaceReflection(positionSS);
+            }
             ENDHLSL
         }
 

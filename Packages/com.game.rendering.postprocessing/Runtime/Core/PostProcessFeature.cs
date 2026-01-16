@@ -104,8 +104,6 @@ namespace Game.Core.PostProcessing
             var postProcessFeatureData = m_Settings.m_PostProcessFeatureData;
             m_Data = new ();
             
-            PyramidBlur.Initialize(postProcessFeatureData.materials.DualBlur);
-            
             Dictionary<string, PostProcessRenderer> shared = new Dictionary<string, PostProcessRenderer>();
             m_BeforeRenderingGBuffer = new PostProcessRenderPass(PostProcessInjectionPoint.BeforeRenderingGBuffer,
                 InstantiateRenderers(m_Settings.m_RenderersBeforeRenderingGBuffer, shared),
@@ -277,18 +275,21 @@ namespace Game.Core.PostProcessing
             m_AfterRenderingSkybox.Dispose(disposing);
             m_BeforeRenderingPostProcessing.Dispose(disposing);
             m_AfterRenderingPostProcessing.Dispose(disposing);
-            m_UberPostProcessing.Dispose();
-            PyramidBlur.Release();
             
+            SafeDispose(ref m_UberPostProcessing);
             SafeDispose(ref m_CopyHistoryColorPass);
-            m_SSShadowsPass?.Dispose();
+            SafeDispose(ref m_SSShadowsPass);
             SafeDispose(ref m_DepthPyramidPass);
             SafeDispose(ref m_ColorPyramidPass);
             SafeDispose(ref m_Data);
             SafeDispose(ref m_SetupPass);
+            
 #if UNITY_EDITOR
-            m_DebugHandler.Dispose();
+            SafeDispose(ref m_DebugHandler);
 #endif
+            
+            // Need call it in URP manually
+            ConstantBuffer.ReleaseAll();
         }
 
 

@@ -6,7 +6,7 @@ using UnityEngine.Rendering.Universal;
 
 namespace Game.Core.PostProcessing
 {
-    public class StencilDebugPass : ScriptableRenderPass
+    public class StencilDebugPass : ScriptableRenderPass, IDisposable
     {
         static class ShaderConstants
         {

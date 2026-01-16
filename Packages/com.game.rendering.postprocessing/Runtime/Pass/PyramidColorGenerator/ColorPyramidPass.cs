@@ -20,14 +20,6 @@ namespace Game.Core.PostProcessing
             m_Data = data;
         }
 
-        public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
-        {
-            if (m_Data.GetCurrentFrameRT((int)FrameHistoryType.ColorBufferMipChain) == null)
-            {
-                m_Data.AllocHistoryFrameRT((int)FrameHistoryType.ColorBufferMipChain, HistoryBufferAllocatorFunction, 1);
-            }
-        }
-
         public void Dispose()
         {
         }
@@ -47,7 +39,11 @@ namespace Game.Core.PostProcessing
         
         public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
         {
-          
+            if (m_Data.GetCurrentFrameRT((int)FrameHistoryType.ColorBufferMipChain) == null)
+            {
+                m_Data.AllocHistoryFrameRT((int)FrameHistoryType.ColorBufferMipChain, HistoryBufferAllocatorFunction, 1);
+            }
+            
             var camera = renderingData.cameraData.camera;
             var cameraColor = renderingData.cameraData.renderer.cameraColorTargetHandle;
             var cmd = CommandBufferPool.Get();

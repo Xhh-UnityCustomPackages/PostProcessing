@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -6,7 +7,7 @@ using UnityEngine.Rendering.Universal;
 
 namespace Game.Core.PostProcessing
 {
-    public class PostProcessingDebugPass : ScriptableRenderPass
+    public class PostProcessingDebugPass : ScriptableRenderPass, IDisposable
     {
         static readonly int k_DebugTextureNoStereoPropertyId = Shader.PropertyToID("_DebugTextureNoStereo");
         static readonly int k_DebugTextureDisplayRect = Shader.PropertyToID("_DebugTextureDisplayRect");

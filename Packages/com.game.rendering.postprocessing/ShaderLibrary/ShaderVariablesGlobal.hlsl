@@ -10,6 +10,7 @@
     float4x4 _GlobalInvViewProjMatrix;
     float4x4 _GlobalPrevInvViewProjMatrix;
 
+    float4 _TaaFrameInfo;
     float4 _ColorPyramidUvScaleAndLimitPrevFrame;
 // CBUFFER_END
 

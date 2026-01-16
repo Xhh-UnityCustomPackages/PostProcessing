@@ -19,7 +19,6 @@ namespace Game.Core.PostProcessing
         private static readonly ProfilingSampler CopyDepthSampler = new("Copy Depth Buffer");
         private static readonly ProfilingSampler DepthPyramidSampler = new("Depth Pyramid");
         
-        private RTHandle m_HiZDepthRT;
         
         private readonly PostProcessData m_Data;
 
@@ -31,20 +30,6 @@ namespace Game.Core.PostProcessing
             
             ConfigureInput(ScriptableRenderPassInput.Depth);
         }
-        
-        public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
-        {
-            var cameraTargetDescriptor = renderingData.cameraData.cameraTargetDescriptor;
-            var mipChainSize = m_Data.DepthMipChainInfo.textureSize;
-            var depthDescriptor = cameraTargetDescriptor;
-            depthDescriptor.enableRandomWrite = true;
-            depthDescriptor.width = mipChainSize.x;
-            depthDescriptor.height = mipChainSize.y;
-            depthDescriptor.graphicsFormat = GraphicsFormat.R32_SFloat;
-            depthDescriptor.depthBufferBits = 0;
-            RenderingUtils.ReAllocateHandleIfNeeded(ref m_HiZDepthRT, depthDescriptor, name: "CameraDepthBufferMipChain");
-            cmd.SetGlobalTexture(PipelineShaderIDs._DepthPyramid, m_HiZDepthRT);
-        }
 
         public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
         {
@@ -55,18 +40,27 @@ namespace Game.Core.PostProcessing
                 cmd.Clear();
 
                 var cameraTargetDescriptor = renderingData.cameraData.cameraTargetDescriptor;
+                var mipChainSize = m_Data.DepthMipChainInfo.textureSize;
+                var depthDescriptor = cameraTargetDescriptor;
+                depthDescriptor.enableRandomWrite = true;
+                depthDescriptor.width = mipChainSize.x;
+                depthDescriptor.height = mipChainSize.y;
+                depthDescriptor.graphicsFormat = GraphicsFormat.R32_SFloat;
+                depthDescriptor.depthBufferBits = 0;
+                RenderingUtils.ReAllocateHandleIfNeeded(ref m_Data.DepthPyramidRT, depthDescriptor, name: "CameraDepthBufferMipChain");
+                cmd.SetGlobalTexture(PipelineShaderIDs._DepthPyramid, m_Data.DepthPyramidRT);
                 
                 // Copy Depth
                 using (new ProfilingScope(cmd, CopyDepthSampler))
                 {
                     var cameraDepth = UniversalRenderingUtility.GetDepthTexture(renderingData.cameraData.renderer);
-                    m_Data.GPUCopy.SampleCopyChannel_xyzw2x(cmd, cameraDepth, m_HiZDepthRT,
+                    m_Data.GPUCopy.SampleCopyChannel_xyzw2x(cmd, cameraDepth, m_Data.DepthPyramidRT,
                         new RectInt(0, 0, cameraTargetDescriptor.width, cameraTargetDescriptor.height));
                 }
                 // Depth Pyramid
                 using (new ProfilingScope(cmd, DepthPyramidSampler))
                 {
-                    m_Data.MipGenerator.RenderMinDepthPyramid(cmd, m_HiZDepthRT, m_Data.DepthMipChainInfo);
+                    m_Data.MipGenerator.RenderMinDepthPyramid(cmd, m_Data.DepthPyramidRT, m_Data.DepthMipChainInfo);
                 }
             }
 
@@ -76,7 +70,6 @@ namespace Game.Core.PostProcessing
 
         public void Dispose()
         {
-            m_HiZDepthRT?.Release();
         }
 
         class CopyDepthPassData
@@ -90,9 +83,9 @@ namespace Game.Core.PostProcessing
         
         class GenerateDepthPyramidPassData
         {
-            public TextureHandle depthTexture;
-            public PackedMipChainInfo mipInfo;
-            public MipGenerator mipGenerator;
+            public TextureHandle DepthPyramidTexture;
+            public PackedMipChainInfo MipInfo;
+            public MipGenerator MipGenerator;
         }
 
         void CopyDepthBufferIfNeeded(RenderGraph renderGraph, RenderTextureDescriptor desc, TextureHandle depthTexture, TextureHandle outDepthTexture)
@@ -137,8 +130,8 @@ namespace Game.Core.PostProcessing
             depthDescriptor.height = mipChainSize.y;
             depthDescriptor.graphicsFormat = GraphicsFormat.R32_SFloat;
             depthDescriptor.depthBufferBits = 0;
-            RenderingUtils.ReAllocateHandleIfNeeded(ref m_HiZDepthRT, depthDescriptor, name: "CameraDepthBufferMipChain");
-            var depthPyramidTexture = renderGraph.ImportTexture(m_HiZDepthRT);
+            RenderingUtils.ReAllocateHandleIfNeeded(ref m_Data.DepthPyramidRT, depthDescriptor, name: "CameraDepthBufferMipChain");
+            var depthPyramidTexture = renderGraph.ImportTexture(m_Data.DepthPyramidRT);
 
             var camerDepthTexture = resourceData.cameraDepthTexture;
             
@@ -147,15 +140,15 @@ namespace Game.Core.PostProcessing
             
             using (var builder = renderGraph.AddUnsafePass<GenerateDepthPyramidPassData>("Generate Depth Buffer MIP Chain", out var passData, DepthPyramidSampler))
             {
-                passData.depthTexture = depthPyramidTexture;
-                passData.mipInfo = m_Data.DepthMipChainInfo;
-                passData.mipGenerator = m_Data.MipGenerator;
+                passData.DepthPyramidTexture = depthPyramidTexture;
+                passData.MipInfo = m_Data.DepthMipChainInfo;
+                passData.MipGenerator = m_Data.MipGenerator;
                 builder.AllowPassCulling(false);
                 builder.SetRenderFunc(
                     (GenerateDepthPyramidPassData data, UnsafeGraphContext context) =>
                     {
                         var cmd = CommandBufferHelpers.GetNativeCommandBuffer(context.cmd);
-                        data.mipGenerator.RenderMinDepthPyramid(cmd, data.depthTexture, data.mipInfo);
+                        data.MipGenerator.RenderMinDepthPyramid(cmd, data.DepthPyramidTexture, data.MipInfo);
                     });
             }
         }

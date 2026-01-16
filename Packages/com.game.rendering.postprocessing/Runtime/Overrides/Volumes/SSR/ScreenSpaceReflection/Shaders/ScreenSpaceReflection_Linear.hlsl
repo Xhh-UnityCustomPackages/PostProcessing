@@ -178,19 +178,20 @@ Result Linear2D_Trace(half3 csOrigin,
 float4 FragTestLinear(Varyings input) : SV_Target
 {
     float2 uv = input.texcoord;
-    float rawDepth = SampleSceneDepth(uv);
-
-    UNITY_BRANCH
-    if (IsInfinityFar(rawDepth))
-    {
-        return half4(0, 0, 0, 0);
-    }
     
     // 多一次采样 可以过滤掉不需要SSR的计算
     bool doesntReceiveSSR = false;
     // uint stencilValue = GetStencilValue(LOAD_TEXTURE2D_X(_StencilTexture, positionSS.xy));
     // doesntReceiveSSR = (stencilValue & STENCIL_USAGE_IS_SSR) == 0;
     if (doesntReceiveSSR)
+    {
+        return half4(0, 0, 0, 0);
+    }
+    
+    float rawDepth = SampleSceneDepth(uv);
+
+    UNITY_BRANCH
+    if (IsInfinityFar(rawDepth))
     {
         return half4(0, 0, 0, 0);
     }
@@ -219,9 +220,9 @@ float4 FragTestLinear(Varyings input) : SV_Target
     float2 ditherUV = input.texcoord * _ScreenParams.xy;
     uint ditherIndex = (uint(ditherUV.x) % 4) * 4 + uint(ditherUV.y) % 4;
     float jitter = 1.0f + (1.0f - dither[ditherIndex]);
-    
+
     float3 hitPointVS = ray.origin;
-    float stepSize = _StepSize * 30;
+    float stepSize = _StepSize * 10;
     Result result = Linear2D_Trace(ray.origin,
                                    ray.direction,
                                    _ScreenSize,

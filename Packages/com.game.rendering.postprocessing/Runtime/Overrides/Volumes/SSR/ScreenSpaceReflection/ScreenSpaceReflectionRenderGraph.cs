@@ -16,6 +16,7 @@ namespace Game.Core.PostProcessing
             public TextureHandle MotionVectorTexture;
             public TextureHandle NormalTexture;
             public TextureHandle GBuffer2;
+            public TextureHandle DepthPyramidTexture;
             // --
             public TextureHandle HitPointTexture;
             public TextureHandle SsrLightingTexture;
@@ -25,7 +26,7 @@ namespace Game.Core.PostProcessing
         
         private struct ScreenSpaceReflectionVariables
         {
-            public Matrix4x4 ProjectionMatrix;
+            // public Matrix4x4 ProjectionMatrix;
             
             public float Intensity;
             public float Thickness;
@@ -68,17 +69,6 @@ namespace Game.Core.PostProcessing
             float roughnessFadeRcpLength = (roughnessFadeLength != 0) ? (1.0f / roughnessFadeLength) : 0;
             float edgeFadeRcpLength = Mathf.Min(1.0f / screenFadeDistance, float.MaxValue);
             
-            var SSR_ProjectionMatrix = GL.GetGPUProjectionMatrix(camera.projectionMatrix, false);
-            var HalfCameraSize = new Vector2(
-                (int)(camera.pixelWidth * 0.5f),
-                (int)(camera.pixelHeight * 0.5f));
-            Matrix4x4 warpToScreenSpaceMatrix = Matrix4x4.identity;
-            warpToScreenSpaceMatrix.m00 = HalfCameraSize.x;
-            warpToScreenSpaceMatrix.m03 = HalfCameraSize.x;
-            warpToScreenSpaceMatrix.m11 = HalfCameraSize.y;
-            warpToScreenSpaceMatrix.m13 = HalfCameraSize.y;
-            Matrix4x4 SSR_ProjectToPixelMatrix = warpToScreenSpaceMatrix * SSR_ProjectionMatrix;
-            
             m_Variables.Intensity = settings.intensity.value;
             m_Variables.Thickness = thickness;
             m_Variables.ThicknessScale = 1.0f / (1.0f + thickness);;
@@ -92,7 +82,6 @@ namespace Game.Core.PostProcessing
             m_Variables.DepthPyramidMaxMip = postProcessData.DepthMipChainInfo.mipLevelCount - 1;
             m_Variables.ColorPyramidMaxMip = postProcessData.ColorPyramidHistoryMipCount - 1;
             m_Variables.DownsamplingDivider = GetScaleFactor();
-            m_Variables.ProjectionMatrix = SSR_ProjectToPixelMatrix;
 
             // PBR properties only be used in compute shader mode
             m_Variables.PBRBias = settings.biasFactor.value;
@@ -113,7 +102,6 @@ namespace Game.Core.PostProcessing
             PrepareVariables(camera);
             m_ScreenSpaceReflectionMaterial.SetVector(ShaderConstants.Params1,
                 new Vector4(settings.vignette.value, 0, settings.maximumMarchDistance.value, settings.maximumIterationCount.value));
-            // m_ScreenSpaceReflectionMaterial.SetMatrix(ShaderConstants.SSR_ProjectionMatrix, m_Variables.ProjectionMatrix);
             m_ScreenSpaceReflectionMaterial.SetFloat(ShaderConstants.SsrIntensity, m_Variables.Intensity);
             m_ScreenSpaceReflectionMaterial.SetFloat(ShaderConstants.Thickness, m_Variables.Thickness);
             m_ScreenSpaceReflectionMaterial.SetFloat(ShaderConstants.SsrThicknessScale, m_Variables.ThicknessScale);
@@ -126,6 +114,7 @@ namespace Game.Core.PostProcessing
             m_ScreenSpaceReflectionMaterial.SetInteger(ShaderConstants.SsrDepthPyramidMaxMip, m_Variables.DepthPyramidMaxMip);
             m_ScreenSpaceReflectionMaterial.SetInteger(ShaderConstants.SsrColorPyramidMaxMip, m_Variables.ColorPyramidMaxMip);
             m_ScreenSpaceReflectionMaterial.SetFloat(ShaderConstants.SsrDownsamplingDivider, m_Variables.DownsamplingDivider);
+            m_ScreenSpaceReflectionMaterial.SetFloat(ShaderConstants.SsrPBRBias, m_Variables.PBRBias);
             
             // -------------------------------------------------------------------------------------------------
             // local shader keywords
@@ -152,12 +141,6 @@ namespace Game.Core.PostProcessing
         {
             float width = desc.width;
             float height = desc.height;
-
-            if (false)
-            {
-                int size = Mathf.ClosestPowerOfTwo(Mathf.Min(m_SSRTestDescriptor.width, m_SSRTestDescriptor.height));
-                width = height = size;
-            }
             
             float scaleFactor = GetScaleFactor(); 
             width *= scaleFactor;
@@ -240,7 +223,13 @@ namespace Game.Core.PostProcessing
 
                 passData.CameraColorTexture = colorPyramidTexture;
                 builder.UseTexture(colorPyramidTexture, AccessFlags.ReadWrite);
-                
+
+                if (settings.mode.value == ScreenSpaceReflection.RaytraceModes.HiZTracing)
+                {
+                    var depthPyramidTexture = renderGraph.ImportTexture(postProcessData.DepthPyramidRT);
+                    passData.DepthPyramidTexture = depthPyramidTexture;
+                }
+
                 builder.UseTexture(source, AccessFlags.Read);
                 
                 builder.AllowPassCulling(false);
@@ -252,10 +241,22 @@ namespace Game.Core.PostProcessing
                     using (new ProfilingScope(cmd, m_TracingSampler))
                     {
                         var propertyBlock = new MaterialPropertyBlock();
-                        propertyBlock.SetTexture(ShaderConstants._CameraDepthTexture, data.DepthTexture);
                         propertyBlock.SetVector(ShaderConstants._BlitScaleBias, new Vector4(1, 1, 0, 0));
+
                         cmd.SetRenderTarget(data.HitPointTexture);
-                        cmd.DrawProcedural(Matrix4x4.identity, data.Material, (int)ShaderPasses.Test, MeshTopology.Triangles, 3, 1, propertyBlock);
+                        if (settings.mode.value == ScreenSpaceReflection.RaytraceModes.LinearTracing)
+                        {
+                            propertyBlock.SetTexture(ShaderConstants._CameraDepthTexture, data.DepthTexture);
+                            cmd.DrawProcedural(Matrix4x4.identity, data.Material, (int)ShaderPasses.Test, MeshTopology.Triangles, 3, 1, propertyBlock);
+                        }
+                        else
+                        {
+                            propertyBlock.SetTexture(PipelineShaderIDs._DepthPyramid, data.DepthPyramidTexture);
+                            propertyBlock.SetTexture(ShaderConstants._GBuffer2, data.GBuffer2);
+                            var offsetBuffer = postProcessData.DepthMipChainInfo.GetOffsetBufferData(postProcessData.DepthPyramidMipLevelOffsetsBuffer);
+                            SharedPropertyBlock.SetBuffer(ShaderConstants._DepthPyramidMipLevelOffsets, offsetBuffer);
+                            cmd.DrawProcedural(Matrix4x4.identity, data.Material, (int)ShaderPasses.HizTest, MeshTopology.Triangles, 3, 1, propertyBlock);
+                        }
                     }
 
                     using (new ProfilingScope(cmd, m_ReprojectionSampler))

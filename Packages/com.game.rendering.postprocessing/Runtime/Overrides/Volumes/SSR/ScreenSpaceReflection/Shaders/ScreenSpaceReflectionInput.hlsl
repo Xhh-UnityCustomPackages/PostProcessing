@@ -48,6 +48,9 @@ float SEPARATION_POS;
 #define SSR_ATTENUATION_SCALE (1.0 - SSR_MINIMUM_ATTENUATION)
 #define SSR_VIGNETTE_SMOOTHNESS 5.
 
+#define MIN_GGX_ROUGHNESS           0.00001f
+#define MAX_GGX_ROUGHNESS           0.99999f
+
 // 外面的thickness被当作了步长在用, 实际的thickness写死了
 #define LINEAR_TRACE_2D_THICKNESS              0.1
 
@@ -110,6 +113,25 @@ float PerceptualRoughnessFade(float perceptualRoughness, float fadeRcpLength, fl
 {
     float t = Remap10(perceptualRoughness, fadeRcpLength, fadeEndTimesRcpLength);
     return Smoothstep01(t);
+}
+
+float GetPerceptualSmoothness(uint2 positionSS)
+{
+    half4 gbuffer2 = LOAD_TEXTURE2D_X(_GBuffer2, positionSS);
+    return gbuffer2.a;
+}
+
+// Weight for SSR where Fresnel == 1 (returns value/pdf)
+float GetSSRSampleWeight(float3 V, float3 L, float roughness)
+{
+    // Simplification:
+    // value = D_GGX / (lambdaVPlusOne + lambdaL);
+    // pdf = D_GGX / lambdaVPlusOne;
+
+    const float lambdaVPlusOne = Lambda_GGX(roughness, V) + 1.0;
+    const float lambdaL = Lambda_GGX(roughness, L);
+
+    return lambdaVPlusOne / (lambdaVPlusOne + lambdaL);
 }
 
 #endif // SCREEN_SPACE_REFLECTION_INCLUDED

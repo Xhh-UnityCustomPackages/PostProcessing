@@ -12,6 +12,7 @@ namespace Game.Core.PostProcessing.UnityEditor
     public class ScreenSpaceReflectionEditor : VolumeComponentEditor
     {
         private SerializedDataParameter Enable;
+        private SerializedDataParameter visibleInSceneView;
         private SerializedDataParameter mode;
         private SerializedDataParameter usedAlgorithm;
         private SerializedDataParameter enableMipmap;
@@ -23,7 +24,6 @@ namespace Game.Core.PostProcessing.UnityEditor
         private SerializedDataParameter smoothnessFadeStart;
         private SerializedDataParameter maximumIterationCount;
         private SerializedDataParameter maximumMarchDistance;
-        // private SerializedDataParameter distanceFade;
         private SerializedDataParameter vignette;
         
         private SerializedDataParameter debugMode;
@@ -35,6 +35,7 @@ namespace Game.Core.PostProcessing.UnityEditor
         {
             var o = new PropertyFetcher<ScreenSpaceReflection>(serializedObject);
             Enable = Unpack(o.Find(x => x.Enable));
+            visibleInSceneView = Unpack(o.Find(x => x.visibleInSceneView));
             mode = Unpack(o.Find(x => x.mode));
             usedAlgorithm = Unpack(o.Find(x => x.usedAlgorithm));
             enableMipmap = Unpack(o.Find(x => x.enableMipmap));
@@ -46,7 +47,6 @@ namespace Game.Core.PostProcessing.UnityEditor
             smoothnessFadeStart = Unpack(o.Find(x => x.smoothnessFadeStart));
             maximumIterationCount = Unpack(o.Find(x => x.maximumIterationCount));
             maximumMarchDistance = Unpack(o.Find(x => x.maximumMarchDistance));
-            // distanceFade = Unpack(o.Find(x => x.distanceFade));
             vignette = Unpack(o.Find(x => x.vignette));
             debugMode = Unpack(o.Find(x => x.debugMode));
             split = Unpack(o.Find(x => x.split));
@@ -62,22 +62,10 @@ namespace Game.Core.PostProcessing.UnityEditor
                 m_ScreenSpaceReflection.ApplyPreset(ScreenSpaceReflection.Preset.Fast);
                 EditorUtility.SetDirty(target);
             }
-
-            if (GUILayout.Button("Medium"))
-            {
-                m_ScreenSpaceReflection.ApplyPreset(ScreenSpaceReflection.Preset.Medium);
-                EditorUtility.SetDirty(target);
-            }
             
             if (GUILayout.Button("High"))
             {
                 m_ScreenSpaceReflection.ApplyPreset(ScreenSpaceReflection.Preset.High);
-                EditorUtility.SetDirty(target);
-            }
-            
-            if (GUILayout.Button("Superb"))
-            {
-                m_ScreenSpaceReflection.ApplyPreset(ScreenSpaceReflection.Preset.Superb);
                 EditorUtility.SetDirty(target);
             }
             
@@ -95,30 +83,33 @@ namespace Game.Core.PostProcessing.UnityEditor
             m_ScreenSpaceReflection = (ScreenSpaceReflection)target;
             
             PropertyField(Enable);
+            PropertyField(visibleInSceneView);
             PropertyField(mode);
             PropertyField(usedAlgorithm);
             PropertyField(enableMipmap);
             PropertyField(intensity);
             PropertyField(minSmoothness);
             PropertyField(smoothnessFadeStart);
-            // PropertyField(distanceFade);
             PropertyField(vignette);
             
             EditorGUILayout.Space(10);
             PresetUI();
             PropertyField(resolution);
             PropertyField(maximumIterationCount);
-            PropertyField(stepSize);
+            
+            if (mode.value.GetEnumValue<ScreenSpaceReflection.RaytraceModes>() == ScreenSpaceReflection.RaytraceModes.LinearTracing)
+            {
+                PropertyField(stepSize);
+                PropertyField(maximumMarchDistance);
+            }
+
             PropertyField(thickness);
-            PropertyField(maximumMarchDistance);
             
             PropertyField(debugMode);
             if (debugMode.value.GetEnumValue<ScreenSpaceReflection.DebugMode>() == ScreenSpaceReflection.DebugMode.Split)
             {
                 PropertyField(split);
             }
-
-            
             
             m_ScreenSpaceReflection.smoothnessFadeStart.value = Mathf.Max(m_ScreenSpaceReflection.minSmoothness.value, m_ScreenSpaceReflection.smoothnessFadeStart.value);
         }

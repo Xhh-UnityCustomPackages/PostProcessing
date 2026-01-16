@@ -7,9 +7,6 @@
 #include "Packages/com.game.rendering.postprocessing/ShaderLibrary/BilateralFilter.hlsl"
 #include "Packages/com.game.rendering.postprocessing/ShaderLibrary/ShaderVariablesGlobal.hlsl"
 
-#define MIN_GGX_ROUGHNESS           0.00001f
-#define MAX_GGX_ROUGHNESS           0.99999f
-
 #if SSR_USE_COLOR_PYRAMID
 #define ColorPyramidUvScaleAndLimitPrevFrame _ColorPyramidUvScaleAndLimitPrevFrame
 #else
@@ -63,12 +60,6 @@ float4 FragSSRAccumulation(Varyings input) : SV_Target
     return float4(blendedColor, 1);
 }
 
-float GetPerceptualSmoothness(uint2 positionSS)
-{
-    half4 gbuffer2 = LOAD_TEXTURE2D_X(_GBuffer2, positionSS);
-    return gbuffer2.a;
-}
-
 //--------------------------------------------------------------------------------------------------
 // Helpers
 //--------------------------------------------------------------------------------------------------
@@ -88,19 +79,6 @@ float Vignette(float2 uv)
     float2 k = abs(uv - 0.5) * _VignetteIntensity;
     k.x *= _ScreenSize.w * _ScreenSize.x;
     return pow(saturate(1.0 - dot(k, k)), SSR_VIGNETTE_SMOOTHNESS);
-}
-
-// Weight for SSR where Fresnel == 1 (returns value/pdf)
-float GetSSRSampleWeight(float3 V, float3 L, float roughness)
-{
-    // Simplification:
-    // value = D_GGX / (lambdaVPlusOne + lambdaL);
-    // pdf = D_GGX / lambdaVPlusOne;
-
-    const float lambdaVPlusOne = Lambda_GGX(roughness, V) + 1.0;
-    const float lambdaL = Lambda_GGX(roughness, L);
-
-    return lambdaVPlusOne / (lambdaVPlusOne + lambdaL);
 }
 
 float Normalize01(float value, float minValue, float maxValue)

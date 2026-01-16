@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -8,7 +9,7 @@ using UnityEngine.Experimental.Rendering;
 
 namespace Game.Core.PostProcessing
 {
-    public partial class UberPostProcess : ScriptableRenderPass
+    public partial class UberPostProcess : ScriptableRenderPass, IDisposable
     {
         private static readonly ProfilingSampler m_ProfilingRenderPostProcessing = new ProfilingSampler("PostProcessRenderPass Uber Post Process");
 

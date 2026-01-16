@@ -15,9 +15,10 @@ namespace Game.Core.PostProcessing
             displayName = "屏幕空间反射 (Screen Space Reflection)";
         }
         
-        public BoolParameter Enable = new BoolParameter(false);
-        
         public override bool IsActive() => Enable.value;
+        
+        public BoolParameter Enable = new (false);
+        public BoolParameter visibleInSceneView = new(true);
         
         [Tooltip("模式")] 
         public EnumParameter<RaytraceModes> mode = new(RaytraceModes.LinearTracing);
@@ -54,7 +55,7 @@ namespace Game.Core.PostProcessing
         [Tooltip("追踪步长, 越大精度越低, 追踪范围越大, 越节省追踪次数")]
         public ClampedFloatParameter stepSize = new(0.1f, 0f, 1f);
         
-        public ClampedFloatParameter thickness = new(0.1f, 0.05f, 1f);
+        public ClampedFloatParameter thickness = new(0.1f, 0.001f, 1f);
         
         [Tooltip("最大追踪距离")]
         public MinFloatParameter maximumMarchDistance = new(100f, 0f);
@@ -127,9 +128,7 @@ namespace Game.Core.PostProcessing
         public enum Preset
         {
             Fast = 10,
-            Medium = 20,
             High = 30,
-            Superb = 35,
             Ultra = 40
         }
 
@@ -140,27 +139,39 @@ namespace Game.Core.PostProcessing
                 case Preset.Fast:
                     resolution.value = Resolution.Half;
                     stepSize.value = 1.0f;
-                    maximumIterationCount.value = 16;
-                    break;
-                case Preset.Medium:
-                    resolution.value = Resolution.Half;
-                    stepSize.value = 2.5f;
-                    maximumIterationCount.value = 32;
+                    if (mode == RaytraceModes.HiZTracing)
+                    {
+                        maximumIterationCount.value = 30;
+                    }
+                    else
+                    {
+                        maximumIterationCount.value = 16;
+                    }
                     break;
                 case Preset.High:
                     resolution.value = Resolution.Full;
                     stepSize.value = 3f;
-                    maximumIterationCount.value = 64;
-                    break;
-                case Preset.Superb:
-                    resolution.value = Resolution.Full;
-                    stepSize.value = 6f;
-                    maximumIterationCount.value = 128;
+                    if (mode == RaytraceModes.HiZTracing)
+                    {
+                        maximumIterationCount.value = 50;
+                    }
+                    else
+                    {
+                        maximumIterationCount.value = 64;
+                    }
                     break;
                 case Preset.Ultra:
                     resolution.value = Resolution.Full;
                     stepSize.value = 4f;
-                    maximumIterationCount.value = 256;
+                    if (mode == RaytraceModes.HiZTracing)
+                    {
+                        maximumIterationCount.value = 70;
+                    }
+                    else
+                    {
+                        maximumIterationCount.value = 256;
+                    }
+
                     break;
             }
         }

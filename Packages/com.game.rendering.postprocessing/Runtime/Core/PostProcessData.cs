@@ -30,6 +30,7 @@ namespace Game.Core.PostProcessing
     public partial class PostProcessData : IDisposable
     {
         private uint m_FrameCount = 0;
+        private int m_TaaFrameIndex;
         public uint FrameCount => m_FrameCount;
         
         private struct ShaderVariablesGlobal
@@ -38,6 +39,9 @@ namespace Game.Core.PostProcessing
             public Matrix4x4 ViewProjMatrix;
             public Matrix4x4 InvViewProjMatrix;
             public Matrix4x4 PrevInvViewProjMatrix;
+            
+            // TAA Frame Index ranges from 0 to 7.
+            public Vector4 TaaFrameInfo;  // { unused, frameCount, taaFrameIndex, taaEnabled ? 1 : 0 }
             
             public Vector4 ColorPyramidUvScaleAndLimitPrevFrame;
         }
@@ -61,6 +65,20 @@ namespace Game.Core.PostProcessing
         /// </summary>
         public RTHandle DepthPyramidRT;
         
+        ComputeBuffer m_DepthPyramidMipLevelOffsetsBuffer = null;
+        public ComputeBuffer DepthPyramidMipLevelOffsetsBuffer
+        {
+            get
+            {
+                if (m_DepthPyramidMipLevelOffsetsBuffer == null)
+                {
+                    m_DepthPyramidMipLevelOffsetsBuffer = new ComputeBuffer(15, sizeof(int) * 2);
+                }
+
+                return m_DepthPyramidMipLevelOffsetsBuffer;
+            }
+        }
+
         private PackedMipChainInfo m_DepthBufferMipChainInfo = new();
         public PackedMipChainInfo DepthMipChainInfo => m_DepthBufferMipChainInfo;
 
@@ -71,8 +89,10 @@ namespace Game.Core.PostProcessing
         
         float m_ScreenSpaceAccumulationResolutionScale = 0.0f; // Use another scale if AO & SSR don't have the same resolution
 
+        private PostProcessFeatureRuntimeTextures m_RuntimeTexture;
         public PostProcessData()
         {
+            m_RuntimeTexture = GraphicsSettings.GetRenderPipelineSettings<PostProcessFeatureRuntimeTextures>();
             GPUCopy = new GPUCopy();
             MipGenerator = new MipGenerator();
             m_DepthBufferMipChainInfo.Allocate();
@@ -86,6 +106,10 @@ namespace Game.Core.PostProcessing
             m_HistoryRTSystem.Dispose();
             CameraPreviousColorTextureRT?.Release();
             ColorPyramidHistoryMipCount = 1;
+            
+            DepthPyramidRT?.Release();
+            CoreUtils.SafeRelease(m_DepthPyramidMipLevelOffsetsBuffer);
+            
             // Exposure
             RTHandles.Release(m_EmptyExposureTexture);
             m_EmptyExposureTexture = null;
@@ -101,6 +125,8 @@ namespace Game.Core.PostProcessing
             m_GrayTextureRTHandle = null;
         }
 
+        #region Update
+        
         public void Update(ref RenderingData renderingData)
         {
             m_FrameCount++;
@@ -182,7 +208,7 @@ namespace Game.Core.PostProcessing
         {
             m_Exposure = VolumeManager.instance.stack.GetComponent<Exposure>();
         }
-
+        #endregion
 
         #region GlobalVariables
         
@@ -195,18 +221,15 @@ namespace Game.Core.PostProcessing
         internal void PushGlobalBuffers(CommandBuffer cmd, ref RenderingData renderingData)
         {
             // PushShadowData(cmd);
-            PushGlobalVariables(cmd, ref renderingData);
-        }
-        
-        private void PushGlobalVariables(CommandBuffer cmd, ref RenderingData renderingData)
-        {
             PrepareGlobalVariables(ref renderingData);
             ConstantBuffer.PushGlobal(cmd, m_ShaderVariablesGlobal, PipelineShaderIDs.ShaderVariablesGlobal);
+            cmd.SetGlobalVector(PipelineShaderIDs._TaaFrameInfo, m_ShaderVariablesGlobal.TaaFrameInfo);
             cmd.SetGlobalVector(PipelineShaderIDs._ColorPyramidUvScaleAndLimitPrevFrame, m_ShaderVariablesGlobal.ColorPyramidUvScaleAndLimitPrevFrame);
         }
 
-        private void PrepareGlobalVariables(ref RenderingData renderingData, RTHandle rtHandle = null)
+        private void PrepareGlobalVariables(ref RenderingData renderingData)
         {
+            bool useTAA = renderingData.cameraData.IsTemporalAAEnabled(); // Disable in scene view
             // Match HDRP View Projection Matrix, pre-handle reverse z.
             m_ShaderVariablesGlobal.ViewMatrix = renderingData.cameraData.camera.worldToCameraMatrix;
             
@@ -215,11 +238,48 @@ namespace Game.Core.PostProcessing
             var lastInvViewProjMatrix = m_ShaderVariablesGlobal.InvViewProjMatrix;
             m_ShaderVariablesGlobal.InvViewProjMatrix = m_ShaderVariablesGlobal.ViewProjMatrix.inverse;
             m_ShaderVariablesGlobal.PrevInvViewProjMatrix = FrameCount > 1 ? m_ShaderVariablesGlobal.InvViewProjMatrix : lastInvViewProjMatrix;
+            
+            const int kMaxSampleCount = 8;
+            if (++m_TaaFrameIndex >= kMaxSampleCount)
+                m_TaaFrameIndex = 0;
+            m_ShaderVariablesGlobal.TaaFrameInfo = new Vector4(0, m_TaaFrameIndex, FrameCount, useTAA ? 1 : 0);
             m_ShaderVariablesGlobal.ColorPyramidUvScaleAndLimitPrevFrame
                 = PostProcessingUtils.ComputeViewportScaleAndLimit(m_HistoryRTSystem.rtHandleProperties.previousViewportSize,
                     m_HistoryRTSystem.rtHandleProperties.previousRenderTargetSize);
         }
 
+        #region RenderGraph
+
+        internal void PushGlobalBuffers(CommandBuffer cmd, UniversalCameraData cameraData, UniversalLightData lightData)
+        {
+            PrepareGlobalVariables(cameraData, false);
+            ConstantBuffer.PushGlobal(cmd, m_ShaderVariablesGlobal, PipelineShaderIDs.ShaderVariablesGlobal);
+            cmd.SetGlobalVector(PipelineShaderIDs._TaaFrameInfo, m_ShaderVariablesGlobal.TaaFrameInfo);
+            cmd.SetGlobalVector(PipelineShaderIDs._ColorPyramidUvScaleAndLimitPrevFrame, m_ShaderVariablesGlobal.ColorPyramidUvScaleAndLimitPrevFrame);
+        }
+
+        private void PrepareGlobalVariables(UniversalCameraData cameraData, bool yFlip)
+        {
+            bool useTAA = cameraData.IsTemporalAAEnabled(); // Disable in scene view
+            // Match HDRP View Projection Matrix, pre-handle reverse z.
+            m_ShaderVariablesGlobal.ViewMatrix = cameraData.camera.worldToCameraMatrix;
+            
+            m_ShaderVariablesGlobal.ViewProjMatrix = PostProcessingUtils.CalculateViewProjMatrix(cameraData, yFlip);
+            
+            var lastInvViewProjMatrix = m_ShaderVariablesGlobal.InvViewProjMatrix;
+            m_ShaderVariablesGlobal.InvViewProjMatrix = m_ShaderVariablesGlobal.ViewProjMatrix.inverse;
+            m_ShaderVariablesGlobal.PrevInvViewProjMatrix = FrameCount > 1 ? m_ShaderVariablesGlobal.InvViewProjMatrix : lastInvViewProjMatrix;
+            
+            const int kMaxSampleCount = 8;
+            if (++m_TaaFrameIndex >= kMaxSampleCount)
+                m_TaaFrameIndex = 0;
+            m_ShaderVariablesGlobal.TaaFrameInfo = new Vector4(0, m_TaaFrameIndex, FrameCount, useTAA ? 1 : 0);
+            m_ShaderVariablesGlobal.ColorPyramidUvScaleAndLimitPrevFrame
+                = PostProcessingUtils.ComputeViewportScaleAndLimit(m_HistoryRTSystem.rtHandleProperties.previousViewportSize,
+                    m_HistoryRTSystem.rtHandleProperties.previousRenderTargetSize);
+        }
+
+        #endregion
 
         #endregion
         
@@ -296,5 +356,22 @@ namespace Game.Core.PostProcessing
         }
         
         #endregion
+        
+        
+        public void BindDitheredRNGData1SPP(CommandBuffer cmd)
+        {
+            cmd.SetGlobalTexture(PipelineShaderIDs._OwenScrambledTexture, m_RuntimeTexture.owenScrambled256Tex);
+            cmd.SetGlobalTexture(PipelineShaderIDs._ScramblingTileXSPP, m_RuntimeTexture.scramblingTile1SPP);
+            cmd.SetGlobalTexture(PipelineShaderIDs._RankingTileXSPP, m_RuntimeTexture.rankingTile1SPP);
+            cmd.SetGlobalTexture(PipelineShaderIDs._ScramblingTexture, m_RuntimeTexture.scramblingTex);
+        }
+        
+        public void BindDitheredRNGData8SPP(CommandBuffer cmd)
+        {
+            cmd.SetGlobalTexture(PipelineShaderIDs._OwenScrambledTexture, m_RuntimeTexture.owenScrambled256Tex);
+            cmd.SetGlobalTexture(PipelineShaderIDs._ScramblingTileXSPP, m_RuntimeTexture.scramblingTile8SPP);
+            cmd.SetGlobalTexture(PipelineShaderIDs._RankingTileXSPP, m_RuntimeTexture.rankingTile8SPP);
+            cmd.SetGlobalTexture(PipelineShaderIDs._ScramblingTexture, m_RuntimeTexture.scramblingTex);
+        }
     }
 }

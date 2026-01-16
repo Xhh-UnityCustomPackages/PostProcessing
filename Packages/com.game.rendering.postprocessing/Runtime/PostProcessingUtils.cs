@@ -50,32 +50,26 @@ namespace Game.Core.PostProcessing
                 ComputeViewportLimit(viewportSize.y, bufferSize.y));                // Limit(y)
         }
         
-        public static Matrix4x4 CalculateNonJitterViewProjMatrix(ref CameraData cameraData)
+        public static Matrix4x4 GetGPUProjectionMatrix(UniversalCameraData cameraData, bool yFlip, int viewIndex = 0)
         {
-            Matrix4x4 viewMat = cameraData.GetViewMatrix();
-            Matrix4x4 projMat = cameraData.GetGPUProjectionMatrixNoJitter();
-            return math.mul(projMat, viewMat);
-        }
-        
-        public static float4x4 CalculateViewProjMatrix(ref UniversalCameraData cameraData, RTHandle color)
-        {
-            float4x4 viewMat = cameraData.GetViewMatrix();
-            float4x4 projMat = GetGPUProjectionMatrix(ref cameraData, color);
-            return math.mul(projMat, viewMat);
-        }
-
-        private static Matrix4x4 GetGPUProjectionMatrix(ref UniversalCameraData cameraData, RTHandle color, int viewIndex = 0)
-        {
-            TemporalAA.JitterFunc jitterFunc = cameraData.IsSTPEnabled() ? StpUtils.s_JitterFunc : TemporalAA.s_JitterFunc;
+            TemporalAA.JitterFunc jitterFunc;
+            jitterFunc = cameraData.IsSTPEnabled() ? StpUtils.s_JitterFunc : TemporalAA.s_JitterFunc;
             Matrix4x4 jitterMat = TemporalAA.CalculateJitterMatrix(cameraData, jitterFunc);
             // GetGPUProjectionMatrix takes a projection matrix and returns a GfxAPI adjusted version, does not set or get any state.
-            return jitterMat * GL.GetGPUProjectionMatrix(cameraData.GetProjectionMatrixNoJitter(viewIndex), cameraData.IsRenderTargetProjectionMatrixFlipped(color));
+            return jitterMat * GL.GetGPUProjectionMatrix(cameraData.GetProjectionMatrixNoJitter(viewIndex), yFlip);
         }
                 
         public static float4x4 CalculateViewProjMatrix(ref CameraData cameraData)
         {
             float4x4 viewMat = cameraData.GetViewMatrix();
             float4x4 projMat = cameraData.GetGPUProjectionMatrix();
+            return math.mul(projMat, viewMat);
+        }
+        
+        public static float4x4 CalculateViewProjMatrix(UniversalCameraData cameraData, bool yFlip)
+        {
+            float4x4 viewMat = cameraData.GetViewMatrix();
+            float4x4 projMat = GetGPUProjectionMatrix(cameraData, yFlip);
             return math.mul(projMat, viewMat);
         }
         

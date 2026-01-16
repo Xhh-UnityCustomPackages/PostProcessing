@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -10,7 +11,7 @@ using UnityEditor;
 
 namespace Game.Core.PostProcessing
 {
-    public class DebugHandler
+    public class DebugHandler : IDisposable
     {
         DebugDisplaySettingsPostProcessing m_PostProcessingSetting;
         private PostProcessingDebugPass m_DebugPass;

@@ -19,7 +19,14 @@ namespace Game.Core.PostProcessing
         public static readonly int _MotionVectorTexture = MemberNameHelpers.ShaderPropertyID();
         
         public static readonly int ShaderVariablesGlobal = MemberNameHelpers.ShaderPropertyID();
+        public static readonly int _TaaFrameInfo = MemberNameHelpers.ShaderPropertyID();
         public static readonly int _ColorPyramidUvScaleAndLimitPrevFrame = MemberNameHelpers.ShaderPropertyID();
+        
+        
+        public static readonly int _OwenScrambledTexture = MemberNameHelpers.ShaderPropertyID();
+        public static readonly int _ScramblingTileXSPP = MemberNameHelpers.ShaderPropertyID();
+        public static readonly int _RankingTileXSPP = MemberNameHelpers.ShaderPropertyID();
+        public static readonly int _ScramblingTexture = MemberNameHelpers.ShaderPropertyID();
     }
 
     public static class PostProcessingRenderPassEvent

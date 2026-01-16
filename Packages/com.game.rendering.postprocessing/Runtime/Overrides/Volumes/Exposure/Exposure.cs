@@ -13,6 +13,10 @@ namespace Game.Core.PostProcessing
             displayName = "曝光 (Exposure)";
         }
 
+        public BoolParameter Enable = new (false);
+        
+        public override bool IsActive() => Enable.value;
+        
         [Tooltip("Specifies the method that URP uses to process exposure.")]
         public EnumParameter<ExposureMode> mode = new(ExposureMode.Fixed);
 
@@ -165,9 +169,6 @@ namespace Game.Core.PostProcessing
         /// Sets the softness of the mask, the higher the value the less influence is given to pixels at the edge of the mask.
         /// </summary>
         public NoInterpMinFloatParameter proceduralSoftness = new(0.5f, 0.0f);
-        
-
-        public override bool IsActive() => true;
         
         public void ComputeProceduralMeteringParams(Camera camera, out Vector4 proceduralParams1, out Vector4 proceduralParams2)
         {

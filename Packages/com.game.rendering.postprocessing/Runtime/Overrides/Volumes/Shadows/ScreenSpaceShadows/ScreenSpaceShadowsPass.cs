@@ -7,7 +7,7 @@ using UnityEngine.Rendering.Universal;
 
 namespace Game.Core.PostProcessing
 {
-    public class ScreenSpaceShadowsPass : ScriptableRenderPass
+    public class ScreenSpaceShadowsPass : ScriptableRenderPass, IDisposable
     {
          // Private Variables
          private Material m_Material;
