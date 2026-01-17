@@ -19,6 +19,7 @@ namespace Game.Core.PostProcessing
             public static readonly int Thickness = Shader.PropertyToID("_Thickness");
             public static readonly int SsrThicknessScale = Shader.PropertyToID("_SsrThicknessScale");
             public static readonly int SsrThicknessBias = Shader.PropertyToID("_SsrThicknessBias");
+            public static readonly int Steps = Shader.PropertyToID("_Steps");
             public static readonly int StepSize = Shader.PropertyToID("_StepSize");
             public static readonly int SsrDepthPyramidMaxMip = Shader.PropertyToID("_SsrDepthPyramidMaxMip");
             public static readonly int SsrColorPyramidMaxMip = Shader.PropertyToID("_SsrColorPyramidMaxMip");
@@ -83,21 +84,20 @@ namespace Game.Core.PostProcessing
         RenderTextureDescriptor m_SSRColorDescriptor;
         readonly string[] m_ShaderKeywords = new string[3];
         Material m_ScreenSpaceReflectionMaterial;
-        private readonly MaterialPropertyBlock SharedPropertyBlock = new();
         private ComputeShader m_ComputeShader;
-        private bool m_TracingInCS;
+        private bool m_UseCS;
 
         RTHandle m_SsrHitPointRT;
         RTHandle m_SsrLightingRT;
         private bool m_NeedAccumulate; //usePBRAlgo
         private float m_ScreenSpaceAccumulationResolutionScale;
         
-        private readonly int m_AccumulateNoWorldSpeedRejectionBothKernel;
-        private readonly int m_AccumulateSmoothSpeedRejectionBothKernel;
-        private readonly int m_AccumulateNoWorldSpeedRejectionBothDebugKernel;
-        private readonly int m_AccumulateSmoothSpeedRejectionBothDebugKernel;
-        
-      
+        private int m_AccumulateNoWorldSpeedRejectionBothKernel;
+        private int m_AccumulateSmoothSpeedRejectionBothKernel;
+        private int m_AccumulateNoWorldSpeedRejectionBothDebugKernel;
+        private int m_AccumulateSmoothSpeedRejectionBothDebugKernel;
+        private int m_TracingKernel;
+        private int m_ReprojectionKernel;
 
         private readonly ProfilingSampler m_TracingSampler = new("SSR Tracing");
         private readonly ProfilingSampler m_ReprojectionSampler = new("SSR Reprojection");
@@ -136,11 +136,24 @@ namespace Game.Core.PostProcessing
             {
                 m_ComputeShader = GraphicsSettings.GetRenderPipelineSettings<ScreenSpaceReflectionResources>().screenSpaceReflectionCS;
             }
+            
+            m_TracingKernel = m_ComputeShader.FindKernel("ScreenSpaceReflectionCS");
+            m_ReprojectionKernel = m_ComputeShader.FindKernel("ScreenSpaceReflectionReprojectionCS");
         }
 
-        public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
+        public override void Render(CommandBuffer cmd, RTHandle source, RTHandle target, ref RenderingData renderingData)
         {
+            ref var cameraData = ref renderingData.cameraData;
+           
+            m_UseCS = settings.useComputeShader.value;
+            
             GetSSRDesc(renderingData.cameraData.cameraTargetDescriptor);
+
+            if (m_UseCS)
+            {
+                m_SSRTestDescriptor.enableRandomWrite = true;
+                m_SSRColorDescriptor.enableRandomWrite = true;
+            }
 
             RenderingUtils.ReAllocateHandleIfNeeded(ref m_SsrHitPointRT, m_SSRTestDescriptor, FilterMode.Point, name: "SSR_Hit_Point_Texture");
             RenderingUtils.ReAllocateHandleIfNeeded(ref m_SsrLightingRT, m_SSRColorDescriptor, FilterMode.Bilinear, name: "SSR_Lighting_Texture");
@@ -152,37 +165,47 @@ namespace Game.Core.PostProcessing
             {
                 postProcessData.AllocateScreenSpaceAccumulationHistoryBuffer(GetScaleFactor());
             }
-        }
+            
 
-        public override void Render(CommandBuffer cmd, RTHandle source, RTHandle target, ref RenderingData renderingData)
-        {
-            ref var cameraData = ref renderingData.cameraData;
-            SetupMaterials(renderingData.cameraData.camera);
+            var cameraDepthTexture = cameraData.renderer.cameraDepthTargetHandle;
+            var gbuffer = UniversalRenderingUtility.GetGBuffer(renderingData.cameraData.renderer);
             
             using (new ProfilingScope(cmd, m_TracingSampler))
             {
                 postProcessData.BindDitheredRNGData1SPP(cmd);
                 
-                if (m_TracingInCS)
+                if (m_UseCS)
                 {
+                    ConstantBuffer.Push(cmd, m_Variables, m_ComputeShader, ShaderConstants.ShaderVariablesScreenSpaceReflection);
+                    var offsetBuffer = postProcessData.DepthMipChainInfo.GetOffsetBufferData(postProcessData.DepthPyramidMipLevelOffsetsBuffer);
+                    
+                    //只支持HiZ模式
+                    cmd.SetComputeBufferParam(m_ComputeShader, m_TracingKernel, ShaderConstants._DepthPyramidMipLevelOffsets, offsetBuffer);
+                    // cmd.SetComputeTextureParam(m_ComputeShader, m_TracingKernel, ShaderConstants._CameraDepthTexture, cameraDepthTexture, 0, RenderTextureSubElement.Stencil);
+                    cmd.SetComputeTextureParam(m_ComputeShader, m_TracingKernel, ShaderConstants._GBuffer2, gbuffer[2]);
+                    cmd.SetComputeTextureParam(m_ComputeShader, m_TracingKernel, ShaderConstants.SsrHitPointTexture, m_SsrHitPointRT);
+                    
+                    int groupsX = PostProcessingUtils.DivRoundUp(m_SSRTestDescriptor.width, 8);
+                    int groupsY = PostProcessingUtils.DivRoundUp(m_SSRTestDescriptor.height, 8);
+                    cmd.DispatchCompute(m_ComputeShader, m_TracingKernel, groupsX, groupsY, 1);
                 }
                 else
                 { 
-                    SharedPropertyBlock.Clear();
+                    var propertyBlock = new MaterialPropertyBlock();
                     // We need to set the "_BlitScaleBias" uniform for user materials with shaders relying on core Blit.hlsl to work
-                    SharedPropertyBlock.SetVector(ShaderConstants._BlitScaleBias, new Vector4(1, 1, 0, 0));
-                    
+                    propertyBlock.SetVector(ShaderConstants._BlitScaleBias, new Vector4(1, 1, 0, 0));
+                    SetupMaterials(propertyBlock, renderingData.cameraData.camera);
                     cmd.SetRenderTarget(m_SsrHitPointRT);
                     if (settings.mode.value == ScreenSpaceReflection.RaytraceModes.LinearTracing)
                     {
                         // Blit(cmd, source, m_SsrHitPointRT, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Test);
-                        cmd.DrawProcedural(Matrix4x4.identity, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Test, MeshTopology.Triangles, 3, 1, SharedPropertyBlock);
+                        cmd.DrawProcedural(Matrix4x4.identity, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Test, MeshTopology.Triangles, 3, 1, propertyBlock);
                     }
                     else
                     {
                         var offsetBuffer = postProcessData.DepthMipChainInfo.GetOffsetBufferData(postProcessData.DepthPyramidMipLevelOffsetsBuffer);
-                        SharedPropertyBlock.SetBuffer(ShaderConstants._DepthPyramidMipLevelOffsets, offsetBuffer);
-                        cmd.DrawProcedural(Matrix4x4.identity, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.HizTest, MeshTopology.Triangles, 3, 1, SharedPropertyBlock);
+                        propertyBlock.SetBuffer(ShaderConstants._DepthPyramidMipLevelOffsets, offsetBuffer);
+                        cmd.DrawProcedural(Matrix4x4.identity, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.HizTest, MeshTopology.Triangles, 3, 1, propertyBlock);
                     }
                 }
             }
@@ -203,15 +226,31 @@ namespace Game.Core.PostProcessing
                     if (postProcessData.CameraPreviousColorTextureRT != null)
                         preFrameColorRT = postProcessData.CameraPreviousColorTextureRT;
                 }
-                
-                SharedPropertyBlock.Clear();
-                SharedPropertyBlock.SetTexture(PipelineShaderIDs._ColorPyramidTexture, preFrameColorRT);
-                SharedPropertyBlock.SetTexture(ShaderConstants.SsrHitPointTexture, m_SsrHitPointRT);
-                // We need to set the "_BlitScaleBias" uniform for user materials with shaders relying on core Blit.hlsl to work
-                SharedPropertyBlock.SetVector(ShaderConstants._BlitScaleBias, new Vector4(1, 1, 0, 0));
-                
-                cmd.SetRenderTarget(m_SsrLightingRT);
-                cmd.DrawProcedural(Matrix4x4.identity, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Reproject, MeshTopology.Triangles, 3, 1, SharedPropertyBlock);
+
+                // if (m_UseCS)
+                // {
+                //     ConstantBuffer.Push(cmd, m_Variables, m_ComputeShader, ShaderConstants.ShaderVariablesScreenSpaceReflection);
+                //     cmd.SetComputeTextureParam(m_ComputeShader, m_ReprojectionKernel, PipelineShaderIDs._ColorPyramidTexture, preFrameColorRT);
+                //     cmd.SetComputeTextureParam(m_ComputeShader, m_ReprojectionKernel, ShaderConstants.SsrHitPointTexture, m_SsrHitPointRT);
+                //     cmd.SetComputeTextureParam(m_ComputeShader, m_ReprojectionKernel, ShaderConstants.SsrLightingTexture, m_SsrLightingRT);
+                //     
+                //     int groupsX = PostProcessingUtils.DivRoundUp(m_SSRColorDescriptor.width, 8);
+                //     int groupsY = PostProcessingUtils.DivRoundUp(m_SSRColorDescriptor.height, 8);
+                //     cmd.DispatchCompute(m_ComputeShader, m_ReprojectionKernel, groupsX, groupsY, 1);
+                // }
+                // else
+                {
+                    var propertyBlock = new MaterialPropertyBlock();
+                    SetupMaterials(propertyBlock, renderingData.cameraData.camera);
+                    propertyBlock.SetTexture(PipelineShaderIDs._ColorPyramidTexture, preFrameColorRT);
+                    propertyBlock.SetTexture(ShaderConstants.SsrHitPointTexture, m_SsrHitPointRT);
+                    // We need to set the "_BlitScaleBias" uniform for user materials with shaders relying on core Blit.hlsl to work
+                    propertyBlock.SetVector(ShaderConstants._BlitScaleBias, new Vector4(1, 1, 0, 0));
+                    cmd.SetRenderTarget(m_SsrLightingRT);
+                    cmd.DrawProcedural(Matrix4x4.identity, m_ScreenSpaceReflectionMaterial, (int)ShaderPasses.Reproject, MeshTopology.Triangles, 3, 1, propertyBlock);
+                }
+
+               
             }
 
             RTHandle finalResult;

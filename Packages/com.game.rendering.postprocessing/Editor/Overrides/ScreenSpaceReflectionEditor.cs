@@ -16,6 +16,7 @@ namespace Game.Core.PostProcessing.UnityEditor
         private SerializedDataParameter mode;
         private SerializedDataParameter usedAlgorithm;
         private SerializedDataParameter enableMipmap;
+        private SerializedDataParameter traceInCS;
         private SerializedDataParameter resolution;
         private SerializedDataParameter intensity;
         private SerializedDataParameter thickness;
@@ -50,6 +51,7 @@ namespace Game.Core.PostProcessing.UnityEditor
             vignette = Unpack(o.Find(x => x.vignette));
             debugMode = Unpack(o.Find(x => x.debugMode));
             split = Unpack(o.Find(x => x.split));
+            traceInCS = Unpack(o.Find(x => x.useComputeShader));
         }
 
         void PresetUI()
@@ -94,6 +96,7 @@ namespace Game.Core.PostProcessing.UnityEditor
             
             EditorGUILayout.Space(10);
             PresetUI();
+            PropertyField(traceInCS);
             PropertyField(resolution);
             PropertyField(maximumIterationCount);
             
@@ -112,6 +115,10 @@ namespace Game.Core.PostProcessing.UnityEditor
             }
             
             m_ScreenSpaceReflection.smoothnessFadeStart.value = Mathf.Max(m_ScreenSpaceReflection.minSmoothness.value, m_ScreenSpaceReflection.smoothnessFadeStart.value);
+            if (traceInCS.value.boolValue)//开启CS模式就必须使用HiZ
+            {
+                m_ScreenSpaceReflection.mode.value = ScreenSpaceReflection.RaytraceModes.HiZTracing;
+            }
         }
     }
 }

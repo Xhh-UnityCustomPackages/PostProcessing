@@ -26,14 +26,24 @@ struct Result
     float iterationCount;
 };
 
+#ifdef SSR_TRACE 
+RW_TEXTURE2D(float4, _SsrHitPointTexture);
+#else
 TEXTURE2D(_SsrHitPointTexture);
+#endif
+
+#ifdef SSR_REPROJECT
+RW_TEXTURE2D(float4, _SsrLightingTexture);
+#else
 TEXTURE2D(_SsrLightingTexture);
+#endif
+
 
 TEXTURE2D(_SsrAccumPrev);
 
-TEXTURE2D_HALF(_GBuffer2);
+TEXTURE2D_HALF(_GBuffer2);//需要 法线/光滑度 信息
 
-float4 _Params1;     // x: vignette intensity, y: distance fade, z: maximum march distance, w: intensity
+float4 _Params1;     // x: vignette intensity, y: 0, z: maximum march distance, w: 0
 
 //Debug
 float SEPARATION_POS;
@@ -42,7 +52,7 @@ float SEPARATION_POS;
 #define _VignetteIntensity      _Params1.x
 #define _DistanceFade           1
 #define _MaximumMarchDistance   _Params1.z
-#define _MaximumIterationCount  _Params1.w
+#define _MaximumIterationCount  _Steps
 #define DOWNSAMPLE                  _SsrDownsamplingDivider
 #define SSR_MINIMUM_ATTENUATION 0.275
 #define SSR_ATTENUATION_SCALE (1.0 - SSR_MINIMUM_ATTENUATION)

@@ -4,17 +4,37 @@
 // #pragma enable_d3d11_debug_symbols
 #pragma only_renderers d3d11 playstation xboxone xboxseries vulkan metal switch
 
+#pragma kernel ScreenSpaceReflectionCS                                                      SSR_TRACE
+#pragma kernel ScreenSpaceReflectionReprojectionCS                                          SSR_REPROJECT
 
-#pragma kernel CSMain
+#pragma multi_compile _ _GBUFFER_NORMALS_OCT
+#pragma multi_compile_fragment _ SSR_APPROX
 
-// Create a RenderTexture with enableRandomWrite flag and set it
-// with cs.SetTexture
-RWTexture2D<float4> Result;
+#ifdef SSR_TRACE
+#include "ScreenSpaceReflection_Hiz.hlsl"
+#elif defined(SSR_REPROJECT)
+#include "ScreenSpaceReflection_Reprojection.hlsl"
+#endif
 
-[numthreads(8,8,1)]
-void CSMain (uint3 id : SV_DispatchThreadID)
+
+#ifdef SSR_TRACE
+[numthreads(8, 8, 1)]
+void ScreenSpaceReflectionCS(uint3 groupId          : SV_GroupID,
+                                   uint3 dispatchThreadId : SV_DispatchThreadID)
 {
-    // TODO: insert actual code here!
-
-    Result[id.xy] = float4(id.x & id.y, (id.x & 15)/15.0, (id.y & 15)/15.0, 0.0);
+    uint2 positionSS = dispatchThreadId.xy;
+    _SsrHitPointTexture[(positionSS)] = ScreenSpaceReflection(positionSS * rcp(DOWNSAMPLE));
 }
+
+#elif defined(SSR_REPROJECT)
+
+[numthreads(8, 8, 1)]
+void ScreenSpaceReflectionReprojectionCS(uint3 dispatchThreadId : SV_DispatchThreadID)
+{
+    uint2 positionSS = dispatchThreadId.xy;
+    // _SsrAccumTexture[COORD_TEXTURE2D_X(positionSS)] = ScreenSpaceReflectionReprojection(positionSS * rcp(DOWNSAMPLE));
+    _SsrLightingTexture[(positionSS)] = ScreenSpaceReflectionReprojection(positionSS * rcp(DOWNSAMPLE));
+}
+#endif
+
+

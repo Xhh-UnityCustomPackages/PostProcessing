@@ -16,9 +16,11 @@ Shader "Hidden/PostProcessing/ScreenSpaceReflection"
             HLSLPROGRAM
             
             #include "ScreenSpaceReflection_Linear.hlsl"
-            
+
             #pragma multi_compile_fragment _ _GBUFFER_NORMALS_OCT
-            
+
+            #define SSR_TRACE   1
+
             #pragma vertex Vert
             #pragma fragment FragTestLinear
             ENDHLSL
@@ -34,7 +36,8 @@ Shader "Hidden/PostProcessing/ScreenSpaceReflection"
             #include "ScreenSpaceReflection_Hiz.hlsl"
 
             #pragma multi_compile_fragment _ _GBUFFER_NORMALS_OCT
-
+            #define SSR_TRACE   1
+            
             #pragma vertex Vert
             #pragma fragment FragTestHiZ
 
@@ -59,6 +62,8 @@ Shader "Hidden/PostProcessing/ScreenSpaceReflection"
             #pragma multi_compile_fragment _ SSR_APPROX
             #pragma multi_compile_fragment _ SSR_USE_COLOR_PYRAMID
 
+            #define SSR_REPROJECT   1
+            
             #pragma vertex Vert
             #pragma fragment FragSSRReprojection
 
@@ -77,13 +82,15 @@ Shader "Hidden/PostProcessing/ScreenSpaceReflection"
             Name "ScreenSpaceReflection Composite"
 
             HLSLPROGRAM
+            
             #include "ScreenSpaceReflectionInput.hlsl"
 
             #pragma shader_feature_local _ DEBUG_SCREEN_SPACE_REFLECTION SPLIT_SCREEN_SPACE_REFLECTION
 
             #pragma vertex Vert
             #pragma fragment FragSSRComposite
-
+            
+            
             float4 FragSSRComposite(Varyings input) : SV_Target
             {
                 float2 uv = input.texcoord;
@@ -107,21 +114,6 @@ Shader "Hidden/PostProcessing/ScreenSpaceReflection"
                 return sourceColor + resolve;
             }
             
-            ENDHLSL
-        }
-
-        Pass
-        {
-            // 4
-            Name "ScreenSpaceReflection Composite"
-
-            HLSLPROGRAM
-            #include "ScreenSpaceReflection_Reprojection.hlsl"
-
-            #pragma shader_feature_local _ DEBUG_SCREEN_SPACE_REFLECTION SPLIT_SCREEN_SPACE_REFLECTION
-
-            #pragma vertex Vert
-            #pragma fragment FragSSRAccumulation
             ENDHLSL
         }
     }

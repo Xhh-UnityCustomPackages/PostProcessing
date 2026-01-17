@@ -6,10 +6,7 @@
 #include "Packages/com.game.rendering.postprocessing/ShaderLibrary/ShaderVariablesGlobal.hlsl"
 #include "Packages/com.game.rendering.postprocessing/ShaderLibrary/Raytracing/RaytracingSampling.hlsl"
 
-float GetDepthSample(float2 positionSS)
-{
-    return LOAD_TEXTURE2D_X(_DepthPyramid, positionSS).r;
-}
+
 
 #define SSR_TRACE_BEHIND_OBJECTS
 #define SSR_TRACE_TOWARDS_EYE
@@ -62,6 +59,7 @@ void GetHitInfos(uint2 positionSS, out float srcPerceptualRoughness, out float3 
     Xi.x = GetBNDSequenceSample(positionSS, _FrameCount, 0) * DOWNSAMPLE;
     Xi.y = GetBNDSequenceSample(positionSS, _FrameCount, 1) * DOWNSAMPLE;
     
+    
     half4 gbuffer2 = LOAD_TEXTURE2D_X(_GBuffer2, positionSS);
     float smoothness = gbuffer2.a;
     N = normalize(UnpackNormal(gbuffer2.xyz));
@@ -75,7 +73,7 @@ void GetHitInfos(uint2 positionSS, out float srcPerceptualRoughness, out float3 
     float coefBias = _SsrPBRBias / roughness;
     Xi.x = lerp(Xi.x, 0.0f, roughness * coefBias);
 
-    float deviceDepth = GetDepthSample(positionSS);
+    float deviceDepth = LoadDepthPyramid(positionSS);
     
     float2 positionNDC = positionSS * _ScreenSize.zw + (0.5 * _ScreenSize.zw);
     positionWS = ComputeWorldSpacePosition(positionNDC, deviceDepth, UNITY_MATRIX_I_VP);

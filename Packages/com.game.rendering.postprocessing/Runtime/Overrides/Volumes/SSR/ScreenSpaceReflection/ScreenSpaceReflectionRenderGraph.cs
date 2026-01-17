@@ -11,10 +11,12 @@ namespace Game.Core.PostProcessing
         private class ScreenSpaceReflectionPassData
         {
             public Material Material;
+            public ComputeShader ComputeShader;
+            public bool useComputeShader;
             // Input
             public TextureHandle DepthTexture;
             public TextureHandle MotionVectorTexture;
-            public TextureHandle NormalTexture;
+            // public TextureHandle NormalTexture;
             public TextureHandle GBuffer2;
             public TextureHandle DepthPyramidTexture;
             // --
@@ -73,7 +75,7 @@ namespace Game.Core.PostProcessing
             m_Variables.Thickness = thickness;
             m_Variables.ThicknessScale = 1.0f / (1.0f + thickness);;
             m_Variables.ThicknessBias = -n / (f - n) * (thickness * m_Variables.ThicknessScale);
-            // m_Variables.Steps = settings.steps.value;
+            m_Variables.Steps = settings.maximumIterationCount.value;
             m_Variables.StepSize = settings.stepSize.value;
             m_Variables.RoughnessFadeEnd = roughnessFadeEnd;
             m_Variables.RoughnessFadeRcpLength = roughnessFadeRcpLength;
@@ -97,24 +99,25 @@ namespace Game.Core.PostProcessing
             }
         }
 
-        private void SetupMaterials(Camera camera)
+        private void SetupMaterials(MaterialPropertyBlock propertyBlock, Camera camera)
         {
             PrepareVariables(camera);
-            m_ScreenSpaceReflectionMaterial.SetVector(ShaderConstants.Params1,
-                new Vector4(settings.vignette.value, 0, settings.maximumMarchDistance.value, settings.maximumIterationCount.value));
-            m_ScreenSpaceReflectionMaterial.SetFloat(ShaderConstants.SsrIntensity, m_Variables.Intensity);
-            m_ScreenSpaceReflectionMaterial.SetFloat(ShaderConstants.Thickness, m_Variables.Thickness);
-            m_ScreenSpaceReflectionMaterial.SetFloat(ShaderConstants.SsrThicknessScale, m_Variables.ThicknessScale);
-            m_ScreenSpaceReflectionMaterial.SetFloat(ShaderConstants.SsrThicknessBias, m_Variables.ThicknessBias);
-            m_ScreenSpaceReflectionMaterial.SetFloat(ShaderConstants.StepSize, m_Variables.StepSize);
-            m_ScreenSpaceReflectionMaterial.SetFloat(ShaderConstants.SsrRoughnessFadeEnd, m_Variables.RoughnessFadeEnd);
-            m_ScreenSpaceReflectionMaterial.SetFloat(ShaderConstants.SsrRoughnessFadeEndTimesRcpLength, m_Variables.RoughnessFadeEndTimesRcpLength);
-            m_ScreenSpaceReflectionMaterial.SetFloat(ShaderConstants.SsrRoughnessFadeRcpLength, m_Variables.RoughnessFadeRcpLength);
-            m_ScreenSpaceReflectionMaterial.SetFloat(ShaderConstants.SsrEdgeFadeRcpLength, m_Variables.EdgeFadeRcpLength);
-            m_ScreenSpaceReflectionMaterial.SetInteger(ShaderConstants.SsrDepthPyramidMaxMip, m_Variables.DepthPyramidMaxMip);
-            m_ScreenSpaceReflectionMaterial.SetInteger(ShaderConstants.SsrColorPyramidMaxMip, m_Variables.ColorPyramidMaxMip);
-            m_ScreenSpaceReflectionMaterial.SetFloat(ShaderConstants.SsrDownsamplingDivider, m_Variables.DownsamplingDivider);
-            m_ScreenSpaceReflectionMaterial.SetFloat(ShaderConstants.SsrPBRBias, m_Variables.PBRBias);
+            propertyBlock.SetVector(ShaderConstants.Params1,
+                new Vector4(settings.vignette.value, 0, settings.maximumMarchDistance.value, 0));
+            propertyBlock.SetFloat(ShaderConstants.SsrIntensity, m_Variables.Intensity);
+            propertyBlock.SetFloat(ShaderConstants.Thickness, m_Variables.Thickness);
+            propertyBlock.SetFloat(ShaderConstants.SsrThicknessScale, m_Variables.ThicknessScale);
+            propertyBlock.SetFloat(ShaderConstants.SsrThicknessBias, m_Variables.ThicknessBias);
+            propertyBlock.SetFloat(ShaderConstants.Steps, m_Variables.Steps);
+            propertyBlock.SetFloat(ShaderConstants.StepSize, m_Variables.StepSize);
+            propertyBlock.SetFloat(ShaderConstants.SsrRoughnessFadeEnd, m_Variables.RoughnessFadeEnd);
+            propertyBlock.SetFloat(ShaderConstants.SsrRoughnessFadeEndTimesRcpLength, m_Variables.RoughnessFadeEndTimesRcpLength);
+            propertyBlock.SetFloat(ShaderConstants.SsrRoughnessFadeRcpLength, m_Variables.RoughnessFadeRcpLength);
+            propertyBlock.SetFloat(ShaderConstants.SsrEdgeFadeRcpLength, m_Variables.EdgeFadeRcpLength);
+            propertyBlock.SetInteger(ShaderConstants.SsrDepthPyramidMaxMip, m_Variables.DepthPyramidMaxMip);
+            propertyBlock.SetInteger(ShaderConstants.SsrColorPyramidMaxMip, m_Variables.ColorPyramidMaxMip);
+            propertyBlock.SetFloat(ShaderConstants.SsrDownsamplingDivider, m_Variables.DownsamplingDivider);
+            propertyBlock.SetFloat(ShaderConstants.SsrPBRBias, m_Variables.PBRBias);
             
             // -------------------------------------------------------------------------------------------------
             // local shader keywords
@@ -161,10 +164,14 @@ namespace Game.Core.PostProcessing
         {
             UniversalResourceData resourceData = frameData.Get<UniversalResourceData>();
             UniversalCameraData cameraData = frameData.Get<UniversalCameraData>();
-            
-            SetupMaterials(cameraData.camera);
-            
+         
+            m_UseCS = settings.useComputeShader.value;
             GetSSRDesc(cameraData.cameraTargetDescriptor);
+            if (m_UseCS)
+            {
+                m_SSRTestDescriptor.enableRandomWrite = true;
+                m_SSRColorDescriptor.enableRandomWrite = true;
+            }
 
             var gBuffer = resourceData.gBuffer;
             TextureHandle cameraNormalsTexture = resourceData.cameraNormalsTexture;
@@ -202,12 +209,11 @@ namespace Game.Core.PostProcessing
             using (var builder = renderGraph.AddUnsafePass<ScreenSpaceReflectionPassData>(profilingSampler.name, out var passData))
             {
                 passData.Material = m_ScreenSpaceReflectionMaterial;
+                passData.ComputeShader = m_ComputeShader;
+                passData.useComputeShader = m_UseCS;
 
                 passData.DepthTexture = cameraDepthTexture;
                 builder.UseTexture(cameraDepthTexture, AccessFlags.Read);
-
-                passData.NormalTexture = cameraNormalsTexture;
-                builder.UseTexture(cameraNormalsTexture, AccessFlags.Read);
 
                 passData.MotionVectorTexture = motionVectorTexture;
                 builder.UseTexture(cameraNormalsTexture, AccessFlags.Read);
@@ -237,38 +243,73 @@ namespace Game.Core.PostProcessing
                 builder.SetRenderFunc((ScreenSpaceReflectionPassData data, UnsafeGraphContext context) =>
                 {
                     var cmd = CommandBufferHelpers.GetNativeCommandBuffer(context.cmd);
+                    postProcessData.BindDitheredRNGData1SPP(cmd);
                     // var cmd = context.cmd;
                     using (new ProfilingScope(cmd, m_TracingSampler))
                     {
-                        var propertyBlock = new MaterialPropertyBlock();
-                        propertyBlock.SetVector(ShaderConstants._BlitScaleBias, new Vector4(1, 1, 0, 0));
-
-                        cmd.SetRenderTarget(data.HitPointTexture);
-                        if (settings.mode.value == ScreenSpaceReflection.RaytraceModes.LinearTracing)
+                        if (passData.useComputeShader)
                         {
-                            propertyBlock.SetTexture(ShaderConstants._CameraDepthTexture, data.DepthTexture);
-                            cmd.DrawProcedural(Matrix4x4.identity, data.Material, (int)ShaderPasses.Test, MeshTopology.Triangles, 3, 1, propertyBlock);
+                            ConstantBuffer.Push(cmd, m_Variables, passData.ComputeShader, ShaderConstants.ShaderVariablesScreenSpaceReflection);
+                            var offsetBuffer = postProcessData.DepthMipChainInfo.GetOffsetBufferData(postProcessData.DepthPyramidMipLevelOffsetsBuffer);
+                    
+                            //只支持HiZ模式
+                            cmd.SetComputeBufferParam(passData.ComputeShader, m_TracingKernel, ShaderConstants._DepthPyramidMipLevelOffsets, offsetBuffer);
+                            cmd.SetComputeTextureParam(passData.ComputeShader, m_TracingKernel, PipelineShaderIDs._DepthPyramid, data.DepthPyramidTexture);
+                            // cmd.SetComputeTextureParam(m_ComputeShader, m_TracingKernel, ShaderConstants._CameraDepthTexture, cameraDepthTexture, 0, RenderTextureSubElement.Stencil);
+                            cmd.SetComputeTextureParam(passData.ComputeShader, m_TracingKernel, ShaderConstants._GBuffer2, passData.GBuffer2);
+                            cmd.SetComputeTextureParam(passData.ComputeShader, m_TracingKernel, ShaderConstants.SsrHitPointTexture, passData.HitPointTexture);
+                    
+                            int groupsX = PostProcessingUtils.DivRoundUp(m_SSRTestDescriptor.width, 8);
+                            int groupsY = PostProcessingUtils.DivRoundUp(m_SSRTestDescriptor.height, 8);
+                            cmd.DispatchCompute(passData.ComputeShader, m_TracingKernel, groupsX, groupsY, 1);
                         }
                         else
                         {
-                            propertyBlock.SetTexture(PipelineShaderIDs._DepthPyramid, data.DepthPyramidTexture);
-                            propertyBlock.SetTexture(ShaderConstants._GBuffer2, data.GBuffer2);
-                            var offsetBuffer = postProcessData.DepthMipChainInfo.GetOffsetBufferData(postProcessData.DepthPyramidMipLevelOffsetsBuffer);
-                            SharedPropertyBlock.SetBuffer(ShaderConstants._DepthPyramidMipLevelOffsets, offsetBuffer);
-                            cmd.DrawProcedural(Matrix4x4.identity, data.Material, (int)ShaderPasses.HizTest, MeshTopology.Triangles, 3, 1, propertyBlock);
+                            var propertyBlock = new MaterialPropertyBlock();
+                            propertyBlock.SetVector(ShaderConstants._BlitScaleBias, new Vector4(1, 1, 0, 0));
+                            SetupMaterials(propertyBlock, cameraData.camera);
+                            cmd.SetRenderTarget(data.HitPointTexture);
+                            if (settings.mode.value == ScreenSpaceReflection.RaytraceModes.LinearTracing)
+                            {
+                                propertyBlock.SetTexture(ShaderConstants._CameraDepthTexture, data.DepthTexture);
+                                cmd.DrawProcedural(Matrix4x4.identity, data.Material, (int)ShaderPasses.Test, MeshTopology.Triangles, 3, 1, propertyBlock);
+                            }
+                            else
+                            {
+                                propertyBlock.SetTexture(PipelineShaderIDs._DepthPyramid, data.DepthPyramidTexture);
+                                propertyBlock.SetTexture(ShaderConstants._GBuffer2, data.GBuffer2);
+                                var offsetBuffer = postProcessData.DepthMipChainInfo.GetOffsetBufferData(postProcessData.DepthPyramidMipLevelOffsetsBuffer);
+                                propertyBlock.SetBuffer(ShaderConstants._DepthPyramidMipLevelOffsets, offsetBuffer);
+                                cmd.DrawProcedural(Matrix4x4.identity, data.Material, (int)ShaderPasses.HizTest, MeshTopology.Triangles, 3, 1, propertyBlock);
+                            }
                         }
                     }
 
                     using (new ProfilingScope(cmd, m_ReprojectionSampler))
                     {
-                        var propertyBlock = new MaterialPropertyBlock();
-                        propertyBlock.SetTexture(PipelineShaderIDs._ColorPyramidTexture, data.CameraColorTexture);
-                        propertyBlock.SetTexture(ShaderConstants.SsrHitPointTexture, data.HitPointTexture);
-                        propertyBlock.SetVector(ShaderConstants._BlitScaleBias, new Vector4(1, 1, 0, 0));
-                        propertyBlock.SetTexture(ShaderConstants._GBuffer2, data.GBuffer2);
-                        
-                        cmd.SetRenderTarget(ssrLightingTexture);
-                        cmd.DrawProcedural(Matrix4x4.identity, data.Material, (int)ShaderPasses.Reproject, MeshTopology.Triangles, 3, 1, propertyBlock);
+                        // if (passData.useComputeShader)
+                        // {
+                        //     ConstantBuffer.Push(cmd, m_Variables, m_ComputeShader, ShaderConstants.ShaderVariablesScreenSpaceReflection);
+                        //     cmd.SetComputeTextureParam(passData.ComputeShader, m_ReprojectionKernel, PipelineShaderIDs._ColorPyramidTexture, data.CameraColorTexture);
+                        //     cmd.SetComputeTextureParam(passData.ComputeShader, m_ReprojectionKernel, ShaderConstants.SsrHitPointTexture, data.HitPointTexture);
+                        //     cmd.SetComputeTextureParam(passData.ComputeShader, m_ReprojectionKernel, ShaderConstants.SsrLightingTexture, data.SsrLightingTexture);
+                        //     cmd.SetComputeTextureParam(passData.ComputeShader, m_ReprojectionKernel, ShaderConstants._GBuffer2, passData.GBuffer2);
+                        //     
+                        //     int groupsX = PostProcessingUtils.DivRoundUp(m_SSRColorDescriptor.width, 8);
+                        //     int groupsY = PostProcessingUtils.DivRoundUp(m_SSRColorDescriptor.height, 8);
+                        //     cmd.DispatchCompute(passData.ComputeShader, m_ReprojectionKernel, groupsX, groupsY, 1);
+                        // }
+                        // else
+                        {
+                            var propertyBlock = new MaterialPropertyBlock();
+                            propertyBlock.SetTexture(PipelineShaderIDs._ColorPyramidTexture, data.CameraColorTexture);
+                            propertyBlock.SetTexture(ShaderConstants.SsrHitPointTexture, data.HitPointTexture);
+                            propertyBlock.SetVector(ShaderConstants._BlitScaleBias, new Vector4(1, 1, 0, 0));
+                            propertyBlock.SetTexture(ShaderConstants._GBuffer2, data.GBuffer2);
+                            SetupMaterials(propertyBlock, cameraData.camera);
+                            cmd.SetRenderTarget(ssrLightingTexture);
+                            cmd.DrawProcedural(Matrix4x4.identity, data.Material, (int)ShaderPasses.Reproject, MeshTopology.Triangles, 3, 1, propertyBlock);
+                        }
                     }
 
                     using (new ProfilingScope(cmd, m_AccumulationSampler))

@@ -8,6 +8,7 @@ float _Thickness;
 float _SsrThicknessScale;
 float _SsrThicknessBias;
 
+float _Steps;
 float _StepSize;
 float _SsrRoughnessFadeEnd;
 float _SsrRoughnessFadeRcpLength;

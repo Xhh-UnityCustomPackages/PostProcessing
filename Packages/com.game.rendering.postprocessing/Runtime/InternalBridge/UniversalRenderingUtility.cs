@@ -49,7 +49,14 @@ namespace UnityEngine.Rendering.Universal
             var depthBuffer = universalRenderer.m_DepthTexture;
             return depthBuffer;
         }
-        
+
+        public static RTHandle[] GetGBuffer(ScriptableRenderer sr)
+        {
+            if (sr is not UniversalRenderer universalRenderer) return null;
+            if (universalRenderer.deferredLights == null) return null;
+            return universalRenderer.deferredLights.GbufferAttachments;
+        }
+
         /// <summary>
         /// Get UniversalRenderer normals texture.
         /// </summary>

@@ -26,11 +26,12 @@ namespace Game.Core.PostProcessing
         /// <summary>Screen Space Reflections Algorithm used.</summary>
         public EnumParameter<ScreenSpaceReflectionAlgorithm> usedAlgorithm = new (ScreenSpaceReflectionAlgorithm.Approximation);
 
-        [Tooltip("是否开启光线多次弹射,开启后会使用上一帧反射后的屏幕颜色,实现时域上的多次反弹")]
+        [Tooltip("是否粗糙度使用Mipmap")]
+        [InspectorName("Enable Mipmap")]
         public BoolParameter enableMipmap = new (true);
         
         [Space(6)]
-        [Tooltip("强度")]
+        [InspectorName("强度 (Intensity)")]
         public ClampedFloatParameter intensity = new(1f, 0f, 5f);
         
         [Tooltip("Controls the smoothness value at which HDRP activates SSR and the smoothness-controlled fade out stops.")]
@@ -41,23 +42,26 @@ namespace Game.Core.PostProcessing
         // [Tooltip("值越大, 未追踪部分天空颜色会越多, 过度边界会越硬")]
         // public ClampedFloatParameter distanceFade = new(0.2f, 0f, 1f);
         
-        [Tooltip("边缘渐变")]
-        [InspectorName("Screen Edge Fade Distance (屏幕边缘淡出)")]
+        [InspectorName("屏幕边缘淡出 (Screen Edge Fade Distance)")]
         public ClampedFloatParameter vignette = new(1f, 0f, 1f);
+
+        [Header("Performance")] 
+        public BoolParameter useComputeShader = new(false);
         
-        [Header("Performance")]
-        [Tooltip("分辨率")] 
+        [InspectorName("分辨率 (Resolution)")] 
         public EnumParameter<Resolution> resolution = new(Resolution.Full);
         
-        [Tooltip("最大追踪次数")]
+        [InspectorName("最大追踪次数 (MaximumIterationCount)")]
         public ClampedIntParameter maximumIterationCount = new(256, 1, 256);
 
         [Tooltip("追踪步长, 越大精度越低, 追踪范围越大, 越节省追踪次数")]
+        [InspectorName("追踪步长 (StepSize)")]
         public ClampedFloatParameter stepSize = new(0.1f, 0f, 1f);
         
+        [InspectorName("厚度 (Thickness)")]
         public ClampedFloatParameter thickness = new(0.1f, 0.001f, 1f);
         
-        [Tooltip("最大追踪距离")]
+        [Tooltip("最大追踪距离 (MaximumMarchDistance)")]
         public MinFloatParameter maximumMarchDistance = new(100f, 0f);
 
         /// <summary>

@@ -13,53 +13,6 @@
 #define ColorPyramidUvScaleAndLimitPrevFrame float4(1, 1, 1, 1)
 #endif
 
-
-float3 CompositeSSRColor(float2 uv, float2 reflectUV, float mask, float2 offset)
-{
-    float3 ssrColor = SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_LinearClamp, reflectUV + offset, 0).rgb;
-    // float3 color = SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_LinearClamp, uv + offset, 0).rgb;
-    return lerp(0, ssrColor, mask * _SSRIntensity);
-}
-
-//
-// Fragment shaders
-//
-float4 FragSSRAccumulation(Varyings input) : SV_Target
-{
-    float2 uv = input.texcoord;
-    
-    float4 ssrColor = SAMPLE_TEXTURE2D(_BlitTexture, sampler_PointClamp, uv);
-    float4 ssrTest = SAMPLE_TEXTURE2D(_SsrHitPointTexture, sampler_PointClamp, uv);
-    float2 hitPositionNDC = ssrTest.xy;
-    
-    float2 motionVectorNDC;
-    DecodeMotionVector(SAMPLE_TEXTURE2D_X_LOD(_MotionVectorTexture, sampler_LinearClamp, uv, 0), motionVectorNDC);
-    float2 prevFrameNDC = hitPositionNDC - motionVectorNDC;
-    float2 prevFrameUV = prevFrameNDC;
-
-    
-    float3 prevSsrColor = SAMPLE_TEXTURE2D_X_LOD(_SsrAccumPrev, sampler_LinearClamp, prevFrameUV, 0).rgb;
-    float3 minColor = 9999.0, maxColor = -9999.0;
-    for(int x = -1; x <= 1; ++x)
-    {
-        for(int y = -1; y <= 1; ++y)
-        {
-            float3 checkColor = CompositeSSRColor(uv, hitPositionNDC, 1, float2(x,y) * _BlitTexture_TexelSize.xy);
-            minColor = min(minColor, checkColor); // Take min and max
-            maxColor = max(maxColor, checkColor);
-        }
-    }
-    // Clamp previous color to min/max bounding box
-    prevSsrColor = clamp(prevSsrColor, minColor, 2 * maxColor);
-    
-    float3 blendedColor = lerp(prevSsrColor, ssrColor, 0.95);
-    float luminance = dot(blendedColor, float3(0.299, 0.587, 0.114));
-    float luminanceWeight = 1.0 / (1.0 + luminance);
-    blendedColor = float4(blendedColor, 1.0) * luminanceWeight;
-    
-    return float4(blendedColor, 1);
-}
-
 //--------------------------------------------------------------------------------------------------
 // Helpers
 //--------------------------------------------------------------------------------------------------
