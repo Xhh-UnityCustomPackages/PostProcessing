@@ -11,6 +11,8 @@ namespace Game.Core.PostProcessing
         private RTHandle m_DebugExposureData;
         private Exposure m_Exposure;
 
+        public ComputeBuffer HistogramBuffer;
+
         private RTHandle m_WhiteTextureRTHandle;
         private RTHandle m_BlackTextureRTHandle;
         private RTHandle m_GrayTextureRTHandle;

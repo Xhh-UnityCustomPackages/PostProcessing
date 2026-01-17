@@ -115,6 +115,7 @@ namespace Game.Core.PostProcessing
             m_EmptyExposureTexture = null;
             RTHandles.Release(m_DebugExposureData);
             m_DebugExposureData = null;
+            CoreUtils.SafeRelease(HistogramBuffer);
             
             // Release default texture RTHandle wrappers
             RTHandles.Release(m_WhiteTextureRTHandle);

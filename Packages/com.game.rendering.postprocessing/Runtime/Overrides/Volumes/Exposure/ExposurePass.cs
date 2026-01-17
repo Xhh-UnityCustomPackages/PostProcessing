@@ -46,18 +46,11 @@ namespace Game.Core.PostProcessing
         private readonly int[] m_ExposureVariants = new int[4];
         
         private Texture2D m_ExposureCurveTexture;
-        private static ComputeBuffer m_HistogramBuffer;
         private readonly int[] m_EmptyHistogram = new int[k_HistogramBins];
 
 #if UNITY_EDITOR
         private static ExposureDebugSettings m_DebugSettings;
-        private static RTHandle m_DebugExposureData;
 #endif
-        public static ComputeBuffer GetHistogramBuffer()
-        {
-            return m_HistogramBuffer;
-        }
-
         class DynamicExposureData
         {
             public ComputeShader exposureCS;
@@ -96,14 +89,12 @@ namespace Game.Core.PostProcessing
         public override void Setup()
         {
             m_DynamicExposureData = new();
-            
         }
 
 #if UNITY_EDITOR
-        public static void SetDebugSetting(ExposureDebugSettings debugSettings, RTHandle debugExposureData)
+        public static void SetDebugSetting(ExposureDebugSettings debugSettings)
         {
             m_DebugSettings = debugSettings;
-            m_DebugExposureData = debugExposureData;
         }
 #endif
 
@@ -169,8 +160,8 @@ namespace Game.Core.PostProcessing
             
             if (isHistogramBased)
             {
-                PostProcessingUtils.ValidateComputeBuffer(ref m_HistogramBuffer, k_HistogramBins, sizeof(uint));
-                m_HistogramBuffer.SetData(m_EmptyHistogram);    // Clear the histogram
+                PostProcessingUtils.ValidateComputeBuffer(ref postProcessData.HistogramBuffer, k_HistogramBins, sizeof(uint));
+                postProcessData.HistogramBuffer.SetData(m_EmptyHistogram);    // Clear the histogram
                 
                 Vector2 histogramFraction = settings.histogramPercentages.value / 100.0f;
                 float evRange = limitMax - limitMin;
@@ -178,7 +169,7 @@ namespace Game.Core.PostProcessing
                 float histBias = -limitMin * histScale;
                 passData.histogramExposureParams = new Vector4(histScale, histBias, histogramFraction.x, histogramFraction.y);
                 
-                passData.histogramBuffer = m_HistogramBuffer;
+                passData.histogramBuffer = postProcessData.HistogramBuffer;
                 passData.histogramOutputDebugData = false;
 #if UNITY_EDITOR
                 if (m_DebugSettings != null)
@@ -309,11 +300,9 @@ namespace Game.Core.PostProcessing
 
         public static int DivRoundUp(int x, int y) => (x + y - 1) / y;
         
-        static void DoHistogramBasedExposure(CommandBuffer cmd, DynamicExposureData data)
+        void DoHistogramBasedExposure(CommandBuffer cmd, DynamicExposureData data)
         {
-#if UNITY_EDITOR
-            data.exposureDebugData = m_DebugExposureData;
-#endif
+            data.exposureDebugData = postProcessData.GetExposureDebugData();
             
             var cs = data.histogramExposureCS;
             int kernel;
@@ -368,8 +357,6 @@ namespace Game.Core.PostProcessing
 
         public override void Dispose(bool disposing)
         {
-            CoreUtils.SafeRelease(m_HistogramBuffer);
-            m_HistogramBuffer = null;
         }
     }
 }

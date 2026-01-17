@@ -172,7 +172,7 @@ namespace Game.Core.PostProcessing
             }
         }
         
-        internal static Vector4 GetMouseCoordinates(ref CameraData camera)
+        internal static Vector4 GetMouseCoordinates(Camera camera)
         {
             // We request the mouse post based on the type of the camera
             Vector2 mousePixelCoord = MousePositionDebug.instance.GetMousePosition(camera.pixelHeight, camera.cameraType == CameraType.SceneView);

@@ -146,8 +146,8 @@ namespace Game.Core.PostProcessing
             
             if (isHistogramBased)
             {
-                PostProcessingUtils.ValidateComputeBuffer(ref m_HistogramBuffer, k_HistogramBins, sizeof(uint));
-                m_HistogramBuffer.SetData(m_EmptyHistogram);    // Clear the histogram
+                PostProcessingUtils.ValidateComputeBuffer(ref postProcessData.HistogramBuffer, k_HistogramBins, sizeof(uint));
+                postProcessData.HistogramBuffer.SetData(m_EmptyHistogram);    // Clear the histogram
                 
                 Vector2 histogramFraction = settings.histogramPercentages.value / 100.0f;
                 float evRange = limitMax - limitMin;
@@ -155,7 +155,7 @@ namespace Game.Core.PostProcessing
                 float histBias = -limitMin * histScale;
                 passData.HistogramExposureParams = new Vector4(histScale, histBias, histogramFraction.x, histogramFraction.y);
                 
-                passData.HistogramBuffer = m_HistogramBuffer;
+                passData.HistogramBuffer = postProcessData.HistogramBuffer;
                 passData.HistogramOutputDebugData = false;
 #if UNITY_EDITOR
                 if (m_DebugSettings != null)

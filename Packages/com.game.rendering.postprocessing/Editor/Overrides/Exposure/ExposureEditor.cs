@@ -7,6 +7,7 @@ namespace Game.Core.PostProcessing.UnityEditor
     [CustomEditor(typeof(Exposure))]
     sealed class ExposureEditor : VolumeComponentEditor
     {
+        SerializedDataParameter m_Enable;
         SerializedDataParameter m_Mode;
         SerializedDataParameter m_MeteringMode;
         // SerializedDataParameter m_LuminanceSource;
@@ -46,6 +47,7 @@ namespace Game.Core.PostProcessing.UnityEditor
         {
             var o = new PropertyFetcher<Exposure>(serializedObject);
 
+            m_Enable = Unpack(o.Find(x => x.Enable));
             m_Mode = Unpack(o.Find(x => x.mode));
             m_MeteringMode = Unpack(o.Find(x => x.meteringMode));
             // m_LuminanceSource = Unpack(o.Find(x => x.luminanceSource));
@@ -81,6 +83,7 @@ namespace Game.Core.PostProcessing.UnityEditor
 
         public override void OnInspectorGUI()
         {
+            PropertyField(m_Enable);
             PropertyField(m_Mode);
 
             int mode = m_Mode.value.intValue;
