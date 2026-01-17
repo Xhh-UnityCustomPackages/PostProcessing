@@ -17,6 +17,7 @@ namespace Game.Core.PostProcessing
         public static readonly int _ColorPyramidTexture = MemberNameHelpers.ShaderPropertyID();
         public static readonly int _CameraPreviousColorTexture = MemberNameHelpers.ShaderPropertyID();
         public static readonly int _MotionVectorTexture = MemberNameHelpers.ShaderPropertyID();
+        public static readonly int _AutoExposureLUT = MemberNameHelpers.ShaderPropertyID();
         
         public static readonly int ShaderVariablesGlobal = MemberNameHelpers.ShaderPropertyID();
         public static readonly int _TaaFrameInfo = MemberNameHelpers.ShaderPropertyID();

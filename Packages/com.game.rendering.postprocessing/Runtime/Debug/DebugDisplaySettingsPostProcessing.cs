@@ -32,10 +32,8 @@ namespace Game.Core.PostProcessing
         public int fullScreenDebugModeOutputSizeScreenPercent { get; set; } = 50;
         public int hiZMipmapLevel { get; set; } = 0;
         
-        public bool enableStencilDebug { get; set; } = false;
-        public float stencilDebugScale { get; set; } = 10;
-        public float stencilDebugMargin { get; set; } = 0.25f;
 
+        public StencilDebugSettings stencilDebugSettings = new();
         public ExposureDebugSettings exposureDebugSettings = new();
 
         static class Strings
@@ -113,27 +111,27 @@ namespace Game.Core.PostProcessing
                     new DebugUI.BoolField()
                     {
                         nameAndTooltip = Strings.StencilDebug,
-                        getter = () => panel.data.enableStencilDebug,
-                        setter = (value) => panel.data.enableStencilDebug = value
+                        getter = () => panel.data.stencilDebugSettings.enableStencilDebug,
+                        setter = (value) => panel.data.stencilDebugSettings.enableStencilDebug = value
                     },
                     new DebugUI.FloatField
                     {
                         nameAndTooltip = Strings.StencilDebugScale,
-                        getter = () => panel.data.stencilDebugScale,
-                        setter = value => panel.data.stencilDebugScale = value,
+                        getter = () => panel.data.stencilDebugSettings.stencilDebugScale,
+                        setter = value => panel.data.stencilDebugSettings.stencilDebugScale = value,
                         incStep = 1,
                         min = () => 0,
                         max = () => 100,
-                        isHiddenCallback = () => !panel.data.enableStencilDebug,
+                        isHiddenCallback = () => !panel.data.stencilDebugSettings.enableStencilDebug,
                     },
                     new DebugUI.FloatField
                     {
                         nameAndTooltip = Strings.StencilDebugMargin,
-                        getter = () => panel.data.stencilDebugMargin,
-                        setter = value => panel.data.stencilDebugMargin = value,
+                        getter = () => panel.data.stencilDebugSettings.stencilDebugMargin,
+                        setter = value => panel.data.stencilDebugSettings.stencilDebugMargin = value,
                         min = () => 0,
                         max = () => 1,
-                        isHiddenCallback = () => !panel.data.enableStencilDebug,
+                        isHiddenCallback = () => !panel.data.stencilDebugSettings.enableStencilDebug,
                     }
                 }
             };

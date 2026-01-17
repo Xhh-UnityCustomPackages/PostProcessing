@@ -47,10 +47,7 @@ namespace Game.Core.PostProcessing
         
         private Texture2D m_ExposureCurveTexture;
         private readonly int[] m_EmptyHistogram = new int[k_HistogramBins];
-
-#if UNITY_EDITOR
-        private static ExposureDebugSettings m_DebugSettings;
-#endif
+        
         class DynamicExposureData
         {
             public ComputeShader exposureCS;
@@ -91,12 +88,6 @@ namespace Game.Core.PostProcessing
             m_DynamicExposureData = new();
         }
 
-#if UNITY_EDITOR
-        public static void SetDebugSetting(ExposureDebugSettings debugSettings)
-        {
-            m_DebugSettings = debugSettings;
-        }
-#endif
 
         void PrepareExposurePassData(DynamicExposureData passData, Camera camera)
         {
@@ -172,10 +163,9 @@ namespace Game.Core.PostProcessing
                 passData.histogramBuffer = postProcessData.HistogramBuffer;
                 passData.histogramOutputDebugData = false;
 #if UNITY_EDITOR
-                if (m_DebugSettings != null)
-                {
-                    passData.histogramOutputDebugData = m_DebugSettings.exposureDebugMode == Exposure.ExposureDebugMode.HistogramView;
-                }
+                var exposureDebugSettings = PostProcessingDebugDisplaySettings.Instance.postProcessingSettings.exposureDebugSettings;
+                passData.histogramOutputDebugData = exposureDebugSettings.exposureDebugMode == Exposure.ExposureDebugMode.HistogramView;
+
 #endif
                 if (passData.histogramOutputDebugData)
                 {
@@ -216,12 +206,12 @@ namespace Game.Core.PostProcessing
                 DoHistogramBasedExposure(cmd, m_DynamicExposureData);
             }
             
-            cmd.SetGlobalTexture("_AutoExposureLUT", m_DynamicExposureData.nextExposure);
+            cmd.SetGlobalTexture(PipelineShaderIDs._AutoExposureLUT, m_DynamicExposureData.nextExposure);
         }
 
         public override void OnCameraCleanup(CommandBuffer cmd)
         {
-            cmd.SetGlobalTexture("_AutoExposureLUT", Texture2D.redTexture);
+            cmd.SetGlobalTexture(PipelineShaderIDs._AutoExposureLUT, Texture2D.redTexture);
         }
 
         private void PrepareExposureCurveData(out float min, out float max)

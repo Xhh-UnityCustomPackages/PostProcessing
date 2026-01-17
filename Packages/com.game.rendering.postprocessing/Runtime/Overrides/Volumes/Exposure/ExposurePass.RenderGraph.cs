@@ -158,10 +158,9 @@ namespace Game.Core.PostProcessing
                 passData.HistogramBuffer = postProcessData.HistogramBuffer;
                 passData.HistogramOutputDebugData = false;
 #if UNITY_EDITOR
-                if (m_DebugSettings != null)
-                {
-                    passData.HistogramOutputDebugData = m_DebugSettings.exposureDebugMode == Exposure.ExposureDebugMode.HistogramView;
-                }
+                var exposureDebugSettings = PostProcessingDebugDisplaySettings.Instance.postProcessingSettings.exposureDebugSettings;
+                passData.HistogramOutputDebugData = exposureDebugSettings.exposureDebugMode == Exposure.ExposureDebugMode.HistogramView;
+                
 #endif
                 if (passData.HistogramOutputDebugData)
                 {
@@ -199,7 +198,7 @@ namespace Game.Core.PostProcessing
                 passData.Source = resource.activeColorTexture;
                 
                 builder.AllowGlobalStateModification(true);
-                // builder.SetGlobalTextureAfterPass(exposureHandleRG, "_AutoExposureLUT");
+                builder.SetGlobalTextureAfterPass(passData.NextExposure, PipelineShaderIDs._AutoExposureLUT);
                 bool isFixedExposure = postProcessData.CanRunFixedExposurePass();
                 if (!isFixedExposure && passData.HistogramOutputDebugData)
                 {
@@ -229,7 +228,7 @@ namespace Game.Core.PostProcessing
                         }
                     }
                     
-                    cmd.SetGlobalTexture("_AutoExposureLUT", data.NextExposure);
+                    cmd.SetGlobalTexture(PipelineShaderIDs._AutoExposureLUT, data.NextExposure);
                 });
             }
         }

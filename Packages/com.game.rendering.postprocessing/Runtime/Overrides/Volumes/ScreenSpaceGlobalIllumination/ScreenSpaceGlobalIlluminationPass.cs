@@ -309,7 +309,7 @@ namespace Game.Core.PostProcessing
             ConstantBuffer.Push(cmd, _giVariables, _ssgiComputeShader, Properties.ShaderVariablesSSGI);
             
             // Bind input textures
-            cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, Properties._DepthPyramid, PyramidDepthGenerator.HiZDepthRT);
+            cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, Properties._DepthPyramid, postProcessData.DepthPyramidRT);
             cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, Properties._CameraNormalsTexture, normalTexture);
             // cmd.SetComputeBufferParam(_ssgiComputeShader, kernel, Properties._DepthPyramidMipLevelOffsets, offsetBuffer);
             
@@ -349,7 +349,7 @@ namespace Game.Core.PostProcessing
             ConstantBuffer.Push(cmd, _giVariables, _ssgiComputeShader, Properties.ShaderVariablesSSGI);
             
             // Bind input textures
-            cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, Properties._DepthPyramid, PyramidDepthGenerator.HiZDepthRT);
+            cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, Properties._DepthPyramid, postProcessData.DepthPyramidRT);
             cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, Properties._CameraNormalsTexture, normalTexture);
             // cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, Properties._MotionVectorTexture, isNewFrame && motionVectorTexture.IsValid() ? motionVectorTexture : Texture2D.blackTexture);
             // cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, IllusionShaderProperties._ColorPyramidTexture, previousColor);

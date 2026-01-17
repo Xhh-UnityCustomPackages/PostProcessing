@@ -18,14 +18,13 @@ namespace Game.Core.PostProcessing
         private StencilDebugPass m_StencilDebugPass;
         private ExposureDebugPass m_ExposureDebugPass;
 
-        public DebugDisplaySettingsPostProcessing PostProcessingSetting => m_PostProcessingSetting;
         public bool AreAnySettingsActive => m_PostProcessingSetting.AreAnySettingsActive;
 
         public void Init(PostProcessData context)
         {
-            m_PostProcessingSetting = AddPanel(new DebugDisplaySettingsPostProcessing());
+            m_PostProcessingSetting = AddPanel(PostProcessingDebugDisplaySettings.Instance.postProcessingSettings);
             
-            m_DebugPass = new PostProcessingDebugPass(this);
+            m_DebugPass = new PostProcessingDebugPass(this, context);
 
             ComputeShader cs = null;
 #if UNITY_EDITOR
@@ -51,9 +50,9 @@ namespace Game.Core.PostProcessing
                 renderer.EnqueuePass(m_DebugPass);
             }
 
-            if (m_PostProcessingSetting.enableStencilDebug)
+            if (m_PostProcessingSetting.stencilDebugSettings.enableStencilDebug)
             {
-                m_StencilDebugPass.Setup(m_PostProcessingSetting.stencilDebugScale, m_PostProcessingSetting.stencilDebugMargin);
+                m_StencilDebugPass.Setup(m_PostProcessingSetting.stencilDebugSettings.stencilDebugScale, m_PostProcessingSetting.stencilDebugSettings.stencilDebugMargin);
                 renderer.EnqueuePass(m_StencilDebugPass);
             }
 

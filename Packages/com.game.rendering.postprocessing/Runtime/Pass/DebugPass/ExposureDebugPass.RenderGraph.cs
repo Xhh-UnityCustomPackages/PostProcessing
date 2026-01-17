@@ -59,12 +59,14 @@ namespace Game.Core.PostProcessing
             var cameraData = frameData.Get<UniversalCameraData>();
 
             PrepareDebugExposureData(cameraData);
-            
-            ExposureRenderer.SetDebugSetting(m_DebugSettings);
 
             // Import textures
             //必须要开启CopyColor
             var colorBeforePostProcess = resource.cameraOpaqueTexture;
+            if (!colorBeforePostProcess.IsValid())
+            {
+                Debug.LogError("Exposure Debug must open opaue texute in pipeline setting");
+            }
 
             TextureHandle sourceBeforePostProcess = colorBeforePostProcess;
             TextureHandle colorAfterPostProcess = resource.activeColorTexture;

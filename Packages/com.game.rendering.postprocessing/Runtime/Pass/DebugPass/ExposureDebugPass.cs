@@ -48,7 +48,6 @@ namespace Game.Core.PostProcessing
              var cmd = CommandBufferPool.Get();
              using (new ProfilingScope(cmd, profilingSampler))
              {
-                 ExposureRenderer.SetDebugSetting(m_DebugSettings);
                  var colorBeforePostProcess = renderingData.cameraData.renderer.GetCameraColorFrontBuffer(cmd);
                  DoGenerateDebugImageHistogram(cmd, colorBeforePostProcess, renderingData.cameraData.camera);
                  var colorAfterPostProcess = renderingData.cameraData.renderer.GetCameraColorBackBuffer(cmd);

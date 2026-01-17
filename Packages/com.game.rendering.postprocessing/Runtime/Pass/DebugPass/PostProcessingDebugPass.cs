@@ -17,13 +17,14 @@ namespace Game.Core.PostProcessing
         Vector4 m_DebugRenderTargetPixelRect;
         RTHandle m_DebugRenderTargetIdentifier;
 
-
+        private PostProcessData m_Data;
         DebugHandler m_DebugHandler;
         Material m_Material;
         RTHandle m_DebugTargetHandle;
 
-        public PostProcessingDebugPass(DebugHandler debugHandler)
+        public PostProcessingDebugPass(DebugHandler debugHandler, PostProcessData data)
         {
+            m_Data = data;
             m_DebugHandler = debugHandler;
             renderPassEvent = RenderPassEvent.AfterRendering;
             m_Material = CoreUtils.CreateEngineMaterial("Hidden/PostProcessing/PostProcessingDebugPass");
@@ -59,8 +60,8 @@ namespace Game.Core.PostProcessing
             cmd.SetGlobalVector(k_DebugTextureDisplayRect, m_DebugRenderTargetPixelRect);
             cmd.SetGlobalInteger(k_DebugRenderTargetSupportsStereo, 0);
 
-            m_Material.SetInt("_DebugFullScreenMode", (int)m_DebugHandler.PostProcessingSetting.fullScreenDebugMode);
-            m_Material.SetInt("_HiZMipMapLevel", m_DebugHandler.PostProcessingSetting.hiZMipmapLevel);
+            m_Material.SetInt("_DebugFullScreenMode", (int)PostProcessingDebugDisplaySettings.Instance.postProcessingSettings.fullScreenDebugMode);
+            m_Material.SetInt("_HiZMipMapLevel", PostProcessingDebugDisplaySettings.Instance.postProcessingSettings.hiZMipmapLevel);
 
             var target = renderingData.cameraData.renderer.cameraColorTargetHandle;
             Blitter.BlitCameraTexture(cmd, target, m_DebugTargetHandle, m_Material, 0);
@@ -94,7 +95,7 @@ namespace Game.Core.PostProcessing
                 {
                     case DebugFullScreenMode.HiZ:
                         {
-                            SetDebugRenderTarget(PyramidDepthGenerator.HiZDepthRT, normalizedRect);
+                            SetDebugRenderTarget(m_Data.DepthPyramidRT, normalizedRect);
                             break;
                         }
                     default:
