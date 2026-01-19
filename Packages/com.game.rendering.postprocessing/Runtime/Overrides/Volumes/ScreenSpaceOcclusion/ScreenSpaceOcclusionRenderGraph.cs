@@ -120,7 +120,7 @@ namespace Game.Core.PostProcessing
                 var occlusionFinalRT = UniversalRenderer.CreateRenderGraphTexture(renderGraph, m_AmbientOcclusionDescriptor, "OcclusionFinalRT", false);
                 passData.occlusionFinalTexture = occlusionFinalRT;
                 builder.UseTexture(occlusionFinalRT, AccessFlags.Write);
-                builder.SetGlobalTextureAfterPass(occlusionFinalRT, ShaderConstants.ScreenSpaceOcclusionTexture);
+                builder.SetGlobalTextureAfterPass(occlusionFinalRT, PipelineShaderIDs._ScreenSpaceOcclusionTexture);
                 
                 m_AmbientOcclusionDescriptor.colorFormat = m_AmbientOcclusionColorFormat;
                 if (settings.blurType != ScreenSpaceOcclusion.BlurType.None)

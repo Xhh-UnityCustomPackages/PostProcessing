@@ -3,14 +3,14 @@
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Sampling/Sampling.hlsl"
-// #include "Packages/com.kurisu.illusion-render-pipelines/ShaderLibrary/ShaderVariables.hlsl"
+#include "Packages/com.game.rendering.postprocessing/ShaderLibrary/ShaderVariablesGlobal.hlsl"
 #include "Packages/com.game.rendering.postprocessing/ShaderLibrary/DeclarePyramidDepthTexture.hlsl"
 // #include "Packages/com.kurisu.illusion-render-pipelines/ShaderLibrary/NormalBuffer.hlsl"
 #include "Packages/com.game.rendering.postprocessing/ShaderLibrary/DeclareMotionVectorTexture.hlsl"
 // #include "Packages/com.kurisu.illusion-render-pipelines/ShaderLibrary/PrecomputeRadianceTransfer/EvaluateProbeVolume.hlsl"
 
 // Raytracing includes (should probably be in generic files)
-// #include "Packages/com.kurisu.illusion-render-pipelines/ShaderLibrary/Raytracing/RaytracingSampling.hlsl"
+#include "Packages/com.game.rendering.postprocessing/ShaderLibrary/Raytracing/RaytracingSampling.hlsl"
 #include "Packages/com.game.rendering.postprocessing/Runtime/Overrides/Volumes/ScreenSpaceGlobalIllumination/Shaders/GlobalIlluminationFallback.hlsl"
 
 // #pragma enable_d3d11_debug_symbols
@@ -27,7 +27,7 @@
 
 #pragma multi_compile _ _FORWARD_PLUS
 #pragma multi_compile _ _REFLECTION_PROBE_BOX_PROJECTION
-#pragma multi_compile_local _ _PROBE_VOLUME_ENABLE // For PRTGI
+// #pragma multi_compile_local _ _PROBE_VOLUME_ENABLE // For PRTGI
 
 // The dispatch tile resolution
 #define INDIRECT_DIFFUSE_TILE_SIZE 8
@@ -62,16 +62,6 @@ RW_TEXTURE2D(float2, _IndirectDiffuseHitPointTextureRW);
 // Epslon value used for the computation
 #define RAY_TRACE_EPS 0.00024414
 
-#if 0
-    #define SSGI_MATRIX_VP           UNITY_MATRIX_VP // Jittered
-    #define SSGI_MATRIX_I_VP         UNITY_MATRIX_I_VP
-    #define WORLD_TO_VIEW_MATRIX     GetWorldToViewMatrix()
-#else
-    #define SSGI_MATRIX_VP           _GlobalViewProjMatrix // Jittered
-    #define SSGI_MATRIX_I_VP         _GlobalInvViewProjMatrix
-    #define WORLD_TO_VIEW_MATRIX     _GlobalViewMatrix
-#endif
-
 
 TEXTURE2D_X_HALF(_GBuffer2);
 
@@ -94,7 +84,7 @@ bool RayMarch(float3 positionWS, float3 sampleDir, float3 normalWS, float2 posit
     float3 rayOrigin = float3(positionSS + 0.5, deviceDepth);
 
     float3 reflPosWS  = positionWS + sampleDir;
-    float3 reflPosNDC = ComputeNormalizedDeviceCoordinatesWithZ(reflPosWS, SSGI_MATRIX_VP); // Jittered
+    float3 reflPosNDC = ComputeNormalizedDeviceCoordinatesWithZ(reflPosWS, UNITY_MATRIX_VP); // Jittered
     float3 reflPosSS  = float3(reflPosNDC.xy * _ScreenSize.xy, reflPosNDC.z);
     float3 rayDir     = reflPosSS - rayOrigin;
     float3 rcpRayDir  = rcp(rayDir);
@@ -258,7 +248,7 @@ void TRACE_GLOBAL_ILLUMINATION(uint3 dispatchThreadId : SV_DispatchThreadID, uin
     // If this is a background pixel, we flag the ray as a dead ray (we are also trying to keep the usage of the depth buffer the latest possible)
     bool killRay = deviceDepth == UNITY_RAW_FAR_CLIP_VALUE;
     // Convert this to a world space position (camera relative)
-    PositionInputs posInput = GetPositionInput(inputCoord, _ScreenSize.zw, deviceDepth, SSGI_MATRIX_I_VP, WORLD_TO_VIEW_MATRIX, 0);
+    PositionInputs posInput = GetPositionInput(inputCoord, _ScreenSize.zw, deviceDepth, UNITY_MATRIX_I_VP, GetWorldToViewMatrix(), 0);
 
     // Compute the view direction (world space)
     float3 viewWS = GetWorldSpaceNormalizeViewDir(posInput.positionWS);
@@ -266,7 +256,7 @@ void TRACE_GLOBAL_ILLUMINATION(uint3 dispatchThreadId : SV_DispatchThreadID, uin
     // Apply normal bias with the magnitude dependent on the distance from the camera.
     // Unfortunately, we only have access to the shading normal, which is less than ideal...
     posInput.positionWS  = camPosWS + (posInput.positionWS - camPosWS) * (1 - 0.001 * rcp(max(dot(normalWS, viewWS), FLT_EPS)));
-    deviceDepth = ComputeNormalizedDeviceCoordinatesWithZ(posInput.positionWS, SSGI_MATRIX_VP).z;
+    deviceDepth = ComputeNormalizedDeviceCoordinatesWithZ(posInput.positionWS, UNITY_MATRIX_VP).z;
 
     // Ray March along our ray
     float3 rayPos;
@@ -309,7 +299,7 @@ void REPROJECT_GLOBAL_ILLUMINATION(uint3 dispatchThreadId : SV_DispatchThreadID,
     // Read the depth and compute the position
     float deviceDepth = LOAD_TEXTURE2D_X(_DepthPyramid, inputCoord).x;
     uint2 tileIndex = uint2(inputCoord) / uint2(8, 8);
-    PositionInputs posInput = GetPositionInput(inputCoord, _ScreenSize.zw, deviceDepth, SSGI_MATRIX_I_VP, WORLD_TO_VIEW_MATRIX, tileIndex);
+    PositionInputs posInput = GetPositionInput(inputCoord, _ScreenSize.zw, deviceDepth, UNITY_MATRIX_I_VP, GetWorldToViewMatrix(), tileIndex);
     float2 uv = posInput.positionNDC;
 
     // Read the pixel normal
@@ -364,7 +354,7 @@ void REPROJECT_GLOBAL_ILLUMINATION(uint3 dispatchThreadId : SV_DispatchThreadID,
     {
         // The intersection was considered valid, we can read from the color pyramid
         color = SAMPLE_TEXTURE2D_X_LOD(_ColorPyramidTexture, sampler_LinearClamp, prevFrameUV, SSGI_MIP_OFFSET).rgb
-                * GetInversePreviousExposureMultiplier();
+                /** GetInversePreviousExposureMultiplier()*/;
     }
 #if defined(PROBE_VOLUMES_L1) || defined(PROBE_VOLUMES_L2)
     else
@@ -394,10 +384,10 @@ void REPROJECT_GLOBAL_ILLUMINATION(uint3 dispatchThreadId : SV_DispatchThreadID,
         {
             color += SampleReflectionProbes(sampleDir, posInput.positionWS, uv, 1.0f, weight).rgb;
         }
-        if (RAYMARCHINGFALLBACKHIERARCHY_SKY & _RayMarchingFallbackHierarchy && weight < 1.0f)
-        {
-            color += SampleAmbientProbe(sampleDir) * (1.0 - weight);
-        }
+        // if (RAYMARCHINGFALLBACKHIERARCHY_SKY & _RayMarchingFallbackHierarchy && weight < 1.0f)
+        // {
+        //     color += SampleAmbientProbe(sampleDir) * (1.0 - weight);
+        // }
     }
 #endif
 

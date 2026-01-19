@@ -137,7 +137,6 @@ namespace Game.Core.PostProcessing
             internal static readonly int DistanceFalloff = Shader.PropertyToID("_DistanceFalloff");
             internal static readonly int BlurSharpness = Shader.PropertyToID("_BlurSharpness");
             internal static readonly int CameraProjMatrix = Shader.PropertyToID("_CameraProjMatrix");
-            internal static readonly int ScreenSpaceOcclusionTexture = Shader.PropertyToID("_ScreenSpaceOcclusionTexture");
             internal static readonly int AmbientOcclusionParam = Shader.PropertyToID("_AmbientOcclusionParam");
 
             public static string GetAOTypeKeyword(ScreenSpaceOcclusion.AOType type)
@@ -382,7 +381,7 @@ namespace Game.Core.PostProcessing
             }
 
             //Composite
-            cmd.SetGlobalTexture(ShaderConstants.ScreenSpaceOcclusionTexture, m_OcclusionFinalRT);
+            cmd.SetGlobalTexture(PipelineShaderIDs._ScreenSpaceOcclusionTexture, m_OcclusionFinalRT);
             cmd.SetGlobalVector(ShaderConstants.AmbientOcclusionParam, new Vector4(1, 0, 0, 0.25f));
             Blit(cmd, m_OcclusionDepthRT, m_OcclusionFinalRT, m_AmbientOcclusionMaterial, 3);
         }

@@ -130,6 +130,8 @@ namespace Game.Core.PostProcessing
                                                            | ScriptableRenderPassInput.Normal
                                                            | ScriptableRenderPassInput.Motion;
 
+        public override bool renderToCamera => false;
+
         public override void Setup()
         {
             profilingSampler = new ProfilingSampler("Screen Space Global Illumination");
@@ -299,19 +301,18 @@ namespace Game.Core.PostProcessing
 
         private void ExecuteTrace(CommandBuffer cmd, ref CameraData cameraData)
         {
-            var normalTexture = UniversalRenderingUtility.GetNormalTexture(cameraData.renderer);
-
-            if (normalTexture == null) return;
-            
             int kernel = _halfResolution ? _traceHalfKernel : _traceKernel;
+            var offsetBuffer = postProcessData.DepthMipChainInfo.GetOffsetBufferData(postProcessData.DepthPyramidMipLevelOffsetsBuffer);
+            
+            postProcessData.BindDitheredRNGData8SPP(cmd);
             
             // Set constant buffer
             ConstantBuffer.Push(cmd, _giVariables, _ssgiComputeShader, Properties.ShaderVariablesSSGI);
             
             // Bind input textures
             cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, Properties._DepthPyramid, postProcessData.DepthPyramidRT);
-            cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, Properties._CameraNormalsTexture, normalTexture);
-            // cmd.SetComputeBufferParam(_ssgiComputeShader, kernel, Properties._DepthPyramidMipLevelOffsets, offsetBuffer);
+            // cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, Properties._CameraNormalsTexture, normalTexture);
+            cmd.SetComputeBufferParam(_ssgiComputeShader, kernel, PipelineShaderIDs._DepthPyramidMipLevelOffsets, offsetBuffer);
             
             // Bind output texture
             cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, Properties.IndirectDiffuseHitPointTextureRW, _hitPointRT);
@@ -332,18 +333,12 @@ namespace Game.Core.PostProcessing
             var motionVectorTexture = UniversalRenderingUtility.GetMotionVectorColor(cameraData.renderer);
             
             // Get previous frame color pyramid
-            RTHandle previousColor = null;
-            RTHandle previousDepth = null;
-            if (cameraData.historyManager != null)
-            {
-                cameraData.historyManager.RequestAccess<RawColorHistory>();
-                cameraData.historyManager.RequestAccess<RawDepthHistory>();
-                
-                previousColor = cameraData.historyManager.GetHistoryForRead<RawColorHistory>()?.GetCurrentTexture();
-                previousDepth = cameraData.historyManager.GetHistoryForRead<RawDepthHistory>()?.GetCurrentTexture();
-            }
+
+            var preFrameColorRT = postProcessData.GetCurrentFrameRT((int)FrameHistoryType.ColorBufferMipChain);
+            var historyDepthRT = postProcessData.GetCurrentFrameRT((int)FrameHistoryType.Depth);
             
             int kernel = _halfResolution ? _reprojectHalfKernel : _reprojectKernel;
+            var offsetBuffer = postProcessData.DepthMipChainInfo.GetOffsetBufferData(postProcessData.DepthPyramidMipLevelOffsetsBuffer);
             
             // Set constant buffer
             ConstantBuffer.Push(cmd, _giVariables, _ssgiComputeShader, Properties.ShaderVariablesSSGI);
@@ -352,14 +347,14 @@ namespace Game.Core.PostProcessing
             cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, Properties._DepthPyramid, postProcessData.DepthPyramidRT);
             cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, Properties._CameraNormalsTexture, normalTexture);
             // cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, Properties._MotionVectorTexture, isNewFrame && motionVectorTexture.IsValid() ? motionVectorTexture : Texture2D.blackTexture);
-            // cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, IllusionShaderProperties._ColorPyramidTexture, previousColor);
-            // cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, Properties.HistoryDepthTexture, previousDepth);
-            // cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, Properties.IndirectDiffuseHitPointTexture, _hitPointRT);
-            // cmd.SetComputeBufferParam(_ssgiComputeShader, kernel, IllusionShaderProperties._DepthPyramidMipLevelOffsets, offsetBuffer);
-            //
-            // // Exposure texture may not be initialized in the first frame
-            // cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, IllusionShaderProperties._ExposureTexture, _rendererData.GetExposureTexture());
-            // cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, IllusionShaderProperties._PrevExposureTexture, _rendererData.GetPreviousExposureTexture());
+            cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, PipelineShaderIDs._ColorPyramidTexture, preFrameColorRT);
+            cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, Properties.HistoryDepthTexture, historyDepthRT);
+            cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, Properties.IndirectDiffuseHitPointTexture, _hitPointRT);
+            cmd.SetComputeBufferParam(_ssgiComputeShader, kernel, PipelineShaderIDs._DepthPyramidMipLevelOffsets, offsetBuffer);
+            
+            // Exposure texture may not be initialized in the first frame
+            cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, PipelineShaderIDs._ExposureTexture, postProcessData.GetExposureTexture());
+            cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, PipelineShaderIDs._PrevExposureTexture, postProcessData.GetPreviousExposureTexture());
 
             // Bind output texture
             cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, Properties.IndirectDiffuseTextureRW, _outputRT);
@@ -392,25 +387,20 @@ namespace Game.Core.PostProcessing
         public override void Render(CommandBuffer cmd, RTHandle source, RTHandle destination, ref RenderingData renderingData)
         {
              var cameraData =  renderingData.cameraData;
-
-           
-
+             
             // Prepare shader variables
             PrepareVariables(cameraData.camera);
 
-            using (new ProfilingScope(cmd, profilingSampler))
-            {
-                using (new ProfilingScope(cmd, TracingSampler))
-                {
-                    ExecuteTrace(cmd, ref cameraData);
-                }
 
-                using (new ProfilingScope(cmd, ReprojectSampler))
-                {
-                    // ExecuteReproject(cmd, ref cameraData);
-                }
+            using (new ProfilingScope(cmd, TracingSampler))
+            {
+                ExecuteTrace(cmd, ref cameraData);
             }
 
+            using (new ProfilingScope(cmd, ReprojectSampler))
+            {
+                ExecuteReproject(cmd, ref cameraData);
+            }
         }
 
         public override void Dispose(bool disposing)

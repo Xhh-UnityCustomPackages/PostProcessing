@@ -36,6 +36,7 @@ Shader "Hidden/PostProcessing/ScreenSpaceReflection"
             #include "ScreenSpaceReflection_Hiz.hlsl"
 
             #pragma multi_compile_fragment _ _GBUFFER_NORMALS_OCT
+            #pragma multi_compile_fragment _ SSR_APPROX
             #define SSR_TRACE   1
             
             #pragma vertex Vert

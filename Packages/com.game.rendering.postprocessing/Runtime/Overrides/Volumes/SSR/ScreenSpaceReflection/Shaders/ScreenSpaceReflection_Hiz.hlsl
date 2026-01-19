@@ -56,8 +56,10 @@ void GetHitInfos(uint2 positionSS, out float srcPerceptualRoughness, out float3 
 
     float2 Xi = 0;
     // 下面会显得更加Dither
+    #ifndef SSR_APPROX
     Xi.x = GetBNDSequenceSample(positionSS, _FrameCount, 0) * DOWNSAMPLE;
     Xi.y = GetBNDSequenceSample(positionSS, _FrameCount, 1) * DOWNSAMPLE;
+    #endif
     
     
     half4 gbuffer2 = LOAD_TEXTURE2D_X(_GBuffer2, positionSS);

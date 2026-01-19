@@ -139,6 +139,8 @@ namespace Game.Core.PostProcessing
 
             // Prepare SSGI data
             PrepareSSGIData(cameraData);
+            
+            return;
 
             // Prepare shader variables
             PrepareVariables(cameraData.camera);

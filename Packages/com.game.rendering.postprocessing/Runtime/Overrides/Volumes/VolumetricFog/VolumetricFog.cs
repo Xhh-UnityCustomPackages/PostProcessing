@@ -15,8 +15,10 @@ namespace Game.Core.PostProcessing
 		    displayName = "体积雾 (Volumetric Fog)";
 	    }
 	    
+	    public override bool IsActive() => enabled.value;
+	    
         [Tooltip("Disabling this will completely remove any feature from the volumetric fog from being rendered at all.")]
-		public BoolParameter enable = new(false, BoolParameter.DisplayType.EnumPopup);
+		public BoolParameter enabled = new(false, BoolParameter.DisplayType.EnumPopup);
 
 		 /// <summary>Fog color mode.</summary>
         public EnumParameter<FogColorMode> colorMode = new (FogColorMode.SkyColor);
@@ -85,8 +87,37 @@ namespace Game.Core.PostProcessing
         [Tooltip("Use this value to simulate multiple scattering when combining the fog with the scene color.")]
         public ClampedFloatParameter multipleScatteringIntensity = new ClampedFloatParameter(0.0f, 0.0f, 2.0f);
 		
-		public override bool IsActive() => enable.value;
+        // Limit parameters for the fog quality
+        internal const float minFogScreenResolutionPercentage = (1.0f / 16.0f) * 100;
+        internal const float optimalFogScreenResolutionPercentage = (1.0f / 8.0f) * 100;
+        internal const float maxFogScreenResolutionPercentage = 0.5f * 100;
+        internal const int maxFogSliceCount = 512;
+        
+        [AdditionalProperty]
+        [Tooltip("Specifies which method to use to control the performance and quality of the volumetric fog.")]
+        public EnumParameter<FogControl> fogControlMode = new (FogControl.Balance);
+		
+        [Tooltip("Controls the resolution of the volumetric buffer (3D texture) along the x-axis and y-axis relative to the resolution of the screen.")]
+        public ClampedFloatParameter screenResolutionPercentage = new ClampedFloatParameter(optimalFogScreenResolutionPercentage, minFogScreenResolutionPercentage, maxFogScreenResolutionPercentage);
+        /// <summary>Number of slices of the volumetric buffer (3D texture) along the camera's focal axis.</summary>
+        [AdditionalProperty]
+        [Tooltip("Controls the number of slices to use the volumetric buffer (3D texture) along the camera's focal axis.")]
+        public ClampedIntParameter volumeSliceCount = new ClampedIntParameter(64, 1, maxFogSliceCount);
 
+        [AdditionalProperty]
+        [Tooltip("Controls the performance to quality ratio of the volumetric fog. A value of 0 being the least resource-intensive and a value of 1 being the highest quality.")]
+        public ClampedFloatParameter volumetricFogBudget = new ClampedFloatParameter(0.25f, 0.0f, 1.0f);
+
+        /// <summary>Controls how Unity shares resources between Screen (XY) and Depth (Z) resolutions.</summary>
+        [AdditionalProperty]
+        [Tooltip("Controls how Unity shares resources between Screen (x-axis and y-axis) and Depth (z-axis) resolutions.")]
+        public ClampedFloatParameter resolutionDepthRatio = new ClampedFloatParameter(0.5f, 0.0f, 1.0f);
+        
+        /// <summary>Indicates whether Unity includes or excludes non-directional light types when it evaluates the volumetric fog. Including non-directional lights increases the resource intensity of the effect.</summary>
+        [AdditionalProperty]
+        [Tooltip("When enabled, HDRP only includes directional Lights when it evaluates volumetric fog.")]
+        public BoolParameter directionalLightsOnly = new BoolParameter(false);
+        
 		private void OnValidate()
 		{
 			maximumHeight.overrideState = baseHeight.overrideState;
@@ -128,71 +159,25 @@ namespace Game.Core.PostProcessing
 		public enum FogQualityMode
 		{
 			Heigh = 0,
-
 			Medium = 1,
-
 			Low = 2,
 		}
-    }
+		
+		/// <summary>
+		/// Options that control the quality and resource intensity of the volumetric fog.
+		/// </summary>
+		public enum FogControl
+		{
+			/// <summary>
+			/// Use this mode if you want to change the fog control properties based on a higher abstraction level centered around performance.
+			/// </summary>
+			Balance,
 
-    [PostProcess("体积雾 (Volumetric Fog)", PostProcessInjectionPoint.AfterRenderingSkybox)]
-    public partial class VolumetricFogRenderer : PostProcessVolumeRenderer<VolumetricFog>
-    {
-	    static internal ComputeShader m_VolumeVoxelizationCS = null;
-	    static internal ComputeShader m_VolumetricLightingCS = null;
-	    static internal ComputeShader m_VolumetricLightingFilteringCS = null;
-	    
-	    static internal List<PerCameraVolumetricFogData> perCameraDatas = new List<PerCameraVolumetricFogData>();
-	    
-	    public override ScriptableRenderPassInput input => ScriptableRenderPassInput.Depth;
-
-
-	    public override void Setup()
-	    {
-		    var runtimeShaders = GraphicsSettings.GetRenderPipelineSettings<VolumetricFogResources>();
-		    m_VolumeVoxelizationCS = runtimeShaders.volumeVoxelization;
-		    m_VolumetricLightingCS = runtimeShaders.volumetricFogLighting;
-		    m_VolumetricLightingFilteringCS = runtimeShaders.volumetricLightingFilter;
-		    
-		    profilingSampler = new ProfilingSampler("Volumetric Fog");
-		    
-	    }
-
-	    public override void Dispose(bool disposing)
-	    {
-	    }
-
-	    public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
-	    {
-		   
-	    }
-
-	    public override void Render(CommandBuffer cmd, RTHandle source, RTHandle destination, ref RenderingData renderingData)
-	    {
-		    var camera = renderingData.cameraData.camera;
-		    //初始化VBuffer数据
-		    // ReinitializeVolumetricBufferParams(camera);
-	    }
-
-	    // static internal void ReinitializeVolumetricBufferParams(VolumetricCameraParams hdCamera)
-	    // {
-		   //  bool init = perCameraDatas[nowCameraIndex].vBufferParams != null;
-	    //
-	    //
-		   //  if (init)
-		   //  {
-			  //   // Deinitialize.
-			  //   perCameraDatas[nowCameraIndex].vBufferParams = null;
-		   //  }
-		   //  else
-		   //  {
-			  //   // Initialize.
-			  //   // Start with the same parameters for both frames. Then update them one by one every frame.
-			  //   var parameters = ComputeVolumetricBufferParameters(hdCamera);
-			  //   perCameraDatas[nowCameraIndex].vBufferParams = new VBufferParameters[2];
-			  //   perCameraDatas[nowCameraIndex].vBufferParams[0] = parameters;
-			  //   perCameraDatas[nowCameraIndex].vBufferParams[1] = parameters;
-		   //  }
-	    // }
+			/// <summary>
+			/// Use this mode if you want to have direct access to the internal properties that control volumetric fog.
+			/// </summary>
+			Manual
+		}
+		
     }
 }
