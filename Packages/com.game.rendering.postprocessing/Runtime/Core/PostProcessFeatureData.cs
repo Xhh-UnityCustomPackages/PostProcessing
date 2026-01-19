@@ -12,9 +12,6 @@ namespace Game.Core.PostProcessing
     public class PostProcessFeatureData : ScriptableObject
     {
         [Space(10)] 
-        public ComputeShaderResources computeShaders;
-
-        [Space(10)] 
         public MaterialResources materials;
         public ShaderResources shaders;
 
@@ -28,11 +25,6 @@ namespace Game.Core.PostProcessing
             public Shader volumetricLightPS;
             public Shader volumetricCloudPS;
             public Shader screenSpaceRaytracedReflectionPS;
-        }
-
-        [Serializable]
-        public sealed class ComputeShaderResources
-        {
         }
 
         [Serializable]

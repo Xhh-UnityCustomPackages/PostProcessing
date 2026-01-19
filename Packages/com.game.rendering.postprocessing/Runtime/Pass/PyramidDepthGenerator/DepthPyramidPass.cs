@@ -4,8 +4,6 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
-using Unity.Mathematics;
-using UnityEditor.AssetImporters;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
 
@@ -144,6 +142,8 @@ namespace Game.Core.PostProcessing
                 passData.MipInfo = m_Data.DepthMipChainInfo;
                 passData.MipGenerator = m_Data.MipGenerator;
                 builder.AllowPassCulling(false);
+                builder.SetGlobalTextureAfterPass(passData.DepthPyramidTexture, PipelineShaderIDs._DepthPyramid);
+                builder.AllowGlobalStateModification(true);
                 builder.SetRenderFunc(
                     (GenerateDepthPyramidPassData data, UnsafeGraphContext context) =>
                     {

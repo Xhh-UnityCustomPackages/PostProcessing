@@ -178,5 +178,33 @@ namespace Game.Core.PostProcessing
             Vector2 mousePixelCoord = MousePositionDebug.instance.GetMousePosition(camera.pixelHeight, camera.cameraType == CameraType.SceneView);
             return new Vector4(mousePixelCoord.x, mousePixelCoord.y, RTHandles.rtHandleProperties.rtHandleScale.x * mousePixelCoord.x / camera.pixelWidth, RTHandles.rtHandleProperties.rtHandleScale.y * mousePixelCoord.y / camera.pixelHeight);
         }
+        
+        #if UNITY_EDITOR
+        
+        public static bool HasPostProcessRenderer<T>() where T:PostProcessRenderer
+        {
+            if (GraphicsSettings.currentRenderPipeline is UniversalRenderPipelineAsset asset)
+            {
+                foreach (var _renderer in asset.m_RendererDataList)
+                {
+                    var data = _renderer as UniversalRendererData;
+                    var features = data.m_RendererFeatures;
+                    foreach (var feature in features)
+                    {
+                        if (feature is PostProcessFeature postProcessFeature)
+                        {
+                            var type = typeof(T);
+                            if (!type.IsSubclassOf(typeof(PostProcessRenderer))) continue;
+                            return postProcessFeature.HasPostProcessRenderer(type);
+                        }
+                    }
+                    
+                }
+            }
+
+            return false;
+        }
+        
+        #endif
     }
 }

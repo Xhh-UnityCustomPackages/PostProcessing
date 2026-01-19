@@ -1,17 +1,17 @@
 ﻿#if UNITY_EDITOR
 
+using Game.Core.PostProcessing;
 using UnityEngine.Rendering;
 
 namespace UnityEditor.Rendering
 {
-    public class ScreenSpaceGlobalIlluminationStripper : IRenderPipelineGraphicsSettingsStripper<ScreenSpaceGlobalIlluminationResources>
+    public class ScreenSpaceGlobalIlluminationStripper : PostProcessStripper<ScreenSpaceGlobalIlluminationResources, ScreenSpaceGlobalIlluminationRenderer>
     {
-        public bool active => true;
-
-        public bool CanRemoveSettings(ScreenSpaceGlobalIlluminationResources resources)
+        public override bool CanRemoveSettings(ScreenSpaceGlobalIlluminationResources resources)
         {
             bool canRemove = false;
 
+            
             if (EditorUserBuildSettings.activeBuildTarget == BuildTarget.StandaloneWindows || 
                 EditorUserBuildSettings.activeBuildTarget == BuildTarget.StandaloneWindows64)
             {
@@ -21,6 +21,8 @@ namespace UnityEditor.Rendering
             {
                 canRemove = true;
             }
+
+            canRemove |= !PostProcessingUtils.HasPostProcessRenderer<ScreenSpaceGlobalIlluminationRenderer>();
             return canRemove;
         }
     }

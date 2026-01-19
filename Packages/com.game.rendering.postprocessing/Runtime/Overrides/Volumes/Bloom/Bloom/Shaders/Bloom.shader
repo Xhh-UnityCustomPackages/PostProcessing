@@ -1,8 +1,14 @@
 Shader "Hidden/PostProcessing/Bloom"
 {
     HLSLINCLUDE
+    #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
+    #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Filtering.hlsl"
     #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
-    #include "Packages/com.unity.render-pipelines.universal/Shaders/PostProcessing/Common.hlsl"
+    #include "Packages/com.unity.render-pipelines.core/Runtime/Utilities/Blit.hlsl"
+    #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/DynamicScalingClamping.hlsl"
+    #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/UnityInput.hlsl"
+    #include_with_pragmas "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRenderingKeywords.hlsl"
+    #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRendering.hlsl"
 
 
     TEXTURE2D_X(_SourceTexLowMip);
@@ -20,13 +26,13 @@ Shader "Hidden/PostProcessing/Bloom"
     half4 EncodeHDR(half3 color)
     {
         #if _USE_RGBM
-                half4 outColor = EncodeRGBM(color);
+        half4 outColor = EncodeRGBM(color);
         #else
         half4 outColor = half4(color, 1.0);
         #endif
 
         #if UNITY_COLORSPACE_GAMMA
-                return half4(sqrt(outColor.xyz), outColor.w); // linear to γ
+        return half4(sqrt(outColor.xyz), outColor.w); // linear to γ
         #else
         return outColor;
         #endif
@@ -35,11 +41,11 @@ Shader "Hidden/PostProcessing/Bloom"
     half3 DecodeHDR(half4 color)
     {
         #if UNITY_COLORSPACE_GAMMA
-                color.xyz *= color.xyz; // γ to linear
+        color.xyz *= color.xyz; // γ to linear
         #endif
 
         #if _USE_RGBM
-                return DecodeRGBM(color);
+        return DecodeRGBM(color);
         #else
         return color.xyz;
         #endif
@@ -99,14 +105,14 @@ Shader "Hidden/PostProcessing/Bloom"
 
         // Optimized bilinear 5-tap gaussian on the same-sized source (9-tap equivalent)
         half3 c0 = DecodeHDR(SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp,
-                                       uv - float2(0.0, texelSize * 3.23076923)));
+                                                                             uv - float2(0.0, texelSize * 3.23076923)));
         half3 c1 = DecodeHDR(SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp,
-                                        uv - float2(0.0, texelSize * 1.38461538)));
+                          uv - float2(0.0, texelSize * 1.38461538)));
         half3 c2 = DecodeHDR(SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv));
         half3 c3 = DecodeHDR(SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp,
-                                        uv + float2(0.0, texelSize * 1.38461538)));
+            uv + float2(0.0, texelSize * 1.38461538)));
         half3 c4 = DecodeHDR(SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp,
-                                                uv + float2(0.0, texelSize * 3.23076923)));
+                                                                    uv + float2(0.0, texelSize * 3.23076923)));
 
         half3 color = c0 * 0.07027027 + c1 * 0.31621622
             + c2 * 0.22702703
@@ -114,7 +120,7 @@ Shader "Hidden/PostProcessing/Bloom"
 
         return EncodeHDR(color);
     }
-    
+
     // According to the call of duty presentation, performing a partial karis average (i.e a non linear intensity mapping function)
     // prevents firefly effect. The Karis average is done only for mip 0 -> 1.
     // Source (From Karis himself : https://graphicrants.blogspot.com/2013/12/tone-mapping.html)
@@ -125,7 +131,7 @@ Shader "Hidden/PostProcessing/Bloom"
         color *= weight;
         return color;
     }
-    
+
     half4 FragBlurHkarisAverage(Varyings input) : SV_Target
     {
         UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
@@ -157,7 +163,7 @@ Shader "Hidden/PostProcessing/Bloom"
         half3 highMip = DecodeHDR(SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv));
 
         #if _BLOOM_HQ && !defined(SHADER_API_GLES)
-            half3 lowMip = DecodeHDR(SampleTexture2DBicubic(TEXTURE2D_X_ARGS(_SourceTexLowMip, sampler_LinearClamp), uv, _SourceTexLowMip_TexelSize.zwxy, (1.0).xx, unity_StereoEyeIndex));
+        half3 lowMip = DecodeHDR(SampleTexture2DBicubic(TEXTURE2D_X_ARGS(_SourceTexLowMip, sampler_LinearClamp), uv, _SourceTexLowMip_TexelSize.zwxy, (1.0).xx, unity_StereoEyeIndex));
         #else
         half3 lowMip = DecodeHDR(SAMPLE_TEXTURE2D_X(_SourceTexLowMip, sampler_LinearClamp, uv));
         #endif
@@ -175,7 +181,7 @@ Shader "Hidden/PostProcessing/Bloom"
     half4 FragCombine(Varyings input) : SV_Target
     {
         float2 uv = UnityStereoTransformScreenSpaceTex(input.texcoord);
-        half3 sceneColor = DecodeHDR(SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp,uv));
+        half3 sceneColor = DecodeHDR(SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv));
         half3 bloomTex = DecodeHDR(SAMPLE_TEXTURE2D_X(_SourceTexLowMip, sampler_LinearClamp, uv));
         half3 bloomResult = bloomTex * Intensity * Tint;
         return half4(sceneColor + bloomResult, 1);

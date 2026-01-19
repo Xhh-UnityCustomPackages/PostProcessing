@@ -93,6 +93,8 @@ namespace Game.Core.PostProcessing
         private RenderingMode m_RenderingMode;
         public RenderingMode RenderingMode => m_RenderingMode;
         
+        private Dictionary<string, PostProcessRenderer> m_PostProcessRendererMap = new ();
+        
 #if UNITY_EDITOR
         DebugHandler m_DebugHandler;
 #endif
@@ -104,30 +106,29 @@ namespace Game.Core.PostProcessing
             var postProcessFeatureData = m_Settings.m_PostProcessFeatureData;
             m_Data = new ();
             
-            Dictionary<string, PostProcessRenderer> shared = new Dictionary<string, PostProcessRenderer>();
             m_BeforeRenderingGBuffer = new PostProcessRenderPass(PostProcessInjectionPoint.BeforeRenderingGBuffer,
-                InstantiateRenderers(m_Settings.m_RenderersBeforeRenderingGBuffer, shared),
+                InstantiateRenderers(m_Settings.m_RenderersBeforeRenderingGBuffer, m_PostProcessRendererMap),
                 postProcessFeatureData, m_Data);
             m_BeforeRenderingDeferredLights = new PostProcessRenderPass(PostProcessInjectionPoint.BeforeRenderingDeferredLights,
-                InstantiateRenderers(m_Settings.m_RenderersBeforeRenderingDeferredLights, shared),
+                InstantiateRenderers(m_Settings.m_RenderersBeforeRenderingDeferredLights, m_PostProcessRendererMap),
                 postProcessFeatureData, m_Data);
 
             m_BeforeRenderingOpaques = new PostProcessRenderPass(PostProcessInjectionPoint.BeforeRenderingOpaques,
-                InstantiateRenderers(m_Settings.m_RenderersBeforeRenderingOpaques, shared),
+                InstantiateRenderers(m_Settings.m_RenderersBeforeRenderingOpaques, m_PostProcessRendererMap),
                 postProcessFeatureData, m_Data);
             m_AfterRenderingOpaques = new PostProcessRenderPass(PostProcessInjectionPoint.AfterRenderingOpaques,
-                InstantiateRenderers(m_Settings.m_RenderersAfterRenderingOpaques, shared),
+                InstantiateRenderers(m_Settings.m_RenderersAfterRenderingOpaques, m_PostProcessRendererMap),
                 postProcessFeatureData, m_Data);
 
             m_AfterRenderingSkybox = new PostProcessRenderPass(PostProcessInjectionPoint.AfterRenderingSkybox,
-                InstantiateRenderers(m_Settings.m_RenderersAfterRenderingSkybox, shared),
+                InstantiateRenderers(m_Settings.m_RenderersAfterRenderingSkybox, m_PostProcessRendererMap),
                 postProcessFeatureData, m_Data);
             // 外挂后处理目前只放在这个位置
             m_BeforeRenderingPostProcessing = new PostProcessRenderPass(PostProcessInjectionPoint.BeforeRenderingPostProcessing,
-                InstantiateRenderers(m_Settings.m_RenderersBeforeRenderingPostProcessing, shared),
+                InstantiateRenderers(m_Settings.m_RenderersBeforeRenderingPostProcessing, m_PostProcessRendererMap),
                 postProcessFeatureData, m_Data);
             m_AfterRenderingPostProcessing = new PostProcessRenderPass(PostProcessInjectionPoint.AfterRenderingPostProcessing,
-                InstantiateRenderers(m_Settings.m_RenderersAfterRenderingPostProcessing, shared),
+                InstantiateRenderers(m_Settings.m_RenderersAfterRenderingPostProcessing, m_PostProcessRendererMap),
                 postProcessFeatureData, m_Data);
 
             m_UberPostProcessing = new UberPostProcess(postProcessFeatureData);
@@ -287,6 +288,7 @@ namespace Game.Core.PostProcessing
 #if UNITY_EDITOR
             SafeDispose(ref m_DebugHandler);
 #endif
+            m_PostProcessRendererMap.Clear();
             
             // Need call it in URP manually
             ConstantBuffer.ReleaseAll();
@@ -318,6 +320,23 @@ namespace Game.Core.PostProcessing
                 }
             }
             return renderers;
+        }
+
+        public bool HasPostProcessRenderer(Type renderer)
+        {
+            if (!renderer.IsSubclassOf(typeof(PostProcessRenderer))) return false;
+
+            var attribute = PostProcessAttribute.GetAttribute(renderer);
+            if (attribute == null) return true;
+            var key = renderer.AssemblyQualifiedName;
+            bool hasRenderer = false;
+            hasRenderer |= m_Settings.m_RenderersAfterRenderingOpaques.Contains(key);
+            hasRenderer |= m_Settings.m_RenderersBeforeRenderingGBuffer.Contains(key);
+            hasRenderer |= m_Settings.m_RenderersBeforeRenderingDeferredLights.Contains(key);
+            hasRenderer |= m_Settings.m_RenderersAfterRenderingSkybox.Contains(key);
+            hasRenderer |= m_Settings.m_RenderersBeforeRenderingPostProcessing.Contains(key);
+            hasRenderer |= m_Settings.m_RenderersAfterRenderingPostProcessing.Contains(key);
+            return hasRenderer;
         }
     }
 }

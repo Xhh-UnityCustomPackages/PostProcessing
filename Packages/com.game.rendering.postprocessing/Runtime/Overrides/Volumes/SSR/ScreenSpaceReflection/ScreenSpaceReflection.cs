@@ -61,7 +61,7 @@ namespace Game.Core.PostProcessing
         [InspectorName("厚度 (Thickness)")]
         public ClampedFloatParameter thickness = new(0.1f, 0.001f, 1f);
         
-        [Tooltip("最大追踪距离 (MaximumMarchDistance)")]
+        [InspectorName("最大追踪距离 (MaximumMarchDistance)")]
         public MinFloatParameter maximumMarchDistance = new(100f, 0f);
 
         /// <summary>
