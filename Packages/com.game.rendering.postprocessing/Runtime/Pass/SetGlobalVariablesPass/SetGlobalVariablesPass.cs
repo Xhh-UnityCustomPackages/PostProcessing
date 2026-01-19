@@ -53,7 +53,7 @@ namespace Game.Core.PostProcessing
                 passData.RendererData = m_Data;
                 passData.CameraData = cameraData;
                 passData.LightData = lightData;
-                
+                builder.AllowPassCulling(false);
                 builder.SetRenderFunc(static (SetGlobalVariablesPassData data, UnsafeGraphContext context) =>
                 {
                     var cmd = CommandBufferHelpers.GetNativeCommandBuffer(context.cmd);

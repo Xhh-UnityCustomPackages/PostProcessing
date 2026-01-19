@@ -100,6 +100,8 @@ namespace Game.Core.PostProcessing
                 passData.inputColor = inputColor;
                 passData.HdData = m_Data;
                 builder.AllowPassCulling(false);
+                builder.AllowGlobalStateModification(true);
+                builder.SetGlobalTextureAfterPass(colorPyramidHandle, PipelineShaderIDs._ColorPyramidTexture);
                 builder.SetRenderFunc(
                     (GenerateColorPyramidData data, UnsafeGraphContext context) =>
                     {

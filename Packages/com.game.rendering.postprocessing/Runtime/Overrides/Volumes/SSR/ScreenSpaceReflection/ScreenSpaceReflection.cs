@@ -132,7 +132,9 @@ namespace Game.Core.PostProcessing
         public enum Preset
         {
             Fast = 10,
+            Medium = 20,
             High = 30,
+            Superb = 35,
             Ultra = 40
         }
 
@@ -141,41 +143,41 @@ namespace Game.Core.PostProcessing
             switch (preset)
             {
                 case Preset.Fast:
+                    mode.value = RaytraceModes.LinearTracing;
                     resolution.value = Resolution.Half;
                     stepSize.value = 1.0f;
-                    if (mode == RaytraceModes.HiZTracing)
-                    {
-                        maximumIterationCount.value = 30;
-                    }
-                    else
-                    {
-                        maximumIterationCount.value = 16;
-                    }
+                    thickness.value = 0.01f;
+                    maximumIterationCount.value = 50;
+                    break;
+                case Preset.Medium:
+                    mode.value = RaytraceModes.LinearTracing;
+                    resolution.value = Resolution.Full;
+                    stepSize.value = 0.6f;
+                    thickness.value = 0.01f;
+                    maximumIterationCount.value = 70;
                     break;
                 case Preset.High:
+                    mode.value = RaytraceModes.LinearTracing;
                     resolution.value = Resolution.Full;
-                    stepSize.value = 3f;
-                    if (mode == RaytraceModes.HiZTracing)
-                    {
-                        maximumIterationCount.value = 50;
-                    }
-                    else
-                    {
-                        maximumIterationCount.value = 64;
-                    }
+                    stepSize.value = 0.6f;
+                    thickness.value = 0.01f;
+                    maximumIterationCount.value = 90;
+                    break;
+                case Preset.Superb:
+                    mode.value = RaytraceModes.HiZTracing;
+                    resolution.value = Resolution.Full;
+                    stepSize.value = 1f;
+                    thickness.value = 0.01f;
+                    maximumIterationCount.value = 70;
+                    enableMipmap.value = true;
                     break;
                 case Preset.Ultra:
+                    mode.value = RaytraceModes.HiZTracing;
                     resolution.value = Resolution.Full;
-                    stepSize.value = 4f;
-                    if (mode == RaytraceModes.HiZTracing)
-                    {
-                        maximumIterationCount.value = 70;
-                    }
-                    else
-                    {
-                        maximumIterationCount.value = 256;
-                    }
-
+                    stepSize.value = 1f;
+                    thickness.value = 0.01f;
+                    maximumIterationCount.value = 90;
+                    enableMipmap.value = true;
                     break;
             }
         }

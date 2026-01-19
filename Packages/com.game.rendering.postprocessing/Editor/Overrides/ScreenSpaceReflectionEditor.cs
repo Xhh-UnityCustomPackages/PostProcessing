@@ -65,9 +65,21 @@ namespace Game.Core.PostProcessing.UnityEditor
                 EditorUtility.SetDirty(target);
             }
             
+            if (GUILayout.Button("Medium"))
+            {
+                m_ScreenSpaceReflection.ApplyPreset(ScreenSpaceReflection.Preset.Medium);
+                EditorUtility.SetDirty(target);
+            }
+            
             if (GUILayout.Button("High"))
             {
                 m_ScreenSpaceReflection.ApplyPreset(ScreenSpaceReflection.Preset.High);
+                EditorUtility.SetDirty(target);
+            }
+            
+            if (GUILayout.Button("Superb"))
+            {
+                m_ScreenSpaceReflection.ApplyPreset(ScreenSpaceReflection.Preset.Superb);
                 EditorUtility.SetDirty(target);
             }
             
