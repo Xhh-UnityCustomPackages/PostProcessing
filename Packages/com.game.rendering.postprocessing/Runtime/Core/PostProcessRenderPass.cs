@@ -156,6 +156,19 @@ namespace Game.Core.PostProcessing
                     {
                         renderer.Render(cmd, source, null, ref renderingData);
                     }
+
+                    //如果最后一个是 renderToCamera 的话 
+                    if (index == m_ActivePostProcessRenderers.Count - 1)
+                    {
+                        if (!renderer.dontCareSourceTargetCopy)
+                        {
+                            // blit source: m_CameraColorTarget target: m_TempRT
+                            // copy
+                            // swap source: m_TempRT target: m_CameraColorTarget
+                            Blit(cmd, source, cameraColorTarget);
+                        }
+                    }
+
                     continue;
                 }
 

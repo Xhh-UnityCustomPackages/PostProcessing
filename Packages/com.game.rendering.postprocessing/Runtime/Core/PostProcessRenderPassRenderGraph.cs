@@ -37,8 +37,10 @@ namespace Game.Core.PostProcessing
             m_Descriptor = cameraTargetDescriptor;
             
             var desc = GetCompatibleDescriptor(m_Descriptor, m_Descriptor.graphicsFormat);
-            var tempRT0 = UniversalRenderer.CreateRenderGraphTexture(renderGraph, desc, "_TempRT0", false, FilterMode.Bilinear);
-            var tempRT1 = UniversalRenderer.CreateRenderGraphTexture(renderGraph, desc, "_TempRT1", false, FilterMode.Bilinear);
+            RenderingUtils.ReAllocateHandleIfNeeded(ref m_TempRT0, desc, name: "_TempRT0");
+            RenderingUtils.ReAllocateHandleIfNeeded(ref m_TempRT1, desc, name: "_TempRT1");
+            var tempRT0 = renderGraph.ImportTexture(m_TempRT0);
+            var tempRT1 = renderGraph.ImportTexture(m_TempRT1);
             
             var cameraColorTarget = resourceData.activeColorTexture;
             var source = cameraColorTarget;
@@ -58,6 +60,28 @@ namespace Game.Core.PostProcessing
                     // 不需要渲染到最终摄像机 就无所谓RT切换 (注意: 最终输出完全取决于内部 如果在队列最后一个 可能会导致RT没能切回摄像机)
                     renderer.DoRenderGraph(renderGraph, source, TextureHandle.nullHandle, frameData);
                 
+                    //如果最后一个是 renderToCamera 的话 
+                    if (index == m_ActivePostProcessRenderers.Count - 1)
+                    {
+                        if (!renderer.dontCareSourceTargetCopy)
+                        {
+                            using (var builder = renderGraph.AddUnsafePass<PassData>(m_PassName, out var passData))
+                            {
+                                passData.sourceTexture = source;
+                                builder.UseTexture(source);
+                                passData.destination = cameraColorTarget;
+                                builder.UseTexture(cameraColorTarget, AccessFlags.Write);
+                                builder.SetRenderFunc(static (PassData data, UnsafeGraphContext context) =>
+                                {
+                                    var cmd = CommandBufferHelpers.GetNativeCommandBuffer(context.cmd);
+                                    var sourceTextureHdl = data.sourceTexture;
+                                    var dst = data.destination;
+                                    Blitter.BlitCameraTexture(cmd, sourceTextureHdl, dst);
+                                });
+                            }
+                        }
+                    }
+                    
                     continue;
                 }
 
@@ -82,8 +106,8 @@ namespace Game.Core.PostProcessing
                             builder.SetRenderFunc(static (PassData data, UnsafeGraphContext context) =>
                             {
                                 var cmd = CommandBufferHelpers.GetNativeCommandBuffer(context.cmd);
-                                RTHandle sourceTextureHdl = data.sourceTexture;
-                                RTHandle dst = data.destination;
+                                var sourceTextureHdl = data.sourceTexture;
+                                var dst = data.destination;
                                 Blitter.BlitCameraTexture(cmd, sourceTextureHdl, dst);
                             });
                         }
