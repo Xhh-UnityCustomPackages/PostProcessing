@@ -80,8 +80,8 @@ Result Linear2D_Trace(half3 csOrigin,
 
     half3 csEndPoint = csDirection * rayLength + csOrigin;
     //3D射线投影到2D屏幕空间
-    half4 H0 = TransformViewToHScreen(csOrigin, csZBufferSize.xy);
-    half4 H1 = TransformViewToHScreen(csEndPoint, csZBufferSize.xy);
+    float4 H0 = TransformViewToHScreen(csOrigin, csZBufferSize.xy);
+    float4 H1 = TransformViewToHScreen(csEndPoint, csZBufferSize.xy);
 
     half k0 = 1 / H0.w;
     half k1 = 1 / H1.w;
