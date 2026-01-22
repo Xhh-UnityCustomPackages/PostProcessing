@@ -12,7 +12,7 @@ namespace UnityEngine.Rendering
 
         bool IRenderPipelineGraphicsSettings.isAvailableInPlayerBuild => true;
 
-        [SerializeField, ResourcePath("Runtime/Overrides/Volumes/Shadows/ContactShadow/Shaders/ContactShadows.compute")]
+        [SerializeField, ResourcePath("Runtime/Overrides/Volumes/Shadows/ContactShadows/Shaders/ContactShadows.compute")]
         private ComputeShader m_ContractShadowCS;
         
         public ComputeShader contractShadowCS
@@ -21,7 +21,7 @@ namespace UnityEngine.Rendering
             set => this.SetValueAndNotify(ref m_ContractShadowCS, value);
         }
         
-        [SerializeField, ResourcePath("Runtime/Overrides/Volumes/Shadows/ContactShadow/Shaders/DiffuseShadowDenoiser.compute")]
+        [SerializeField, ResourcePath("Runtime/Overrides/Volumes/Shadows/ContactShadows/Shaders/DiffuseShadowDenoiser.compute")]
         private ComputeShader m_DiffuseShadowDenoiserCS;
         
         public ComputeShader diffuseShadowDenoiserCS

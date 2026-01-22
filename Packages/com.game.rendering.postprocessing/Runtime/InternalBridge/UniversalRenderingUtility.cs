@@ -13,7 +13,7 @@ namespace UnityEngine.Rendering.Universal
         
         public static RenderingMode GetRenderingMode(ScriptableRenderer renderer)
         {
-            return ((UniversalRenderer)renderer).renderingModeRequested;
+            return ((UniversalRenderer)renderer).renderingModeActual;
         }
 
         public static CopyDepthMode GetCopyDepthMode(ScriptableRenderer renderer)
