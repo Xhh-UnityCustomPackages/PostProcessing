@@ -5,8 +5,8 @@ namespace UnityEngine.Rendering
 {
     [Serializable]
     [SupportedOnRenderPipeline(typeof(UniversalRenderPipelineAsset))]
-    [Categorization.CategoryInfo(Name = "R: VolumetricFogResources", Order = 2001), HideInInspector]
-    public class VolumetricFogResources : IRenderPipelineResources
+    [Categorization.CategoryInfo(Name = "R: VolumetricFogHDRPResources", Order = 2001), HideInInspector]
+    public class VolumetricFogHDRPResources : IRenderPipelineResources
     {
         public int version => 0;
 
@@ -64,7 +64,7 @@ namespace UnityEngine.Rendering
             set => this.SetValueAndNotify(ref m_VolumetricMaterial, value);
         }
 
-        [SerializeField, ResourcePath("Runtime/Overrides/Volumes/VolumetricFog/Shaders/VolumeVoxelization.compute")]
+        [SerializeField, ResourcePath("Runtime/Overrides/Volumes/VolumetricFogHDRP/Shaders/VolumeVoxelization.compute")]
         private ComputeShader m_VolumeVoxelization;
         public ComputeShader volumeVoxelization
         {

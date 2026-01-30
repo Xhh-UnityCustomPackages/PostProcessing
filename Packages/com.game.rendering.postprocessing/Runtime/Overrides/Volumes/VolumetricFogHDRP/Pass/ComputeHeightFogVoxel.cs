@@ -18,7 +18,7 @@ namespace Game.Core.PostProcessing
         {
             this.postProcessData = postProcessData;
 
-            var runtimeShaders = GraphicsSettings.GetRenderPipelineSettings<VolumetricFogResources>();
+            var runtimeShaders = GraphicsSettings.GetRenderPipelineSettings<VolumetricFogHDRPResources>();
             voxelizationCS = runtimeShaders.volumeVoxelization;
         }
         

@@ -55,7 +55,7 @@ namespace Game.Core.PostProcessing
 
         public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
         {
-            var runtimeShaders = GraphicsSettings.GetRenderPipelineSettings<VolumetricFogResources>();
+            var runtimeShaders = GraphicsSettings.GetRenderPipelineSettings<VolumetricFogHDRPResources>();
             var generateMaxZCS = runtimeShaders.computeMaxDepth;
             generateMaxZCS.shaderKeywords = null;
 
@@ -184,7 +184,7 @@ namespace Game.Core.PostProcessing
             using (var builder = renderGraph.AddComputePass<PassData>(passName, out var passData))
             {
                 builder.AllowPassCulling(false);
-                var runtimeShaders = GraphicsSettings.GetRenderPipelineSettings<VolumetricFogResources>();
+                var runtimeShaders = GraphicsSettings.GetRenderPipelineSettings<VolumetricFogHDRPResources>();
                 passData.generateMaxZCS = runtimeShaders.computeMaxDepth;
                 passData.generateMaxZCS.shaderKeywords = null;
 
