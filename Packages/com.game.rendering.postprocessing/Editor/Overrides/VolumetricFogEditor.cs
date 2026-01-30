@@ -4,10 +4,10 @@ using UnityEngine;
 
 namespace Game.Core.PostProcessing.UnityEditor
 {
-    [CustomEditor(typeof(VolumetricFog))]
+    [CustomEditor(typeof(VolumetricFogHDRP))]
     public class VolumetricFogEditor : VolumeComponentEditor
     {
-         protected SerializedDataParameter m_Enabled;
+        protected SerializedDataParameter m_Enabled;
         protected SerializedDataParameter m_MaxFogDistance;
         protected SerializedDataParameter m_ColorMode;
         protected SerializedDataParameter m_Color;
@@ -45,7 +45,7 @@ namespace Game.Core.PostProcessing.UnityEditor
 
         public override void OnEnable()
         {
-            var o = new PropertyFetcher<VolumetricFog>(serializedObject);
+            var o = new PropertyFetcher<VolumetricFogHDRP>(serializedObject);
 
             m_Enabled = Unpack(o.Find(x => x.enabled));
             m_MaxFogDistance = Unpack(o.Find(x => x.maxFogDistance));
@@ -77,6 +77,101 @@ namespace Game.Core.PostProcessing.UnityEditor
             m_DenoisingMode = Unpack(o.Find(x => x.denoisingMode));
 
             base.OnEnable();
+        }
+        
+         public override void OnInspectorGUI()
+        {
+            // HDEditorUtils.EnsureFrameSetting(FrameSettingsField.AtmosphericScattering);
+
+            PropertyField(m_Enabled, s_Enabled);
+
+            PropertyField(m_MeanFreePath, s_MeanFreePathLabel);
+            PropertyField(m_BaseHeight, s_BaseHeightLabel);
+            PropertyField(m_MaximumHeight, s_MaximumHeightLabel);
+            PropertyField(m_MaxFogDistance);
+
+            if (m_MaximumHeight.value.floatValue < m_BaseHeight.value.floatValue)
+            {
+                m_MaximumHeight.value.floatValue = m_BaseHeight.value.floatValue;
+                serializedObject.ApplyModifiedProperties();
+            }
+
+            PropertyField(m_ColorMode);
+
+            using (new IndentLevelScope())
+            {
+                if (!m_ColorMode.value.hasMultipleDifferentValues &&
+                    (VolumetricFogHDRP.FogColorMode)m_ColorMode.value.intValue == VolumetricFogHDRP.FogColorMode.ConstantColor)
+                {
+                    PropertyField(m_Color);
+                }
+                else
+                {
+                    PropertyField(m_Tint);
+                    PropertyField(m_MipFogNear);
+                    PropertyField(m_MipFogFar);
+                    PropertyField(m_MipFogMaxMip);
+                }
+            }
+
+            bool volumetricLightingAvailable = true;
+           
+
+            if (volumetricLightingAvailable)
+            {
+                PropertyField(m_EnableVolumetricFog, s_EnableVolumetricFog);
+
+                // HDEditorUtils.EnsureFrameSetting(FrameSettingsField.Volumetrics);
+             
+                using (new IndentLevelScope())
+                {
+                    PropertyField(m_Albedo, s_AlbedoLabel);
+                    PropertyField(m_GlobalLightProbeDimmer, s_GlobalLightProbeDimmerLabel);
+                    PropertyField(m_DepthExtent, s_DepthExtentLabel);
+                    PropertyField(m_DenoisingMode);
+
+                    PropertyField(m_SliceDistributionUniformity);
+
+                    // base.OnInspectorGUI(); // Quality Setting
+
+                    using (new IndentLevelScope())
+                    // using (new QualityScope(this))
+                    {
+                        if (PropertyField(m_FogControlMode))
+                        {
+                            using (new IndentLevelScope())
+                            {
+                                if ((VolumetricFogHDRP.FogControl)m_FogControlMode.value.intValue == VolumetricFogHDRP.FogControl.Balance)
+                                {
+                                    PropertyField(m_VolumetricFogBudget);
+                                    PropertyField(m_ResolutionDepthRatio);
+                                }
+                                else
+                                {
+                                    PropertyField(m_ScreenResolutionPercentage);
+                                    PropertyField(m_VolumeSliceCount);
+                                }
+                            }
+                        }
+                    }
+                    PropertyField(m_DirectionalLightsOnly);
+
+                    PropertyField(m_Anisotropy);
+                    if (m_Anisotropy.value.floatValue != 0.0f)
+                    {
+                        if (BeginAdditionalPropertiesScope())
+                        {
+                            EditorGUILayout.Space();
+                            EditorGUILayout.HelpBox(
+                                "When the value is not 0, the anisotropy effect significantly increases the performance impact of volumetric fog.",
+                                MessageType.Info, wide: true);
+                        }
+                        EndAdditionalPropertiesScope();
+                    }
+
+                }
+            }
+            PropertyField(m_MultipleScatteringIntensity);
         }
     }
 }

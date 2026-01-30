@@ -33,12 +33,13 @@ namespace Game.Core.PostProcessing
         private int m_TaaFrameIndex;
         public uint FrameCount => m_FrameCount;
         
-        private struct ShaderVariablesGlobal
+        public struct ViewConstants
         {
             public Matrix4x4 ViewMatrix;
             public Matrix4x4 ViewProjMatrix;
             public Matrix4x4 InvViewProjMatrix;
             public Matrix4x4 PrevInvViewProjMatrix;
+            public Matrix4x4 projMatrix;
             
             // TAA Frame Index ranges from 0 to 7.
             public Vector4 TaaFrameInfo;  // { unused, frameCount, taaFrameIndex, taaEnabled ? 1 : 0 }
@@ -46,14 +47,15 @@ namespace Game.Core.PostProcessing
             public Vector4 ColorPyramidUvScaleAndLimitPrevFrame;
         }
         
-        private ShaderVariablesGlobal m_ShaderVariablesGlobal;
+        private ViewConstants m_ShaderVariablesGlobal;
+        public ViewConstants mainViewConstants => m_ShaderVariablesGlobal;
         
         public GPUCopy GPUCopy { get; private set; }
         public MipGenerator MipGenerator { get; private set; }
 
         BufferedRTHandleSystem m_HistoryRTSystem = new ();
 
-        private Camera camera;
+        public Camera camera { get; private set; }
         
         /// <summary>
         /// Color texture before post-processing of previous frame
@@ -89,6 +91,14 @@ namespace Game.Core.PostProcessing
         
         float m_ScreenSpaceAccumulationResolutionScale = 0.0f; // Use another scale if AO & SSR don't have the same resolution
 
+        /// <summary>Width actually used for rendering after dynamic resolution and XR is applied.</summary>
+        public int actualWidth { get; private set; }
+        /// <summary>Height actually used for rendering after dynamic resolution and XR is applied.</summary>
+        public int actualHeight { get; private set; }
+        
+        internal Rect finalViewport = new Rect(Vector2.zero, -1.0f * Vector2.one); // This will have the correct viewport position and the size will be full resolution (ie : not taking dynamic rez into account)
+        internal Rect prevFinalViewport;
+        
         private PostProcessFeatureRuntimeTextures m_RuntimeTexture;
         public PostProcessData()
         {
@@ -97,6 +107,12 @@ namespace Game.Core.PostProcessing
             MipGenerator = new MipGenerator();
             m_DepthBufferMipChainInfo.Allocate();
             InitExposure();
+            Reset();
+        }
+
+        public void Reset()
+        {
+            volumetricHistoryIsValid = false;
         }
 
         public void Dispose()
@@ -139,6 +155,16 @@ namespace Game.Core.PostProcessing
             UpdateCameraData(renderingData.cameraData);
             UpdateRenderTextures(ref renderingData);
             UpdateVolumeParameters();
+            
+            // Update viewport
+            {
+                prevFinalViewport = finalViewport;
+
+                finalViewport = GetPixelRect();
+
+                actualWidth = Math.Max((int)finalViewport.size.x, 1);
+                actualHeight = Math.Max((int)finalViewport.size.y, 1);
+            }
         }
 
         private void UpdateRenderTextures(ref RenderingData renderingData)
@@ -177,6 +203,16 @@ namespace Game.Core.PostProcessing
             UpdateCameraData(cameraData);
             UpdateRenderTextures(cameraData);
             UpdateVolumeParameters();
+            
+            // Update viewport
+            {
+                prevFinalViewport = finalViewport;
+
+                finalViewport = GetPixelRect();
+
+                actualWidth = Math.Max((int)finalViewport.size.x, 1);
+                actualHeight = Math.Max((int)finalViewport.size.y, 1);
+            }
         }
         
         private void UpdateRenderTextures(UniversalCameraData cameraData)
@@ -233,7 +269,7 @@ namespace Game.Core.PostProcessing
             bool useTAA = renderingData.cameraData.IsTemporalAAEnabled(); // Disable in scene view
             // Match HDRP View Projection Matrix, pre-handle reverse z.
             m_ShaderVariablesGlobal.ViewMatrix = renderingData.cameraData.camera.worldToCameraMatrix;
-            
+            m_ShaderVariablesGlobal.projMatrix = renderingData.cameraData.camera.projectionMatrix;
             m_ShaderVariablesGlobal.ViewProjMatrix = PostProcessingUtils.CalculateViewProjMatrix(ref renderingData.cameraData);
             
             var lastInvViewProjMatrix = m_ShaderVariablesGlobal.InvViewProjMatrix;
@@ -373,6 +409,16 @@ namespace Game.Core.PostProcessing
             cmd.SetGlobalTexture(PipelineShaderIDs._ScramblingTileXSPP, m_RuntimeTexture.scramblingTile8SPP);
             cmd.SetGlobalTexture(PipelineShaderIDs._RankingTileXSPP, m_RuntimeTexture.rankingTile8SPP);
             cmd.SetGlobalTexture(PipelineShaderIDs._ScramblingTexture, m_RuntimeTexture.scramblingTex);
+        }
+        
+        Rect? m_OverridePixelRect = null;
+
+        Rect GetPixelRect()
+        {
+            if (m_OverridePixelRect != null)
+                return m_OverridePixelRect.Value;
+            else
+                return new Rect(camera.pixelRect.x, camera.pixelRect.y, camera.pixelWidth, camera.pixelHeight);
         }
     }
 }
