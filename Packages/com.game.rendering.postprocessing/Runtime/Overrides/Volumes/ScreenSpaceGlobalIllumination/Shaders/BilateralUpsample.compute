@@ -9,7 +9,8 @@
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
 #include "Packages/com.game.rendering.postprocessing/ShaderLibrary/BilateralFilter.hlsl"
-#include "Packages/com.kurisu.illusion-render-pipelines/Shaders/ScreenSpaceLighting/ShaderVariablesBilateralUpsample.hlsl"
+#include "Packages/com.game.rendering.postprocessing/ShaderLibrary/ScreenSpaceLighting/BilateralUpsample.hlsl"
+#include "Packages/com.game.rendering.postprocessing/ShaderLibrary/ScreenSpaceLighting/BilateralUpsampleDef.cs.hlsl"
 
 // Mip chain depth buffer
 TEXTURE2D_X(_DepthPyramid);

@@ -14,7 +14,7 @@ namespace Game.Core.PostProcessing
             public static readonly int IndirectDiffuseHitPointTextureRW = Shader.PropertyToID("_IndirectDiffuseHitPointTextureRW");
             public static readonly int IndirectDiffuseHitPointTexture = Shader.PropertyToID("_IndirectDiffuseHitPointTexture");
             public static readonly int IndirectDiffuseTextureRW = Shader.PropertyToID("_IndirectDiffuseTextureRW");
-            public static readonly int IndirectDiffuseTexture = Shader.PropertyToID("_IndirectDiffuseTexture");
+            // public static readonly int IndirectDiffuseTexture = Shader.PropertyToID("_IndirectDiffuseTexture");
             public static readonly int HistoryDepthTexture = Shader.PropertyToID("_HistoryDepthTexture");
 
             // Upsample shader properties
@@ -52,7 +52,7 @@ namespace Game.Core.PostProcessing
             // public static readonly int StencilTexture = Shader.PropertyToID("_StencilTexture");
 
             public static readonly int _DepthPyramid = MemberNameHelpers.ShaderPropertyID();
-            public static readonly int _CameraNormalsTexture = MemberNameHelpers.ShaderPropertyID();
+            public static readonly int _GBuffer2 = MemberNameHelpers.ShaderPropertyID();
             public static readonly int _MotionVectorTexture = MemberNameHelpers.ShaderPropertyID();
         }
 
@@ -88,8 +88,8 @@ namespace Game.Core.PostProcessing
 
         private RenderTextureDescriptor _targetDescriptor;
 
-        private float _rtWidth;
-        private float _rtHeight;
+        private int _rtWidth;
+        private int _rtHeight;
         private float _screenWidth;
         private float _screenHeight;
         private bool _halfResolution;
@@ -99,10 +99,10 @@ namespace Game.Core.PostProcessing
 
         private bool _denoiserInitialized;
 
-        private static readonly ProfilingSampler TracingSampler = new("Trace");
-        private static readonly ProfilingSampler ReprojectSampler = new("Reproject");
-        private static readonly ProfilingSampler DenoiseSampler = new("Denoise");
-        private static readonly ProfilingSampler UpsampleSampler = new("Upsample");
+        private static readonly ProfilingSampler TracingSampler = new("SSGI Trace");
+        private static readonly ProfilingSampler ReprojectSampler = new("SSGI Reproject");
+        private static readonly ProfilingSampler DenoiseSampler = new("SSGI Denoise");
+        private static readonly ProfilingSampler UpsampleSampler = new("SSGI Upsample");
 
         private bool _needDenoise;
 
@@ -124,13 +124,14 @@ namespace Game.Core.PostProcessing
             public int IndirectDiffuseFrameIndex;
         }
 
-        public override PostProcessPassInput postProcessPassInput => PostProcessPassInput.DepthPyramid | PostProcessPassInput.PreviousFrameColor;
+        public override PostProcessPassInput postProcessPassInput => PostProcessPassInput.DepthPyramid | PostProcessPassInput.ColorPyramid;
         
         public override ScriptableRenderPassInput input => ScriptableRenderPassInput.Depth
                                                            | ScriptableRenderPassInput.Normal
                                                            | ScriptableRenderPassInput.Motion;
 
         public override bool renderToCamera => false;
+        public override bool dontCareSourceTargetCopy => true;
 
         public override void Setup()
         {
@@ -169,8 +170,8 @@ namespace Game.Core.PostProcessing
             _halfResolution = settings.halfResolution.value;
 
             int resolutionDivider = _halfResolution ? 2 : 1;
-            _rtWidth = _screenWidth / resolutionDivider;
-            _rtHeight = _screenHeight / resolutionDivider;
+            _rtWidth = (int)_screenWidth / resolutionDivider;
+            _rtHeight = (int)_screenHeight / resolutionDivider;
 
             // Allocate hit point texture
             _targetDescriptor = cameraData.cameraTargetDescriptor;
@@ -345,7 +346,7 @@ namespace Game.Core.PostProcessing
             
             // Bind input textures
             cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, Properties._DepthPyramid, postProcessData.DepthPyramidRT);
-            cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, Properties._CameraNormalsTexture, normalTexture);
+            cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, Properties._GBuffer2, normalTexture);
             // cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, Properties._MotionVectorTexture, isNewFrame && motionVectorTexture.IsValid() ? motionVectorTexture : Texture2D.blackTexture);
             cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, PipelineShaderIDs._ColorPyramidTexture, preFrameColorRT);
             cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, Properties.HistoryDepthTexture, historyDepthRT);

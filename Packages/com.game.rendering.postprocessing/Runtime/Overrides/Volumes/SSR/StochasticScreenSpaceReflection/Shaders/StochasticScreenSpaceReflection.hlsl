@@ -6,7 +6,7 @@
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/UnityGBuffer.hlsl"
 #include "Packages/com.unity.render-pipelines.universal/Shaders/PostProcessing/Common.hlsl"
 
-#include "Packages/com.game.rendering.postprocessing/ShaderLibrary/TraceLibrary.hlsl"
+#include "TraceLibrary.hlsl"
 
 
 TEXTURE2D_HALF(_GBuffer0);

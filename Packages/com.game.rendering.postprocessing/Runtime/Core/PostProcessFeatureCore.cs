@@ -17,10 +17,14 @@ namespace Game.Core.PostProcessing
         public static readonly int _ColorPyramidTexture = MemberNameHelpers.ShaderPropertyID();
         public static readonly int _CameraPreviousColorTexture = MemberNameHelpers.ShaderPropertyID();
         public static readonly int _MotionVectorTexture = MemberNameHelpers.ShaderPropertyID();
-        public static readonly int _AutoExposureLUT = MemberNameHelpers.ShaderPropertyID();
+        public static readonly int _AutoExposureLUT = MemberNameHelpers.ShaderPropertyID();//曝光结果
         public static readonly int _ScreenSpaceOcclusionTexture = MemberNameHelpers.ShaderPropertyID();
         public static readonly int _ExposureTexture = MemberNameHelpers.ShaderPropertyID();
         public static readonly int _PrevExposureTexture = MemberNameHelpers.ShaderPropertyID();
+        public static readonly int _IndirectDiffuseTexture = MemberNameHelpers.ShaderPropertyID();//SSGI 结果
+        // URP 管线定义的
+        public static readonly int _CameraNormalsTexture = MemberNameHelpers.ShaderPropertyID();
+        public static readonly int _GBuffer2 = MemberNameHelpers.ShaderPropertyID();
         
         public static readonly int ShaderVariablesGlobal = MemberNameHelpers.ShaderPropertyID();
         public static readonly int _TaaFrameInfo = MemberNameHelpers.ShaderPropertyID();

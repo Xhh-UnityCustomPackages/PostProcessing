@@ -1,7 +1,7 @@
 ﻿#ifndef DECLARE_MOTION_VECTOR_TEXTURE_INCLUDED
 #define DECLARE_MOTION_VECTOR_TEXTURE_INCLUDED
 
-#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+// #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/GlobalSamplers.hlsl"
 
 // Per-pixel camera backwards velocity

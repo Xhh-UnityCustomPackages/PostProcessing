@@ -25,6 +25,18 @@ namespace Game.Core.PostProcessing
         /// Depth buffer for temporal effects.
         /// </summary>
         Depth,
+        /// <summary>
+        /// Normal buffer for temporal effects.
+        /// </summary>
+        Normal,
+        /// <summary>
+        /// Screen Space Global Illumination history buffer for temporal denoising.
+        /// </summary>
+        ScreenSpaceGlobalIllumination,
+        /// <summary>
+        /// Screen Space Global Illumination second history buffer for second denoiser pass.
+        /// </summary>
+        ScreenSpaceGlobalIllumination2
     }
 
     public partial class PostProcessData : IDisposable
@@ -409,6 +421,14 @@ namespace Game.Core.PostProcessing
             cmd.SetGlobalTexture(PipelineShaderIDs._ScramblingTileXSPP, m_RuntimeTexture.scramblingTile8SPP);
             cmd.SetGlobalTexture(PipelineShaderIDs._RankingTileXSPP, m_RuntimeTexture.rankingTile8SPP);
             cmd.SetGlobalTexture(PipelineShaderIDs._ScramblingTexture, m_RuntimeTexture.scramblingTex);
+        }
+        
+        public Vector4 EvaluateRayTracingHistorySizeAndScale(RTHandle buffer)
+        {
+            return new Vector4(m_HistoryRTSystem.rtHandleProperties.previousViewportSize.x,
+                m_HistoryRTSystem.rtHandleProperties.previousViewportSize.y,
+                (float)m_HistoryRTSystem.rtHandleProperties.previousViewportSize.x / buffer.rt.width,
+                (float)m_HistoryRTSystem.rtHandleProperties.previousViewportSize.y / buffer.rt.height);
         }
         
         Rect? m_OverridePixelRect = null;

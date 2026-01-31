@@ -14,13 +14,8 @@ Shader "Hidden/UberPost"
     #include "Packages/com.game.rendering.postprocessing/Runtime/Overrides/Volumes/Tonemapping/Shaders/Tonemapping.hlsl"
     #include "Packages/com.game.rendering.postprocessing/Runtime/Overrides/Volumes/Vignette/Shaders/Vignette.hlsl"
 
-    TEXTURE2D(_AutoExposureLUT);
-    
-    half3 ApplyExposure(half3 input)
-    {
-        half exposure = SAMPLE_TEXTURE2D_LOD(_AutoExposureLUT, sampler_LinearClamp, 0, 0);
-        return input * exposure;
-    }
+    #include "Packages/com.game.rendering.postprocessing/ShaderLibrary/EvaluateExposure.hlsl"
+    #include "Packages/com.game.rendering.postprocessing/ShaderLibrary/EvaluateScreenSpaceGlobalIllumination.hlsl"
 
 
     half4 Frag(Varyings input) : SV_Target
@@ -28,6 +23,9 @@ Shader "Hidden/UberPost"
         float2 uv = SCREEN_COORD_APPLY_SCALEBIAS(UnityStereoTransformScreenSpaceTex(input.texcoord));
         half3 color = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv).xyz;
 
+        // half4 ssgi = SampleScreenSpaceGlobalIllumination(uv);
+        // return ssgi;
+        
         color = ApplyExposure(color);
         color = ApplyVignette(color, uv);
         color = ApplyTonemaping(color);

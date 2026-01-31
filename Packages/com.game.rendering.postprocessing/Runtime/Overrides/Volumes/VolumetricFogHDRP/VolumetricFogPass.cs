@@ -7,8 +7,8 @@ using UnityEngine.Rendering.Universal;
 
 namespace Game.Core.PostProcessing
 {
-     [PostProcess("体积雾HDRP (Volumetric Fog HDRP)", PostProcessInjectionPoint.AfterRenderingSkybox)]
-    public partial class VolumetricFogHDRPRenderer : PostProcessVolumeRenderer<VolumetricFogHDRP>
+	[PostProcess("Volumetric Fog HDRP", PostProcessInjectionPoint.AfterRenderingSkybox)]
+	public partial class VolumetricFogHDRPRenderer : PostProcessVolumeRenderer<VolumetricFogHDRP>
     {
 	    internal static Matrix4x4[] m_PixelCoordToViewDirWS = new Matrix4x4[1];
 	    internal static Vector3Int s_CurrentVolumetricBufferSize;
