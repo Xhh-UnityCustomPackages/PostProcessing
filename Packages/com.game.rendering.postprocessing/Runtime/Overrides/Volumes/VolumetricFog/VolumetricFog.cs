@@ -16,9 +16,6 @@ namespace Game.Core.PostProcessing
         
         [Tooltip("Disabling this will completely remove any feature from the volumetric fog from being rendered at all.")]
         public BoolParameter enabled = new(false, BoolParameter.DisplayType.EnumPopup);
-        
-        [Tooltip("Disabling this will completely remove any feature from the volumetric fog from being rendered at all.")]
-		public BoolParameter enable = new(false, BoolParameter.DisplayType.EnumPopup);
 
 		[Header("Distances")]
 		[Tooltip("The maximum distance from the camera that the fog will be rendered up to.")]

@@ -243,7 +243,7 @@ namespace Game.Core.PostProcessing
                 builder.SetRenderFunc((ScreenSpaceReflectionPassData data, UnsafeGraphContext context) =>
                 {
                     var cmd = CommandBufferHelpers.GetNativeCommandBuffer(context.cmd);
-                    postProcessData.BindDitheredRNGData1SPP(cmd);
+                    BlueNoise.BindDitheredRNGData1SPP(cmd);
                     // var cmd = context.cmd;
                     using (new ProfilingScope(cmd, m_TracingSampler))
                     {

@@ -11,6 +11,16 @@ namespace UnityEngine.Rendering
         public int version => 0;
         bool IRenderPipelineGraphicsSettings.isAvailableInPlayerBuild => true;
         
+        
+        [SerializeField, ResourcePath("Runtime/Core/CoreResources/DownsampleDepth.shader")]
+        private Shader m_DownsampleDepthPS;
+
+        public Shader downsampleDepthPS
+        {
+            get => m_DownsampleDepthPS;
+            set => this.SetValueAndNotify(ref m_DownsampleDepthPS, value);
+        }
+        
         #region Utilities
         [Header("Utilities / Core")]
         [SerializeField, ResourcePath("Runtime/Core/CoreResources/GPUCopy.compute")]

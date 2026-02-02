@@ -41,11 +41,11 @@ namespace Game.Core.PostProcessing
             float verticalFoV = camera.GetGateFittedFieldOfView() * Mathf.Deg2Rad;
             if (!camera.usePhysicalProperties)
             {
-                verticalFoV = Mathf.Atan(-1.0f / m_ShaderVariablesGlobal.projMatrix[1, 1]) * 2;
+                verticalFoV = Mathf.Atan(-1.0f / mainViewConstants.projMatrix[1, 1]) * 2;
             }
             Vector2 lensShift = camera.GetGateFittedLensShift();
 
-            return VolumetricNormalFunctions.ComputePixelCoordToWorldSpaceViewDirectionMatrix(verticalFoV, lensShift, resolution, m_ShaderVariablesGlobal.ViewMatrix, false, aspect, camera.orthographic);
+            return VolumetricNormalFunctions.ComputePixelCoordToWorldSpaceViewDirectionMatrix(verticalFoV, lensShift, resolution, mainViewConstants.viewMatrix, false, aspect, camera.orthographic);
         }
     }
 }

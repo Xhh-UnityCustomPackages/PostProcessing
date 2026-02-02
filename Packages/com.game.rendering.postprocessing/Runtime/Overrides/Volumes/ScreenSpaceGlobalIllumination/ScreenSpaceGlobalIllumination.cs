@@ -57,7 +57,7 @@ namespace Game.Core.PostProcessing
         /// Compute and reproject at half resolution.
         /// </summary>
         [Tooltip("Compute and reproject at half resolution for better performance.")]
-        public BoolParameter halfResolution = new(false, BoolParameter.DisplayType.EnumPopup);
+        public BoolParameter halfResolution = new(false);
 
         /// <summary>
         /// The thickness of the depth buffer value used for the ray marching step
@@ -78,13 +78,13 @@ namespace Game.Core.PostProcessing
         public EnumParameter<RayMarchingFallbackHierarchy> rayMiss = new(RayMarchingFallbackHierarchy.ReflectionProbesAndSky);
 
         [Tooltip("When enabled, probe volumes will be sampled when ray misses geometry.")]
-        public BoolParameter enableProbeVolumes = new(true, BoolParameter.DisplayType.EnumPopup);
+        public BoolParameter enableProbeVolumes = new(true);
 
         /// <summary>
         /// Enable denoising for SSGI.
         /// </summary>
         [Header("Denoising")] [Tooltip("Enable temporal and spatial denoising for smoother results.")]
-        public BoolParameter denoise = new(true, BoolParameter.DisplayType.EnumPopup);
+        public BoolParameter denoise = new(true);
 
         /// <summary>
         /// Denoiser radius for spatial filter.

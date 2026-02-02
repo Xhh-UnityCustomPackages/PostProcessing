@@ -172,7 +172,7 @@ namespace Game.Core.PostProcessing
             
             using (new ProfilingScope(cmd, m_TracingSampler))
             {
-                postProcessData.BindDitheredRNGData1SPP(cmd);
+                BlueNoise.BindDitheredRNGData1SPP(cmd);
                 
                 if (m_UseCS)
                 {

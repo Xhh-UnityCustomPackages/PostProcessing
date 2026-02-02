@@ -16,6 +16,17 @@ namespace Game.Core.PostProcessing
             public static readonly int IndirectDiffuseTextureRW = Shader.PropertyToID("_IndirectDiffuseTextureRW");
             // public static readonly int IndirectDiffuseTexture = Shader.PropertyToID("_IndirectDiffuseTexture");
             public static readonly int HistoryDepthTexture = Shader.PropertyToID("_HistoryDepthTexture");
+            public static readonly int _IndirectDiffuseFrameIndex = Shader.PropertyToID("_IndirectDiffuseFrameIndex");
+            
+            // Ray Marching
+            public static readonly int _RayMarchingThicknessScale = Shader.PropertyToID("_RayMarchingThicknessScale");
+            public static readonly int _RayMarchingThicknessBias = Shader.PropertyToID("_RayMarchingThicknessBias");
+            public static readonly int _RayMarchingSteps = Shader.PropertyToID("_RayMarchingSteps");
+            public static readonly int _RayMarchingReflectSky = Shader.PropertyToID("_RayMarchingReflectSky");
+            public static readonly int _RayMarchingFallbackHierarchy = Shader.PropertyToID("_RayMarchingFallbackHierarchy");
+            public static readonly int _RayMarchingLowResPercentageInv = Shader.PropertyToID("_RayMarchingLowResPercentageInv");
+            public static readonly int _RayMarchingLowResPercentage = Shader.PropertyToID("_RayMarchingLowResPercentage");
+            public static readonly int _SSGILayerMask = Shader.PropertyToID("_SSGILayerMask");
 
             // Upsample shader properties
             public static readonly int ShaderVariablesBilateralUpsample = Shader.PropertyToID("ShaderVariablesBilateralUpsample");
@@ -50,10 +61,6 @@ namespace Game.Core.PostProcessing
             // public static readonly int ObjectMotionStencilBit = Shader.PropertyToID("_ObjectMotionStencilBit");
             public static readonly int HistorySizeAndScale = Shader.PropertyToID("_HistorySizeAndScale");
             // public static readonly int StencilTexture = Shader.PropertyToID("_StencilTexture");
-
-            public static readonly int _DepthPyramid = MemberNameHelpers.ShaderPropertyID();
-            public static readonly int _GBuffer2 = MemberNameHelpers.ShaderPropertyID();
-            public static readonly int _MotionVectorTexture = MemberNameHelpers.ShaderPropertyID();
         }
 
         private ComputeShader _ssgiComputeShader;
@@ -92,7 +99,6 @@ namespace Game.Core.PostProcessing
         private int _rtHeight;
         private float _screenWidth;
         private float _screenHeight;
-        private bool _halfResolution;
         private float _historyResolutionScale;
 
         private GraphicsBuffer _pointDistribution;
@@ -104,8 +110,6 @@ namespace Game.Core.PostProcessing
         private static readonly ProfilingSampler DenoiseSampler = new("SSGI Denoise");
         private static readonly ProfilingSampler UpsampleSampler = new("SSGI Upsample");
 
-        private bool _needDenoise;
-
         public class SSGITexturesInfo
         {
             public CameraType ownerCamera;
@@ -115,13 +119,13 @@ namespace Game.Core.PostProcessing
 
         private struct ScreenSpaceGlobalIlluminationVariables
         {
-            public int RayMarchingSteps;
-            public float RayMarchingThicknessScale;
-            public float RayMarchingThicknessBias;
-            public int RayMarchingReflectsSky;
+            public int _RayMarchingSteps;
+            public float _RayMarchingThicknessScale;
+            public float _RayMarchingThicknessBias;
+            public int _RayMarchingReflectsSky;
 
-            public int RayMarchingFallbackHierarchy;
-            public int IndirectDiffuseFrameIndex;
+            public int _RayMarchingFallbackHierarchy;
+            public int _IndirectDiffuseFrameIndex;
         }
 
         public override PostProcessPassInput postProcessPassInput => PostProcessPassInput.DepthPyramid | PostProcessPassInput.ColorPyramid;
@@ -164,14 +168,8 @@ namespace Game.Core.PostProcessing
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
         {
             var cameraData = renderingData.cameraData;
-            _needDenoise = settings.denoise.value;
-            _screenWidth = cameraData.cameraTargetDescriptor.width;
-            _screenHeight = cameraData.cameraTargetDescriptor.height;
-            _halfResolution = settings.halfResolution.value;
-
-            int resolutionDivider = _halfResolution ? 2 : 1;
-            _rtWidth = (int)_screenWidth / resolutionDivider;
-            _rtHeight = (int)_screenHeight / resolutionDivider;
+            
+            PrepareSSGIData(cameraData.cameraTargetDescriptor);
 
             // Allocate hit point texture
             _targetDescriptor = cameraData.cameraTargetDescriptor;
@@ -188,7 +186,7 @@ namespace Game.Core.PostProcessing
             RenderingUtils.ReAllocateHandleIfNeeded(ref _outputRT, _targetDescriptor, name: "_IndirectDiffuseTexture", filterMode: FilterMode.Point);
 
             // Allocate full resolution upsampled texture if half resolution mode
-            if (_halfResolution)
+            if (settings.halfResolution.value)
             {
                 var fullResDescriptor = renderingData.cameraData.cameraTargetDescriptor;
                 fullResDescriptor.msaaSamples = 1;
@@ -234,7 +232,7 @@ namespace Game.Core.PostProcessing
                 }
 
                 // Allocate first history buffer
-                float scaleFactor = _halfResolution ? 0.5f : 1.0f;
+                float scaleFactor = settings.halfResolution.value ? 0.5f : 1.0f;
                 // if (scaleFactor != _historyResolutionScale ||
                 //     _rendererData.GetCurrentFrameRT((int)IllusionFrameHistoryType.ScreenSpaceGlobalIllumination) == null)
                 // {
@@ -265,53 +263,63 @@ namespace Game.Core.PostProcessing
 
                 _historyResolutionScale = scaleFactor;
             }
+        }
 
-            // if (settings.enableProbeVolumes.value && _rendererData.SampleProbeVolumes)
-            // {
-            //     _ssgiComputeShader.EnableKeyword("_PROBE_VOLUME_ENABLE");
-            // }
-            // else
+        private void PrepareSSGIData(RenderTextureDescriptor desc)
+        {
+            // Get SSGI volume settings
+            _screenWidth = desc.width;
+            _screenHeight = desc.height;
+
+            int resolutionDivider = settings.halfResolution.value ? 2 : 1;
+            _rtWidth = (int)_screenWidth / resolutionDivider;
+            _rtHeight = (int)_screenHeight / resolutionDivider;
+
+            // Configure probe volumes keyword
+            if (settings.enableProbeVolumes.value /*&& context.SampleProbeVolumes*/)
+            {
+                _ssgiComputeShader.EnableKeyword("_PROBE_VOLUME_ENABLE");
+            }
+            else
             {
                 _ssgiComputeShader.DisableKeyword("_PROBE_VOLUME_ENABLE");
             }
         }
-
+        
         private void PrepareVariables(Camera camera)
         {
-            var volume = VolumeManager.instance.stack.GetComponent<ScreenSpaceGlobalIllumination>();
-
             // Calculate thickness parameters
-            float thickness = volume.depthBufferThickness.value;
+            float thickness = settings.depthBufferThickness.value;
             float n = camera.nearClipPlane;
             float f = camera.farClipPlane;
             float thicknessScale = 1.0f / (1.0f + thickness);
             float thicknessBias = -n / (f - n) * (thickness * thicknessScale);
 
             // Ray marching parameters
-            _giVariables.RayMarchingSteps = volume.maxRaySteps.value;
-            _giVariables.RayMarchingThicknessScale = thicknessScale;
-            _giVariables.RayMarchingThicknessBias = thicknessBias;
-            _giVariables.RayMarchingReflectsSky = 1;
+            _giVariables._RayMarchingSteps = settings.maxRaySteps.value;
+            _giVariables._RayMarchingThicknessScale = thicknessScale;
+            _giVariables._RayMarchingThicknessBias = thicknessBias;
+            _giVariables._RayMarchingReflectsSky = 1;
 
             // Fallback parameters
-            _giVariables.RayMarchingFallbackHierarchy = (int)volume.rayMiss.value;
+            _giVariables._RayMarchingFallbackHierarchy = (int)settings.rayMiss.value;
 
             // Frame index for temporal sampling
-            _giVariables.IndirectDiffuseFrameIndex = (int)(postProcessData.FrameCount % 16);
+            _giVariables._IndirectDiffuseFrameIndex = (int)(postProcessData.FrameCount % 16);
         }
 
         private void ExecuteTrace(CommandBuffer cmd, ref CameraData cameraData)
         {
-            int kernel = _halfResolution ? _traceHalfKernel : _traceKernel;
+            int kernel = settings.halfResolution.value ? _traceHalfKernel : _traceKernel;
             var offsetBuffer = postProcessData.DepthMipChainInfo.GetOffsetBufferData(postProcessData.DepthPyramidMipLevelOffsetsBuffer);
             
-            postProcessData.BindDitheredRNGData8SPP(cmd);
+            BlueNoise.BindDitheredRNGData8SPP(cmd);
             
             // Set constant buffer
             ConstantBuffer.Push(cmd, _giVariables, _ssgiComputeShader, Properties.ShaderVariablesSSGI);
             
             // Bind input textures
-            cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, Properties._DepthPyramid, postProcessData.DepthPyramidRT);
+            cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, PipelineShaderIDs._DepthPyramid, postProcessData.DepthPyramidRT);
             // cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, Properties._CameraNormalsTexture, normalTexture);
             cmd.SetComputeBufferParam(_ssgiComputeShader, kernel, PipelineShaderIDs._DepthPyramidMipLevelOffsets, offsetBuffer);
             
@@ -338,15 +346,15 @@ namespace Game.Core.PostProcessing
             var preFrameColorRT = postProcessData.GetCurrentFrameRT((int)FrameHistoryType.ColorBufferMipChain);
             var historyDepthRT = postProcessData.GetCurrentFrameRT((int)FrameHistoryType.Depth);
             
-            int kernel = _halfResolution ? _reprojectHalfKernel : _reprojectKernel;
+            int kernel = settings.halfResolution.value ? _reprojectHalfKernel : _reprojectKernel;
             var offsetBuffer = postProcessData.DepthMipChainInfo.GetOffsetBufferData(postProcessData.DepthPyramidMipLevelOffsetsBuffer);
             
             // Set constant buffer
             ConstantBuffer.Push(cmd, _giVariables, _ssgiComputeShader, Properties.ShaderVariablesSSGI);
             
             // Bind input textures
-            cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, Properties._DepthPyramid, postProcessData.DepthPyramidRT);
-            cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, Properties._GBuffer2, normalTexture);
+            cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, PipelineShaderIDs._DepthPyramid, postProcessData.DepthPyramidRT);
+            cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, PipelineShaderIDs._GBuffer2, normalTexture);
             // cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, Properties._MotionVectorTexture, isNewFrame && motionVectorTexture.IsValid() ? motionVectorTexture : Texture2D.blackTexture);
             cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, PipelineShaderIDs._ColorPyramidTexture, preFrameColorRT);
             cmd.SetComputeTextureParam(_ssgiComputeShader, kernel, Properties.HistoryDepthTexture, historyDepthRT);

@@ -41,26 +41,24 @@ namespace Game.Core.PostProcessing
 
     public partial class PostProcessData : IDisposable
     {
+        public bool PreferComputeShader = false;
+        public bool SampleProbeVolumes = false;
+        
         private uint m_FrameCount = 0;
         private int m_TaaFrameIndex;
         public uint FrameCount => m_FrameCount;
         
         public struct ViewConstants
         {
-            public Matrix4x4 ViewMatrix;
-            public Matrix4x4 ViewProjMatrix;
-            public Matrix4x4 InvViewProjMatrix;
-            public Matrix4x4 PrevInvViewProjMatrix;
+            public Matrix4x4 viewMatrix;
+            public Matrix4x4 viewProjMatrix;
+            public Matrix4x4 invViewProjMatrix;
+            public Matrix4x4 prevInvViewProjMatrix;
             public Matrix4x4 projMatrix;
-            
-            // TAA Frame Index ranges from 0 to 7.
-            public Vector4 TaaFrameInfo;  // { unused, frameCount, taaFrameIndex, taaEnabled ? 1 : 0 }
-            
-            public Vector4 ColorPyramidUvScaleAndLimitPrevFrame;
         }
-        
-        private ViewConstants m_ShaderVariablesGlobal;
-        public ViewConstants mainViewConstants => m_ShaderVariablesGlobal;
+
+        private ShaderVariablesGlobal m_ShaderVariablesGlobal;
+        public ViewConstants mainViewConstants;
         
         public GPUCopy GPUCopy { get; private set; }
         public MipGenerator MipGenerator { get; private set; }
@@ -111,10 +109,11 @@ namespace Game.Core.PostProcessing
         internal Rect finalViewport = new Rect(Vector2.zero, -1.0f * Vector2.one); // This will have the correct viewport position and the size will be full resolution (ie : not taking dynamic rez into account)
         internal Rect prevFinalViewport;
         
-        private PostProcessFeatureRuntimeTextures m_RuntimeTexture;
+        private BlueNoise m_BlueNoise;
         public PostProcessData()
         {
-            m_RuntimeTexture = GraphicsSettings.GetRenderPipelineSettings<PostProcessFeatureRuntimeTextures>();
+            var runtimeTexture = GraphicsSettings.GetRenderPipelineSettings<PostProcessFeatureRuntimeTextures>();
+            m_BlueNoise = new BlueNoise(runtimeTexture);
             GPUCopy = new GPUCopy();
             MipGenerator = new MipGenerator();
             m_DepthBufferMipChainInfo.Allocate();
@@ -134,6 +133,8 @@ namespace Game.Core.PostProcessing
             m_HistoryRTSystem.Dispose();
             CameraPreviousColorTextureRT?.Release();
             ColorPyramidHistoryMipCount = 1;
+            
+            m_BlueNoise.Cleanup();
             
             DepthPyramidRT?.Release();
             CoreUtils.SafeRelease(m_DepthPyramidMipLevelOffsetsBuffer);
@@ -270,29 +271,47 @@ namespace Game.Core.PostProcessing
         internal void PushGlobalBuffers(CommandBuffer cmd, ref RenderingData renderingData)
         {
             // PushShadowData(cmd);
-            PrepareGlobalVariables(ref renderingData);
+            UpdateViewConstants(ref mainViewConstants, ref renderingData);
+            UpdateShaderVariablesGlobalCB(ref m_ShaderVariablesGlobal, renderingData.cameraData.IsTemporalAAEnabled());
             ConstantBuffer.PushGlobal(cmd, m_ShaderVariablesGlobal, PipelineShaderIDs.ShaderVariablesGlobal);
-            cmd.SetGlobalVector(PipelineShaderIDs._TaaFrameInfo, m_ShaderVariablesGlobal.TaaFrameInfo);
-            cmd.SetGlobalVector(PipelineShaderIDs._ColorPyramidUvScaleAndLimitPrevFrame, m_ShaderVariablesGlobal.ColorPyramidUvScaleAndLimitPrevFrame);
+            cmd.SetGlobalVector(PipelineShaderIDs._TaaFrameInfo, m_ShaderVariablesGlobal._TaaFrameInfo);
+            cmd.SetGlobalVector(PipelineShaderIDs._ColorPyramidUvScaleAndLimitPrevFrame, m_ShaderVariablesGlobal._ColorPyramidUvScaleAndLimitPrevFrame);
         }
 
-        private void PrepareGlobalVariables(ref RenderingData renderingData)
+        private void UpdateViewConstants(ref ViewConstants viewConstants, ref RenderingData renderingData)
         {
-            bool useTAA = renderingData.cameraData.IsTemporalAAEnabled(); // Disable in scene view
             // Match HDRP View Projection Matrix, pre-handle reverse z.
-            m_ShaderVariablesGlobal.ViewMatrix = renderingData.cameraData.camera.worldToCameraMatrix;
-            m_ShaderVariablesGlobal.projMatrix = renderingData.cameraData.camera.projectionMatrix;
-            m_ShaderVariablesGlobal.ViewProjMatrix = PostProcessingUtils.CalculateViewProjMatrix(ref renderingData.cameraData);
+            viewConstants.viewMatrix = renderingData.cameraData.camera.worldToCameraMatrix;
+            viewConstants.projMatrix = renderingData.cameraData.camera.projectionMatrix;
+            viewConstants.viewProjMatrix = PostProcessingUtils.CalculateViewProjMatrix(ref renderingData.cameraData);
+        }
+
+        void UpdateShaderVariablesGlobalCB(ref ShaderVariablesGlobal cb, bool useTAA)
+        {
+            // cb._ViewMatrix = mainViewConstants.viewMatrix;
+            // cb._CameraViewMatrix = mainViewConstants.viewMatrix;
+            // cb._InvViewMatrix = mainViewConstants.invViewMatrix;
+            // cb._ProjMatrix = mainViewConstants.projMatrix;
+            // cb._InvProjMatrix = mainViewConstants.invProjMatrix;
+            // cb._ViewProjMatrix = mainViewConstants.viewProjMatrix;
+            // cb._CameraViewProjMatrix = mainViewConstants.viewProjMatrix;
+            // cb._InvViewProjMatrix = mainViewConstants.invViewProjMatrix;
+            // cb._NonJitteredViewProjMatrix = mainViewConstants.nonJitteredViewProjMatrix;
+            // cb._NonJitteredInvViewProjMatrix = mainViewConstants.nonJitteredInvViewProjMatrix;
+            // cb._PrevViewProjMatrix = mainViewConstants.prevViewProjMatrix;
+            // cb._PrevInvViewProjMatrix = mainViewConstants.prevInvViewProjMatrix;
             
-            var lastInvViewProjMatrix = m_ShaderVariablesGlobal.InvViewProjMatrix;
-            m_ShaderVariablesGlobal.InvViewProjMatrix = m_ShaderVariablesGlobal.ViewProjMatrix.inverse;
-            m_ShaderVariablesGlobal.PrevInvViewProjMatrix = FrameCount > 1 ? m_ShaderVariablesGlobal.InvViewProjMatrix : lastInvViewProjMatrix;
             
+            // var lastInvViewProjMatrix = cb._InvViewProjMatrix;
+            // cb._InvViewProjMatrix = cb._ViewProjMatrix.inverse;
+            // cb._PrevInvViewProjMatrix = FrameCount > 1 ? cb._InvViewProjMatrix : lastInvViewProjMatrix;
+
             const int kMaxSampleCount = 8;
             if (++m_TaaFrameIndex >= kMaxSampleCount)
                 m_TaaFrameIndex = 0;
-            m_ShaderVariablesGlobal.TaaFrameInfo = new Vector4(0, m_TaaFrameIndex, FrameCount, useTAA ? 1 : 0);
-            m_ShaderVariablesGlobal.ColorPyramidUvScaleAndLimitPrevFrame
+            cb._TaaFrameInfo = new Vector4(0, m_TaaFrameIndex, FrameCount, useTAA ? 1 : 0);
+
+            cb._ColorPyramidUvScaleAndLimitPrevFrame
                 = PostProcessingUtils.ComputeViewportScaleAndLimit(m_HistoryRTSystem.rtHandleProperties.previousViewportSize,
                     m_HistoryRTSystem.rtHandleProperties.previousRenderTargetSize);
         }
@@ -301,127 +320,26 @@ namespace Game.Core.PostProcessing
 
         internal void PushGlobalBuffers(CommandBuffer cmd, UniversalCameraData cameraData, UniversalLightData lightData)
         {
-            PrepareGlobalVariables(cameraData, false);
+            UpdateViewConstants(ref mainViewConstants, cameraData, false);
+            UpdateShaderVariablesGlobalCB(ref m_ShaderVariablesGlobal, cameraData.IsTemporalAAEnabled());
             ConstantBuffer.PushGlobal(cmd, m_ShaderVariablesGlobal, PipelineShaderIDs.ShaderVariablesGlobal);
-            cmd.SetGlobalVector(PipelineShaderIDs._TaaFrameInfo, m_ShaderVariablesGlobal.TaaFrameInfo);
-            cmd.SetGlobalVector(PipelineShaderIDs._ColorPyramidUvScaleAndLimitPrevFrame, m_ShaderVariablesGlobal.ColorPyramidUvScaleAndLimitPrevFrame);
+            cmd.SetGlobalVector(PipelineShaderIDs._TaaFrameInfo, m_ShaderVariablesGlobal._TaaFrameInfo);
+            cmd.SetGlobalVector(PipelineShaderIDs._ColorPyramidUvScaleAndLimitPrevFrame, m_ShaderVariablesGlobal._ColorPyramidUvScaleAndLimitPrevFrame);
         }
 
-        private void PrepareGlobalVariables(UniversalCameraData cameraData, bool yFlip)
+        private void UpdateViewConstants(ref ViewConstants viewConstants,UniversalCameraData cameraData, bool yFlip)
         {
-            bool useTAA = cameraData.IsTemporalAAEnabled(); // Disable in scene view
             // Match HDRP View Projection Matrix, pre-handle reverse z.
-            m_ShaderVariablesGlobal.ViewMatrix = cameraData.camera.worldToCameraMatrix;
-            
-            m_ShaderVariablesGlobal.ViewProjMatrix = PostProcessingUtils.CalculateViewProjMatrix(cameraData, yFlip);
-            
-            var lastInvViewProjMatrix = m_ShaderVariablesGlobal.InvViewProjMatrix;
-            m_ShaderVariablesGlobal.InvViewProjMatrix = m_ShaderVariablesGlobal.ViewProjMatrix.inverse;
-            m_ShaderVariablesGlobal.PrevInvViewProjMatrix = FrameCount > 1 ? m_ShaderVariablesGlobal.InvViewProjMatrix : lastInvViewProjMatrix;
-            
-            const int kMaxSampleCount = 8;
-            if (++m_TaaFrameIndex >= kMaxSampleCount)
-                m_TaaFrameIndex = 0;
-            m_ShaderVariablesGlobal.TaaFrameInfo = new Vector4(0, m_TaaFrameIndex, FrameCount, useTAA ? 1 : 0);
-            m_ShaderVariablesGlobal.ColorPyramidUvScaleAndLimitPrevFrame
-                = PostProcessingUtils.ComputeViewportScaleAndLimit(m_HistoryRTSystem.rtHandleProperties.previousViewportSize,
-                    m_HistoryRTSystem.rtHandleProperties.previousRenderTargetSize);
+            viewConstants.viewMatrix = cameraData.camera.worldToCameraMatrix;
+            viewConstants.projMatrix = cameraData.camera.projectionMatrix;
+            viewConstants.viewProjMatrix = PostProcessingUtils.CalculateViewProjMatrix(cameraData, yFlip);
         }
 
         #endregion
 
         #endregion
         
-        #region History
-
-        internal struct CustomHistoryAllocator
-        {
-            Vector2 scaleFactor;
-            GraphicsFormat format;
-            string name;
-
-            public CustomHistoryAllocator(Vector2 scaleFactor, GraphicsFormat format, string name)
-            {
-                this.scaleFactor = scaleFactor;
-                this.format = format;
-                this.name = name;
-            }
-
-            public RTHandle Allocator(string id, int frameIndex, RTHandleSystem rtHandleSystem)
-            {
-                return rtHandleSystem.Alloc(Vector2.one * scaleFactor,
-                    // TextureXR.slices, 
-                    filterMode: FilterMode.Point,
-                    colorFormat: format,
-                    // dimension: TextureXR.dimension, 
-                    // useDynamicScale: true, 
-                    enableRandomWrite: true,
-                    name: $"{id}_{name}_{frameIndex}");
-            }
-        }
-
-
-        public void AllocateScreenSpaceAccumulationHistoryBuffer(float scaleFactor)
-        {
-            if (scaleFactor != m_ScreenSpaceAccumulationResolutionScale || GetCurrentFrameRT((int)FrameHistoryType.ScreenSpaceReflectionAccumulation) == null)
-            {
-                ReleaseHistoryFrameRT((int)FrameHistoryType.ScreenSpaceReflectionAccumulation);
-
-                var ssrAlloc = new CustomHistoryAllocator(new Vector2(scaleFactor, scaleFactor), GraphicsFormat.R16G16B16A16_SFloat, "SSR_Accum Packed history");
-                AllocHistoryFrameRT((int)FrameHistoryType.ScreenSpaceReflectionAccumulation, ssrAlloc.Allocator, 2);
-
-                m_ScreenSpaceAccumulationResolutionScale = scaleFactor;
-            }
-        }
-
-        public RTHandle AllocHistoryFrameRT(int id, Func<string, int, RTHandleSystem, RTHandle> allocator, int bufferCount)
-        {
-            m_HistoryRTSystem.AllocBuffer(id, (rts, i) => allocator(camera.ToString(), i, rts), bufferCount);
-            return m_HistoryRTSystem.GetFrameRT(id, 0);
-        }
-        public RTHandle GetPreviousFrameRT(int id)
-        {
-            return m_HistoryRTSystem.GetFrameRT(id, 1);
-        }
-        
-        public RTHandle GetCurrentFrameRT(int id)
-        {
-            return m_HistoryRTSystem.GetFrameRT(id, 0);
-        }
-        internal void ReleaseHistoryFrameRT(int id)
-        {
-            m_HistoryRTSystem.ReleaseBuffer(id);
-        }
-
-        public int GetHistoryFrameCount(int id)
-        {
-            return m_HistoryRTSystem.GetNumFramesAllocated(id);
-        }
-
-        public RTHandle AllocHistoryFrameRT(CameraType cameraType, int id, Func<string, int, RTHandleSystem, RTHandle> allocator, int bufferCount)
-        {
-            m_HistoryRTSystem.AllocBuffer(id, (rts, i) => allocator(cameraType.ToString(), i, rts), bufferCount);
-            return m_HistoryRTSystem.GetFrameRT(id, 0);
-        }
-        
-        #endregion
-        
-        
-        public void BindDitheredRNGData1SPP(CommandBuffer cmd)
-        {
-            cmd.SetGlobalTexture(PipelineShaderIDs._OwenScrambledTexture, m_RuntimeTexture.owenScrambled256Tex);
-            cmd.SetGlobalTexture(PipelineShaderIDs._ScramblingTileXSPP, m_RuntimeTexture.scramblingTile1SPP);
-            cmd.SetGlobalTexture(PipelineShaderIDs._RankingTileXSPP, m_RuntimeTexture.rankingTile1SPP);
-            cmd.SetGlobalTexture(PipelineShaderIDs._ScramblingTexture, m_RuntimeTexture.scramblingTex);
-        }
-        
-        public void BindDitheredRNGData8SPP(CommandBuffer cmd)
-        {
-            cmd.SetGlobalTexture(PipelineShaderIDs._OwenScrambledTexture, m_RuntimeTexture.owenScrambled256Tex);
-            cmd.SetGlobalTexture(PipelineShaderIDs._ScramblingTileXSPP, m_RuntimeTexture.scramblingTile8SPP);
-            cmd.SetGlobalTexture(PipelineShaderIDs._RankingTileXSPP, m_RuntimeTexture.rankingTile8SPP);
-            cmd.SetGlobalTexture(PipelineShaderIDs._ScramblingTexture, m_RuntimeTexture.scramblingTex);
-        }
+       
         
         public Vector4 EvaluateRayTracingHistorySizeAndScale(RTHandle buffer)
         {

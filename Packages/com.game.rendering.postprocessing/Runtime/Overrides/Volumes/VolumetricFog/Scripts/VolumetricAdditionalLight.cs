@@ -1,7 +1,7 @@
 ﻿using UnityEngine;
 using UnityEngine.Rendering.Universal;
 
-namespace Game.Core.PostProcessing.Scripts
+namespace Game.Core.PostProcessing
 {
     [DisallowMultipleComponent]
     [RequireComponent(typeof(Light), typeof(UniversalAdditionalLightData))]

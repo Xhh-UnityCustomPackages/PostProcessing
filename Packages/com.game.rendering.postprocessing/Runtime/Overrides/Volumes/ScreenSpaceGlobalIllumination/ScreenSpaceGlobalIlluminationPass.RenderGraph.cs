@@ -12,7 +12,7 @@ namespace Game.Core.PostProcessing
         private class TracePassData
         {
             public ScreenSpaceGlobalIlluminationVariables Variables;
-            public ComputeShader ComputeShader;
+            public ComputeShader ssGICS;
             public int TraceKernel;
             public int Width;
             public int Height;
@@ -138,11 +138,12 @@ namespace Game.Core.PostProcessing
             var cameraData = frameData.Get<UniversalCameraData>();
 
             // Prepare SSGI data
-            PrepareSSGIData(cameraData);
+            PrepareSSGIData(cameraData.cameraTargetDescriptor);
             
             // Prepare shader variables
             PrepareVariables(cameraData.camera);
 
+            
             // Import external textures
             var depthPyramidTexture = renderGraph.ImportTexture(postProcessData.DepthPyramidRT);
             var normalTexture = resource.cameraNormalsTexture;
@@ -167,7 +168,7 @@ namespace Game.Core.PostProcessing
             bool isNewFrame = false;
             // Get motion vector texture
             var motionVectorTexture = resource.motionVectorColor;
-            motionVectorTexture = motionVectorTexture.IsValid() && isNewFrame ? motionVectorTexture : renderGraph.ImportTexture(postProcessData.GetBlackTextureRT());
+            // motionVectorTexture = motionVectorTexture.IsValid() && isNewFrame ? motionVectorTexture : renderGraph.ImportTexture(postProcessData.GetBlackTextureRT());
 
             // Get exposure textures
             var exposureTexture = renderGraph.ImportTexture(postProcessData.GetExposureTexture());
@@ -178,6 +179,9 @@ namespace Game.Core.PostProcessing
 
             // Execute trace pass
             var hitPointTexture = RenderTracePass(renderGraph, depthPyramidTexture, normalTexture, useAsyncCompute);
+            
+            RenderGraphUtils.SetGlobalTexture(renderGraph, PipelineShaderIDs._IndirectDiffuseTexture, hitPointTexture);
+            return;
            
             // Execute reproject pass
             var giTexture = RenderReprojectPass(renderGraph, hitPointTexture,
@@ -185,7 +189,7 @@ namespace Game.Core.PostProcessing
                 historyDepthTexture, exposureTexture, prevExposureTexture, isNewFrame, useAsyncCompute);
             
             // Execute denoising pipeline if enabled
-            if (_needDenoise)
+            if (settings.denoise.value)
             {
                 // Initialize denoiser if needed (only once)
                 if (!_denoiserInitialized)
@@ -200,7 +204,7 @@ namespace Game.Core.PostProcessing
                     motionVectorTexture, 1.0f);
                 
                 // Allocate first history buffer
-                float scaleFactor = _halfResolution ? 0.5f : 1.0f;
+                float scaleFactor = settings.halfResolution.value ? 0.5f : 1.0f;
                 var historyBuffer1 = postProcessData.GetCurrentFrameRT((int)FrameHistoryType.ScreenSpaceGlobalIllumination);
                 if (scaleFactor != _historyResolutionScale || historyBuffer1 == null)
                 {
@@ -214,7 +218,7 @@ namespace Game.Core.PostProcessing
                 }
                 var historyTexture1 = renderGraph.ImportTexture(historyBuffer1);
                 
-                float resolutionMultiplier = _halfResolution ? 0.5f : 1.0f;
+                float resolutionMultiplier = settings.halfResolution.value ? 0.5f : 1.0f;
                 var temporalOutput = RenderTemporalDenoisePass(renderGraph, cameraData,
                     giTexture, historyTexture1, depthPyramidTexture, validationTexture,
                     motionVectorTexture, exposureTexture, prevExposureTexture, resolutionMultiplier);
@@ -257,7 +261,7 @@ namespace Game.Core.PostProcessing
             }
             
             // Upsample if half resolution
-            if (_halfResolution)
+            if (settings.halfResolution.value)
             {
                 giTexture = RenderUpsamplePass(renderGraph, giTexture);
             }
@@ -267,33 +271,6 @@ namespace Game.Core.PostProcessing
             
         }
 
-        private void PrepareSSGIData(UniversalCameraData cameraData)
-        {
-            // Get SSGI volume settings
-            var volume = VolumeManager.instance.stack.GetComponent<ScreenSpaceGlobalIllumination>();
-            if (!volume || !volume.enable.value)
-                return;
-
-            _needDenoise = volume.denoise.value;
-            _screenWidth = cameraData.cameraTargetDescriptor.width;
-            _screenHeight = cameraData.cameraTargetDescriptor.height;
-            _halfResolution = volume.halfResolution.value;
-
-            int resolutionDivider = _halfResolution ? 2 : 1;
-            _rtWidth = (int)_screenWidth / resolutionDivider;
-            _rtHeight = (int)_screenHeight / resolutionDivider;
-
-            // Configure probe volumes keyword
-            if (volume.enableProbeVolumes.value /*&& context.SampleProbeVolumes*/)
-            {
-                _ssgiComputeShader.EnableKeyword("_PROBE_VOLUME_ENABLE");
-            }
-            else
-            {
-                _ssgiComputeShader.DisableKeyword("_PROBE_VOLUME_ENABLE");
-            }
-        }
-
         private TextureHandle RenderTracePass(RenderGraph renderGraph, TextureHandle depthPyramidTexture, TextureHandle normalTexture, bool useAsyncCompute)
         {
             using (var builder = renderGraph.AddComputePass<TracePassData>("SSGI Trace", out var passData, TracingSampler))
@@ -301,8 +278,8 @@ namespace Game.Core.PostProcessing
                 builder.EnableAsyncCompute(useAsyncCompute);
 
                 passData.Variables = _giVariables;
-                passData.ComputeShader = _ssgiComputeShader;
-                passData.TraceKernel = _halfResolution ? _traceHalfKernel : _traceKernel;
+                passData.ssGICS = _ssgiComputeShader;
+                passData.TraceKernel = settings.halfResolution.value ? _traceHalfKernel : _traceKernel;
                 passData.Width = _rtWidth;
                 passData.Height = _rtHeight;
                 passData.ViewCount = 1;
@@ -330,23 +307,28 @@ namespace Game.Core.PostProcessing
                 
                 builder.SetRenderFunc((TracePassData data, ComputeGraphContext context) =>
                 {
-                    var cmd = context.cmd.GetNativeCommandBuffer();
-                    postProcessData.BindDitheredRNGData8SPP(cmd);
+                    var natCmd = context.cmd.GetNativeCommandBuffer();
+                    BlueNoise.BindDitheredRNGData8SPP(natCmd);
                     
-                    ConstantBuffer.Push(cmd, data.Variables, data.ComputeShader, Properties.ShaderVariablesSSGI);
+                    ConstantBuffer.Push(natCmd, data.Variables, data.ssGICS, Properties.ShaderVariablesSSGI);
+
+                    var cmd = context.cmd;
+                    // cmd.SetComputeFloatParam(data.ssGICS, Properties._RayMarchingThicknessScale, _giVariables._RayMarchingThicknessScale);
+                    // cmd.SetComputeFloatParam(data.ssGICS, Properties._RayMarchingThicknessBias, _giVariables._RayMarchingThicknessBias);
+                    // cmd.SetComputeIntParam(data.ssGICS, Properties._RayMarchingReflectSky, _giVariables._RayMarchingReflectsSky);
+                    // cmd.SetComputeIntParam(data.ssGICS, Properties._RayMarchingSteps, _giVariables._RayMarchingSteps);
+                    // cmd.SetComputeIntParam(data.ssGICS, Properties._IndirectDiffuseFrameIndex, _giVariables._IndirectDiffuseFrameIndex);
                     
-                    context.cmd.SetComputeTextureParam(data.ComputeShader, data.TraceKernel,
-                        PipelineShaderIDs._DepthPyramid, data.DepthPyramidTexture);
-                    context.cmd.SetComputeTextureParam(data.ComputeShader, data.TraceKernel,
-                        PipelineShaderIDs._GBuffer2, data.NormalTexture);
-                    context.cmd.SetComputeBufferParam(data.ComputeShader, data.TraceKernel,
-                        PipelineShaderIDs._DepthPyramidMipLevelOffsets, data.OffsetBuffer);
-                    context.cmd.SetComputeTextureParam(data.ComputeShader, data.TraceKernel,
-                        Properties.IndirectDiffuseHitPointTextureRW, data.HitPointTexture);
                     
-                    int tilesX = PostProcessingUtils.DivRoundUp(data.Width, 8);
-                    int tilesY = PostProcessingUtils.DivRoundUp(data.Height, 8);
-                    context.cmd.DispatchCompute(data.ComputeShader, data.TraceKernel, tilesX, tilesY, data.ViewCount);
+                    cmd.SetComputeTextureParam(data.ssGICS, data.TraceKernel, PipelineShaderIDs._DepthPyramid, data.DepthPyramidTexture);
+                    cmd.SetComputeTextureParam(data.ssGICS, data.TraceKernel, PipelineShaderIDs._GBuffer2, data.NormalTexture);
+                    cmd.SetComputeBufferParam(data.ssGICS, data.TraceKernel, PipelineShaderIDs._DepthPyramidMipLevelOffsets, data.OffsetBuffer);
+                    cmd.SetComputeTextureParam(data.ssGICS, data.TraceKernel, Properties.IndirectDiffuseHitPointTextureRW, data.HitPointTexture);
+                    
+                    int ssgiTileSize = 8;
+                    int tilesX = PostProcessingUtils.DivRoundUp(data.Width, ssgiTileSize);
+                    int tilesY = PostProcessingUtils.DivRoundUp(data.Height, ssgiTileSize);
+                    context.cmd.DispatchCompute(data.ssGICS, data.TraceKernel, tilesX, tilesY, data.ViewCount);
                 });
 
                 return passData.HitPointTexture;
@@ -364,7 +346,7 @@ namespace Game.Core.PostProcessing
 
                 passData.Variables = _giVariables;
                 passData.ComputeShader = _ssgiComputeShader;
-                passData.ReprojectKernel = _halfResolution ? _reprojectHalfKernel : _reprojectKernel;
+                passData.ReprojectKernel = settings.halfResolution.value ? _reprojectHalfKernel : _reprojectKernel;
                 passData.Width = _rtWidth;
                 passData.Height = _rtHeight;
                 passData.ViewCount = 1;

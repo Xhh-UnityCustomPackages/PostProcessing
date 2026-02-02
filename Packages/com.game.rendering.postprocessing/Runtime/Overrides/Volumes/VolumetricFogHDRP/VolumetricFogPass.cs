@@ -391,7 +391,7 @@ namespace Game.Core.PostProcessing
 				    // Convert the non oblique projection matrix to its  GPU version
 				    var gpuProjNonOblique = GL.GetGPUProjectionMatrix(GeometryUtils.CalculateProjectionMatrix(hdCamera.camera), true);
 				    // Build the non oblique view projection matrix
-				    var vpNonOblique = gpuProjNonOblique * hdCamera.mainViewConstants.ViewMatrix;
+				    var vpNonOblique = gpuProjNonOblique * hdCamera.mainViewConstants.viewMatrix;
 				    cb._CameraInverseViewProjection_NO = vpNonOblique.inverse;
 			    }
 

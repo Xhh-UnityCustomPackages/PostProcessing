@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
 
-namespace Game.Core.PostProcessing.Scripts
+namespace Game.Core.PostProcessing
 {
     public class VolumetricLightManager
     {
