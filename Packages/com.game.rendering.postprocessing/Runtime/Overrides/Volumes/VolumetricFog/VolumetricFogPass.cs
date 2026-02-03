@@ -25,17 +25,17 @@ namespace Game.Core.PostProcessing
         private int _volumetricFogVerticalBlurPassIndex;
         private int _volumetricFogDepthAwareUpsampleCompositionPassIndex;
 		
-        private readonly Material _downsampleDepthMaterial;
-        private readonly Material _volumetricFogMaterial;
+        private Material _downsampleDepthMaterial;
+        private Material _volumetricFogMaterial;
 		
-        private readonly ComputeShader _volumetricFogRaymarchCS;
-        private readonly int _volumetricFogRaymarchKernel;
+        private ComputeShader _volumetricFogRaymarchCS;
+        private int _volumetricFogRaymarchKernel;
 
-        private readonly ComputeShader _volumetricFogBlurCS;
-        private readonly int _volumetricFogBlurKernel;
+        private ComputeShader _volumetricFogBlurCS;
+        private int _volumetricFogBlurKernel;
 		
-        private readonly ComputeShader _bilateralUpsampleCS;
-        private readonly int _bilateralUpSampleColorKernel;
+        private ComputeShader _bilateralUpsampleCS;
+        private int _bilateralUpSampleColorKernel;
 
         private RTHandle _downsampledCameraDepthRTHandle;
         private RTHandle _volumetricFogRenderRTHandle;
@@ -52,7 +52,8 @@ namespace Game.Core.PostProcessing
         private ShaderVariablesBilateralUpsample _shaderVariablesBilateralUpsampleCB;
         
         private readonly ProfilingSampler m_BlurSampler = new("Volumetric Fog Blur");
-        public VolumetricFogPass()
+        
+        public override void Setup()
         {
             var runtimeShaders = GraphicsSettings.GetRenderPipelineSettings<VolumetricFogResources>();
             
@@ -269,19 +270,13 @@ namespace Game.Core.PostProcessing
 
             CoreUtils.SetKeyword(volumetricFogCS, "_MAIN_LIGHT_CONTRIBUTION_DISABLED", enableMainLightContribution);
             CoreUtils.SetKeyword(volumetricFogCS, "_ADDITIONAL_LIGHTS_CONTRIBUTION_DISABLED", enableAdditionalLightsContribution);
-
-            if (enableAdditionalLightsContribution)
-                volumetricFogCS.DisableKeyword("_ADDITIONAL_LIGHTS_CONTRIBUTION_DISABLED");
-            else
-                volumetricFogCS.EnableKeyword("_ADDITIONAL_LIGHTS_CONTRIBUTION_DISABLED");
+            
             
             bool enableProbeVolumeContribution = fogVolume.enableProbeVolumeContribution.value 
                                         && fogVolume.probeVolumeContributionWeight.value > 0.0f
                                         &&  rendererData.SampleProbeVolumes;
-            if (enableProbeVolumeContribution)
-                volumetricFogCS.EnableKeyword("_PROBE_VOLUME_CONTRIBUTION_ENABLED");
-            else
-                volumetricFogCS.DisableKeyword("_PROBE_VOLUME_CONTRIBUTION_ENABLED");
+            
+            CoreUtils.SetKeyword(volumetricFogCS, "_PROBE_VOLUME_CONTRIBUTION_ENABLED", enableProbeVolumeContribution);
 
             UpdateLightsParametersCS(cmd, volumetricFogCS,
                 fogVolume, enableMainLightContribution,

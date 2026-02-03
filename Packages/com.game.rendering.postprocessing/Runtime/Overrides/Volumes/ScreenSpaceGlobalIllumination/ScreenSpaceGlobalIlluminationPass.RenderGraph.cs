@@ -175,13 +175,13 @@ namespace Game.Core.PostProcessing
             var prevExposureTexture = renderGraph.ImportTexture(postProcessData.GetPreviousExposureTexture());
 
             // Use async compute for trace and reproject
-            bool useAsyncCompute = false; // Can be enabled if needed
+            bool useAsyncCompute = postProcessData.EnableAsyncCompute; // Can be enabled if needed
 
             // Execute trace pass
             var hitPointTexture = RenderTracePass(renderGraph, depthPyramidTexture, normalTexture, useAsyncCompute);
             
             RenderGraphUtils.SetGlobalTexture(renderGraph, PipelineShaderIDs._IndirectDiffuseTexture, hitPointTexture);
-            return;
+            // return;
            
             // Execute reproject pass
             var giTexture = RenderReprojectPass(renderGraph, hitPointTexture,

@@ -259,7 +259,7 @@ namespace Game.Core.PostProcessing
                 using (new ProfilingScope(cmd, m_AccumulationSampler))
                 {
                     finalResult = m_SsrLightingRT;
-                    ExecuteAccumulation(cmd, ref cameraData, false);
+                    ExecuteAccumulation(cmd, ref cameraData, postProcessData.EnableAsyncCompute);
                 }
             }
             else

@@ -36,12 +36,15 @@ namespace Game.Core.PostProcessing
         /// <summary>
         /// Screen Space Global Illumination second history buffer for second denoiser pass.
         /// </summary>
-        ScreenSpaceGlobalIllumination2
+        ScreenSpaceGlobalIllumination2,
+        /// <summary>Ambient Occlusion buffer.</summary>
+        AmbientOcclusion,
     }
 
     public partial class PostProcessData : IDisposable
     {
         public bool PreferComputeShader = false;
+        public bool EnableAsyncCompute = false;
         public bool SampleProbeVolumes = false;
         
         private uint m_FrameCount = 0;

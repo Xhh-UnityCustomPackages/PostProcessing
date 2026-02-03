@@ -1,0 +1,15 @@
+#include "./GTAOCommon.hlsl"
+
+#pragma only_renderers d3d11 playstation xboxone xboxseries vulkan metal switch switch2
+
+#pragma kernel GTAODenoise_CopyHistory
+
+RW_TEXTURE2D(float4, _OutputTexture);
+TEXTURE2D(_InputTexture);
+
+[numthreads(8, 8, 1)]
+void GTAODenoise_CopyHistory(uint3 dispatchThreadId : SV_DispatchThreadID)
+{
+    // UNITY_XR_ASSIGN_VIEW_INDEX(dispatchThreadId.z);
+    _OutputTexture[dispatchThreadId.xy] = _InputTexture[dispatchThreadId.xy];
+}

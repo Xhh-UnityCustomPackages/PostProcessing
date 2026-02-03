@@ -7,8 +7,8 @@ namespace Game.Core.PostProcessing
 {
     public partial class PostProcessData
     {
-        #region History
-
+        public RTHandleProperties historyRTHandleProperties { get { return m_HistoryRTSystem.rtHandleProperties; } }
+        
         internal struct CustomHistoryAllocator
         {
             Vector2 scaleFactor;
@@ -81,6 +81,5 @@ namespace Game.Core.PostProcessing
             return m_HistoryRTSystem.GetFrameRT(id, 0);
         }
 
-        #endregion
     }
 }
