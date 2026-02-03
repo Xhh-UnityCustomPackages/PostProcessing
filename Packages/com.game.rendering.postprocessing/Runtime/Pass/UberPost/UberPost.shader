@@ -23,9 +23,9 @@ Shader "Hidden/UberPost"
         float2 uv = SCREEN_COORD_APPLY_SCALEBIAS(UnityStereoTransformScreenSpaceTex(input.texcoord));
         half3 color = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv).xyz;
 
-        half4 ssgi = SampleScreenSpaceGlobalIllumination(uv);
-        color += ssgi;
-        return ssgi;
+        // half4 ssgi = SampleScreenSpaceGlobalIllumination(uv);
+        // color += ssgi;
+        // return ssgi;
         
         color = ApplyExposure(color);
         color = ApplyVignette(color, uv);
