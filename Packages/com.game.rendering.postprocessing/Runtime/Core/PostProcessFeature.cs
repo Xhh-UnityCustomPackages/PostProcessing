@@ -12,7 +12,7 @@ namespace Game.Core.PostProcessing
     [Flags]
     public enum PostProcessInjectionPoint
     {
-        BeforeRenderingGBuffer = 1 << 4,
+        BeforeRenderingGBuffer = 1 << 4,        //不依赖深度, 不依赖颜色   不考虑OnePassDeferred
         BeforeRenderingDeferredLights = 1 << 0,
         AfterRenderingSkybox = 1 << 1,
         BeforeRenderingPostProcessing = 1 << 2,

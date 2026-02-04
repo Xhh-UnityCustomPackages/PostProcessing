@@ -221,6 +221,7 @@ namespace Game.Core.PostProcessing
         }
 
         public override bool renderToCamera => false;
+        public override bool dontCareSourceTargetCopy => true;
 
         RenderTextureDescriptor m_AmbientOcclusionDescriptor;
         RenderTextureFormat m_AmbientOcclusionColorFormat;

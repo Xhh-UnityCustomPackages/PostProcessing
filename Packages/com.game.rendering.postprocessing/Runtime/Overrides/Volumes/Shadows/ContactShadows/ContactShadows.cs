@@ -85,7 +85,7 @@ namespace Game.Core.PostProcessing
     
     //需要走屏幕空间阴影
     //https://github.com/himma-bit/empty/blob/main/Assets/Scripts/ContactShadow/ContactShadowMapGenerater.cs
-    [PostProcess("Contact Shadows", PostProcessInjectionPoint.BeforeRenderingGBuffer, SupportRenderPath.Deferred)]
+    [PostProcess("Contact Shadows", PostProcessInjectionPoint.BeforeRenderingDeferredLights, SupportRenderPath.Deferred)]
     public partial class ContactShadowsRenderer : PostProcessVolumeRenderer<ContactShadows>
     {
         static class ShaderConstants
@@ -105,6 +105,9 @@ namespace Game.Core.PostProcessing
         
    
         private DiffuseShadowDenoisePass m_DiffuseShadowDenoisePass;
+        
+        public override bool renderToCamera => false;
+        public override bool dontCareSourceTargetCopy => true;
         
         public override PostProcessPassInput postProcessPassInput => PostProcessPassInput.ScreenSpaceShadow;
         public override ScriptableRenderPassInput input => ScriptableRenderPassInput.Depth;
