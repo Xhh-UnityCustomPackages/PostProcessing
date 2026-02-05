@@ -295,7 +295,7 @@ namespace Game.Core.PostProcessing
                     }
                 );
 
-                // m_MaxZHandle = passData.dilatedMaxZBuffer;
+                VolumetricFogHDRPRenderer.m_MaxZTexture = passData.dilatedMaxZBuffer;
             }
         }
     }

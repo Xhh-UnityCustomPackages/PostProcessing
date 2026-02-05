@@ -26,9 +26,18 @@ namespace Game.Core.PostProcessing
 	    internal static VolumetricGlobalParams volumetricGlobalCB = new ();
 	    internal static ShaderVariablesVolumetric m_ShaderVariablesVolumetricCB = new ();
 	    
+	    List<OrientedBBox> m_VisibleVolumeBounds = null;
+	    List<LocalVolumetricFogEngineData> m_VisibleVolumeData = null;
+	    // internal static List<LocalVolumetricFog> m_VisibleLocalVolumetricFogVolumes = null;
+	    List<int> m_GlobalVolumeIndices = null;
+	    
 	    public override ScriptableRenderPassInput input => ScriptableRenderPassInput.Depth;
 	    // public override bool renderToCamera => false;
 
+	    static internal RTHandle m_MaxZHandle;
+	    static internal RTHandle m_DensityBuffer;
+	    static internal RTHandle m_LightingBuffer;
+	    
 	    public override void Setup()
 	    {
 		    profilingSampler = new ProfilingSampler("Volumetric Fog");
@@ -53,16 +62,14 @@ namespace Game.Core.PostProcessing
 		    m_ComputeHeightFogVoxel?.Dispose();
 		    m_ComputeVolumetricLighting?.Dispose();
 		    m_RenderAtmosphereScattering?.Dispose();
-	    }
-
-	    public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
-	    {
-		   
+		    
+		    m_DensityBuffer?.Release();
+		    m_DensityBuffer = null;
 	    }
 
 	    public override void Render(CommandBuffer cmd, RTHandle source, RTHandle destination, ref RenderingData renderingData)
 	    {
-		    ConstantBuffer.PushGlobal(volumetricGlobalCB, VolumetricFogShaderIDs._VolumetricGlobalParams);
+		    // ConstantBuffer.PushGlobal(volumetricGlobalCB, VolumetricFogShaderIDs._VolumetricGlobalParams);
 		    
 		    //初始化VBuffer数据
 		    ReinitializeVolumetricBufferParams(postProcessData);
@@ -74,17 +81,18 @@ namespace Game.Core.PostProcessing
 		    VolumetricFogHDRP.UpdateShaderVariablesGlobalCB(ref volumetricGlobalCB);
 		    //更新GPU全局变量
 		    UpdateShaderVariablesGlobalVolumetrics(ref volumetricGlobalCB, postProcessData);
+		    //写入LocalVolumetricFog数据
+		    PrepareVisibleLocalVolumetricFogList(postProcessData);
 		    
-		    // int frameIndex = (int)VolumetricFrameIndex(postProcessData);
-		    // var currIdx = (frameIndex + 0) & 1;
-		    // var currParams = postProcessData.vBufferParams[currIdx];
-		    //
-		    // var fog = VolumeManager.instance.stack.GetComponent<VolumetricFogHDRP>();
-		    // ComputeVolumetricFogSliceCountAndScreenFraction(fog, out var maxSliceCount, out _);
-		    // var cvp = currParams.viewportSize;
-		    // var res = new Vector4(cvp.x, cvp.y, 1.0f / cvp.x, 1.0f / cvp.y);
-      //           
-		    // UpdateShaderVariableslVolumetrics(ref m_ShaderVariablesVolumetricCB, postProcessData, res, maxSliceCount, true);
+		    int frameIndex = (int)VolumetricFrameIndex(postProcessData);
+		    var currIdx = (frameIndex + 0) & 1;
+		    var currParams = postProcessData.vBufferParams[currIdx];
+		    
+		    var cvp = currParams.viewportSize;
+		    var res = new Vector4(cvp.x, cvp.y, 1.0f / cvp.x, 1.0f / cvp.y);
+                 
+		    ComputeVolumetricFogSliceCountAndScreenFraction(settings, out var maxSliceCount, out _);
+		    UpdateShaderVariableslVolumetrics(ref m_ShaderVariablesVolumetricCB, postProcessData, res, maxSliceCount, true);
 	    }
 
 	    public override void AddRenderPasses(ref RenderingData renderingData)
@@ -97,13 +105,13 @@ namespace Game.Core.PostProcessing
 		    //计算高度雾体积
 		    renderer.EnqueuePass(m_ComputeHeightFogVoxel);
 		    //计算LocalFog体积
-		    renderer.EnqueuePass(m_ComputeLocalVolumetricFogVoxel);
+		    // renderer.EnqueuePass(m_ComputeLocalVolumetricFogVoxel);
 		    //将localfog渲染至densityBuffer
 		    // renderer.EnqueuePass(m_DrawLocalVolumetricFog);
 		    //光照计算
 		    renderer.EnqueuePass(m_ComputeVolumetricLighting);
 		    //大气散射
-		    renderer.EnqueuePass(m_RenderAtmosphereScattering);
+		    // renderer.EnqueuePass(m_RenderAtmosphereScattering);
 		    
 		    
 		    postProcessData.prevPos = renderingData.cameraData.camera.transform.position;
@@ -473,6 +481,23 @@ namespace Game.Core.PostProcessing
 		    cb._VBufferLastSliceDist = currParams.ComputeLastSliceDistance(sliceCount);
 		    cb._VBufferRcpInstancedViewCount = 1.0f;
 		    //Debug.Log(cb._VBufferDistanceEncodingParams);
+	    }
+	    
+	    //写入场景里所有LocalVolumetricFog的信息
+	    void PrepareVisibleLocalVolumetricFogList(PostProcessData hdCamera)
+	    {
+		    if (!VolumetricFogHDRP.IsVolumetricFogEnabled(postProcessData.camera))
+		    {
+			    return;
+		    }
+		    
+		    Vector3 camPosition = hdCamera.camera.transform.position;
+		    Vector3 camOffset = Vector3.zero;// todo:相对相机渲染
+
+		    // m_VisibleVolumeBounds.Clear();
+		    // m_VisibleVolumeData.Clear();
+		    // m_VisibleLocalVolumetricFogVolumes.Clear();
+		    // m_GlobalVolumeIndices.Clear();
 	    }
     }
 }

@@ -117,6 +117,18 @@ namespace Game.Core.PostProcessing
         Max = 4,
     }
     
+    [GenerateHLSL(needAccessors = false)]
+    unsafe struct VolumetricMaterialRenderingData
+    {
+        public Vector4 viewSpaceBounds;
+        public uint startSliceIndex;
+        public uint sliceCount;
+        public uint padding0;
+        public uint padding1;
+        [HLSLArray(8, typeof(Vector4))]
+        public fixed float obbVertexPositionWS[8 * 4];
+    }
+    
     class VolumeRenderingUtils
     {
         public static float MeanFreePathFromExtinction(float extinction)

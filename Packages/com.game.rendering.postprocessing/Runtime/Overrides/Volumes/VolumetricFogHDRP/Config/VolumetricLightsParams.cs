@@ -81,5 +81,61 @@ namespace Game.Core.PostProcessing
             }
             
         }
+
+        public void UpadateSetVolumetricAdditionalLightParams(ComputeCommandBuffer cmd, UniversalLightData lightData)
+        {
+            var lights = lightData.visibleLights;
+            int addlightCount = lightData.additionalLightsCount;
+            int additionalIndex = 0;
+            int mainLightIndex = lightData.mainLightIndex;
+
+            for (int i = 0; i < maxLights; i++)
+            {
+                m_LightEnable[i] = 0;
+            }
+
+            for (int i = 0; i < lights.Length; i++)
+            {
+                if (i != mainLightIndex)
+                {
+                    ref VisibleLight nowLightData = ref lights.UnsafeElementAtMutable(i);
+                    Light light = nowLightData.light;
+                    var additionalLightData = light.GetUniversalAdditionalLightData();
+                    if (/*additionalLightData.useVolumetric &&*/ light.type != LightType.Rectangle && !light.bakingOutput.isBaked)
+                    {
+                        m_LightEnable[additionalIndex] = 1;
+                    }
+
+                    else
+                    {
+                        m_LightEnable[additionalIndex] = 0;
+                    }
+
+                    // m_LightMultiplier[additionalIndex] = additionalLightData.volumetricMultiplier;
+                    // m_LightShadowDimmer[additionalIndex] = additionalLightData.shadowDimmer;
+
+                    if (light.shadows == LightShadows.None)
+                    {
+                        m_UseCurrentShadow[additionalIndex] = 0;
+                    }
+
+                    else
+                    {
+                        m_UseCurrentShadow[additionalIndex] = 1;
+                    }
+
+                    additionalIndex += 1;
+                    //Debug.Log(additionalLightData.volumetricMultiplier);
+                }
+            }
+
+            cmd.SetGlobalFloatArray(VolumetricLightParamsBuffer._AdditnalLightEnable, m_LightEnable);
+            cmd.SetGlobalFloatArray(VolumetricLightParamsBuffer._AdditnalLightMultiplier, m_LightMultiplier);
+            cmd.SetGlobalFloatArray(VolumetricLightParamsBuffer._AdditnalLightShadowDimmer, m_LightShadowDimmer);
+            cmd.SetGlobalFloatArray(VolumetricLightParamsBuffer._AdditnalLightUseShadow, m_UseCurrentShadow);
+            cmd.SetGlobalInt(VolumetricLightParamsBuffer._AdditnalLightCount, addlightCount);
+        }
+
+
     }
 }

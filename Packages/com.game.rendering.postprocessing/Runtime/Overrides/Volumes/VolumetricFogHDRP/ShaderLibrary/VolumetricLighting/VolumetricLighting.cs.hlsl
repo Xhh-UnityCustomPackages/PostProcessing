@@ -65,6 +65,18 @@ CBUFFER_START(ShaderVariablesVolumetric)
     uint _Padding2;
 CBUFFER_END
 
+// Generated from Game.Core.PostProcessing.VolumetricMaterialRenderingData
+// PackingRules = Exact
+struct VolumetricMaterialRenderingData
+{
+    float4 viewSpaceBounds;
+    uint startSliceIndex;
+    uint sliceCount;
+    uint padding0;
+    uint padding1;
+    float4 obbVertexPositionWS[8];
+};
+
 //
 // Accessors for Game.Core.PostProcessing.LocalVolumetricFogEngineData
 //

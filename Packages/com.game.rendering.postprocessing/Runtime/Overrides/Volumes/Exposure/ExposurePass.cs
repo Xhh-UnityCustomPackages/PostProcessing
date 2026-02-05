@@ -38,6 +38,7 @@ namespace Game.Core.PostProcessing
     public partial class ExposureRenderer : PostProcessVolumeRenderer<Exposure>
     {
         public override bool renderToCamera => false;
+        public override bool dontCareSourceTargetCopy => true;
         
         // Exposure data
         private const int k_ExposureCurvePrecision = 128;

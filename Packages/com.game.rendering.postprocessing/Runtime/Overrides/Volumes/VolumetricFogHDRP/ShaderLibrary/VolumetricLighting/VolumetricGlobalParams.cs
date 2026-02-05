@@ -16,7 +16,7 @@ namespace Game.Core.PostProcessing
         APV = APVConstantBufferRegister.GlobalRegister,
     }
 
-    [GenerateHLSL(needAccessors = false, generateCBuffer = true, constantRegister = (int)ConstantRegister.Global)]
+    [GenerateHLSL(needAccessors = false, generateCBuffer = true)]
     unsafe struct VolumetricGlobalParams
     {
         // Volumetric lighting / Fog.

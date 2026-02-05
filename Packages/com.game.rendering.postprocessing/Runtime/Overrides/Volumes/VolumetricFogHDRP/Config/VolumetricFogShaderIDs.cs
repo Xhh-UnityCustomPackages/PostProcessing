@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace Game.Core.PostProcessing
 {
-  public static class VolumetricFogShaderIDs
+    public static class VolumetricFogShaderIDs
     {
         //VbufferID
         public static readonly int _VBufferDensity = Shader.PropertyToID("_VBufferDensity");
@@ -14,7 +14,9 @@ namespace Game.Core.PostProcessing
         public static readonly int _VolumeData = Shader.PropertyToID("_VolumeData");
         public static readonly int _VolumeAmbientProbeBuffer = Shader.PropertyToID("_VolumetricAmbientProbeBuffer");
         public static readonly int _PrevCamPosRWS = Shader.PropertyToID("_PrevCamPosRWS");
+
         public static readonly int _PreVPMatrix = Shader.PropertyToID("UNITY_MATRIX_PREV_VP");
+
         //Volumetric Material
         public static readonly int _VolumetricFogGlobalIndex = Shader.PropertyToID("_VolumetricFogGlobalIndex");
         public static readonly int _VolumetricMask = Shader.PropertyToID("_Mask");
@@ -30,6 +32,11 @@ namespace Game.Core.PostProcessing
         public static readonly int _VolumetricVisibleGlobalIndicesBuffer = Shader.PropertyToID("_VolumetricVisibleGlobalIndicesBuffer");
         public static readonly int _ShaderVariablesVolumetric = Shader.PropertyToID("ShaderVariablesVolumetric");
         public static readonly int _VolumetricGlobalParams = Shader.PropertyToID("VolumetricGlobalParams");
+        public static readonly int _VBufferSliceCount = MemberNameHelpers.ShaderPropertyID();
+        public static readonly int _HeightFogBaseScattering = MemberNameHelpers.ShaderPropertyID();
+        public static readonly int _HeightFogExponents = MemberNameHelpers.ShaderPropertyID();
+        public static readonly int _HeightFogBaseHeight = MemberNameHelpers.ShaderPropertyID();
+        public static readonly int _HeightFogBaseExtinction = MemberNameHelpers.ShaderPropertyID();
 
         //Volumetric Voxel
         public static readonly int _VolumetricMaterialObbRight = Shader.PropertyToID("_VolumetricMaterialObbRight");

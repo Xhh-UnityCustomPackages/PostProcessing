@@ -76,7 +76,7 @@ void FillVolumetricDensityBuffer(uint2 voxelCoord2D, JitteredRay ray)
     #endif
 
 
-    for (uint slice = 0; slice < 57; slice++)//_VBufferSliceCount
+    for (uint slice = 0; slice < _VBufferSliceCount; slice++)//_VBufferSliceCount
     {
         uint3 voxelCoord = uint3(voxelCoord2D, slice);
         
@@ -91,7 +91,6 @@ void FillVolumetricDensityBuffer(uint2 voxelCoord2D, JitteredRay ray)
         // Compute the average value.
         float fragmentHeight   = voxelCenterWS.y;
         float heightMultiplier = ComputeHeightFogMultiplier(fragmentHeight, _HeightFogBaseHeight, _HeightFogExponents);
-      
         // Start by sampling the height fog.
         float3 voxelScattering = _HeightFogBaseScattering.xyz * heightMultiplier;
         float  voxelExtinction = _HeightFogBaseExtinction * heightMultiplier;

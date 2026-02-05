@@ -6,7 +6,7 @@
 #define VOLUMETRICGLOBALPARAMS_CS_HLSL
 // Generated from Game.Core.PostProcessing.VolumetricGlobalParams
 // PackingRules = Exact
-GLOBAL_CBUFFER_START(VolumetricGlobalParams, b0)
+CBUFFER_START(VolumetricGlobalParams)
     float4 _PlanetCenterRadius;
     float4 _PlanetUpAltitude;
     int _FogEnabled;
