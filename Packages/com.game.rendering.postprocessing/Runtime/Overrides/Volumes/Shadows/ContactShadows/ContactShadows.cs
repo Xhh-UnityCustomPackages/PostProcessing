@@ -94,7 +94,6 @@ namespace Game.Core.PostProcessing
             public static readonly int Parameters2ID = Shader.PropertyToID("_ContactShadowParamsParameters2");
             public static readonly int Parameters3ID = Shader.PropertyToID("_ContactShadowParamsParameters3");
             public static readonly int TextureUAVID = Shader.PropertyToID("_ContactShadowTextureUAV");
-            public static readonly int ContactShadowsRT = Shader.PropertyToID("_ContactShadowMap");
         }
 
         
@@ -126,7 +125,7 @@ namespace Game.Core.PostProcessing
                     break;
                 case ContactShadows.ShadowDenoiser.Spatial:
                     if (m_DiffuseShadowDenoisePass == null)
-                        m_DiffuseShadowDenoisePass = new();
+                        m_DiffuseShadowDenoisePass = new(this);
                     renderingData.cameraData.renderer.EnqueuePass(m_DiffuseShadowDenoisePass);
                     break;
             }
@@ -143,9 +142,9 @@ namespace Game.Core.PostProcessing
             desc.enableRandomWrite = true;
             desc.useMipMap = false;
 
-            RenderingUtils.ReAllocateHandleIfNeeded(ref m_ContactShadowsTexture, desc);
+            RenderingUtils.ReAllocateHandleIfNeeded(ref m_ContactShadowsTexture, desc, name: "ContactShadowMap");
 
-            Shader.SetGlobalTexture(ShaderConstants.ContactShadowsRT, m_ContactShadowsTexture);
+            Shader.SetGlobalTexture(PipelineShaderIDs._ContactShadowMap, m_ContactShadowsTexture);
         }
 
         public override void Render(CommandBuffer cmd, RTHandle source, RTHandle destination, ref RenderingData renderingData)

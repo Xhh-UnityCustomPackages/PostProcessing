@@ -232,14 +232,22 @@ namespace Game.Core.PostProcessing
 
                 if (settings.mode.value == ScreenSpaceReflection.RaytraceModes.HiZTracing)
                 {
-                    var depthPyramidTexture = renderGraph.ImportTexture(postProcessData.DepthPyramidRT);
-                    passData.DepthPyramidTexture = depthPyramidTexture;
+                    var depthPyramidRT = postProcessData.DepthPyramidRT;
+                    if (depthPyramidRT != null && depthPyramidRT.IsValid())
+                    {
+                        var depthPyramidTexture = renderGraph.ImportTexture(depthPyramidRT);
+                        passData.DepthPyramidTexture = depthPyramidTexture;
+                    }
+                    else
+                    {
+                        passData.DepthPyramidTexture = TextureHandle.nullHandle;
+                    }
                 }
-
+                
+                
                 builder.UseTexture(source, AccessFlags.Read);
                 
                 builder.AllowPassCulling(false);
-                
                 builder.SetRenderFunc((ScreenSpaceReflectionPassData data, UnsafeGraphContext context) =>
                 {
                     var cmd = CommandBufferHelpers.GetNativeCommandBuffer(context.cmd);
@@ -254,6 +262,10 @@ namespace Game.Core.PostProcessing
                     
                             //只支持HiZ模式
                             cmd.SetComputeBufferParam(passData.ComputeShader, m_TracingKernel, ShaderConstants._DepthPyramidMipLevelOffsets, offsetBuffer);
+                            if (!data.DepthPyramidTexture.IsValid())
+                            {
+                                return;
+                            }
                             cmd.SetComputeTextureParam(passData.ComputeShader, m_TracingKernel, PipelineShaderIDs._DepthPyramid, data.DepthPyramidTexture);
                             // cmd.SetComputeTextureParam(m_ComputeShader, m_TracingKernel, ShaderConstants._CameraDepthTexture, cameraDepthTexture, 0, RenderTextureSubElement.Stencil);
                             cmd.SetComputeTextureParam(passData.ComputeShader, m_TracingKernel, ShaderConstants._GBuffer2, passData.GBuffer2);
@@ -276,11 +288,19 @@ namespace Game.Core.PostProcessing
                             }
                             else
                             {
-                                propertyBlock.SetTexture(PipelineShaderIDs._DepthPyramid, data.DepthPyramidTexture);
-                                propertyBlock.SetTexture(ShaderConstants._GBuffer2, data.GBuffer2);
-                                var offsetBuffer = postProcessData.DepthMipChainInfo.GetOffsetBufferData(postProcessData.DepthPyramidMipLevelOffsetsBuffer);
-                                propertyBlock.SetBuffer(ShaderConstants._DepthPyramidMipLevelOffsets, offsetBuffer);
-                                cmd.DrawProcedural(Matrix4x4.identity, data.Material, (int)ShaderPasses.HizTest, MeshTopology.Triangles, 3, 1, propertyBlock);
+                                if (data.DepthPyramidTexture.IsValid())
+                                {
+                                    propertyBlock.SetTexture(PipelineShaderIDs._DepthPyramid, data.DepthPyramidTexture);
+                                    propertyBlock.SetTexture(ShaderConstants._GBuffer2, data.GBuffer2);
+                                    var offsetBuffer = postProcessData.DepthMipChainInfo.GetOffsetBufferData(postProcessData.DepthPyramidMipLevelOffsetsBuffer);
+                                    propertyBlock.SetBuffer(ShaderConstants._DepthPyramidMipLevelOffsets, offsetBuffer);
+                                    cmd.DrawProcedural(Matrix4x4.identity, data.Material, (int)ShaderPasses.HizTest, MeshTopology.Triangles, 3, 1, propertyBlock);
+                                }
+                                else
+                                {
+                                    propertyBlock.SetTexture(ShaderConstants._CameraDepthTexture, data.DepthTexture);
+                                    cmd.DrawProcedural(Matrix4x4.identity, data.Material, (int)ShaderPasses.Test, MeshTopology.Triangles, 3, 1, propertyBlock);
+                                }
                             }
                         }
                     }

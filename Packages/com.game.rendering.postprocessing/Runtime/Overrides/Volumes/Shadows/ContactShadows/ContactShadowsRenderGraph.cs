@@ -25,6 +25,8 @@ namespace Game.Core.PostProcessing
             public TextureHandle contactShadowsTexture;
         }
 
+        public TextureHandle ContactShadowsTexture { get; private set; }
+
         public override void DoRenderGraph(RenderGraph renderGraph, TextureHandle source, TextureHandle destination, ContextContainer frameData)
         {
             UniversalCameraData cameraData = frameData.Get<UniversalCameraData>();
@@ -45,7 +47,7 @@ namespace Game.Core.PostProcessing
                 var contactShadowsTexture = UniversalRenderer.CreateRenderGraphTexture(renderGraph, desc, "_ContactShadowMap", false);
                 passData.contactShadowsTexture = contactShadowsTexture;
                 builder.UseTexture(contactShadowsTexture, AccessFlags.Write);
-                builder.SetGlobalTextureAfterPass(contactShadowsTexture, ShaderConstants.ContactShadowsRT);
+                builder.SetGlobalTextureAfterPass(contactShadowsTexture, PipelineShaderIDs._ContactShadowMap);
                 
                 passData.contactShadowsCS = m_ContactShadowCS;
                 passData.deferredContactShadowKernel = m_ContactShadowCS.FindKernel("ContactShadowMap");
@@ -69,6 +71,8 @@ namespace Game.Core.PostProcessing
                     cmd.DispatchCompute(computeShader,  passData.deferredContactShadowKernel, data.numTilesX, data.numTilesY, 1);
 
                 });
+
+                this.ContactShadowsTexture = contactShadowsTexture;
             }
         }
     }

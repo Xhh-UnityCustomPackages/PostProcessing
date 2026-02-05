@@ -22,6 +22,7 @@ namespace Game.Core.PostProcessing
         public static readonly int _ExposureTexture = MemberNameHelpers.ShaderPropertyID();
         public static readonly int _PrevExposureTexture = MemberNameHelpers.ShaderPropertyID();
         public static readonly int _IndirectDiffuseTexture = MemberNameHelpers.ShaderPropertyID();//SSGI 结果
+        public static readonly int _ContactShadowMap = MemberNameHelpers.ShaderPropertyID();
         // URP 管线定义的
         public static readonly int _CameraNormalsTexture = MemberNameHelpers.ShaderPropertyID();
         public static readonly int _GBuffer2 = MemberNameHelpers.ShaderPropertyID();
