@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
+using Unity.Collections;
 
 namespace Game.Core.PostProcessing
 {
@@ -19,7 +21,7 @@ namespace Game.Core.PostProcessing
 	    private ComputeMaxDepthPass m_ComputeMaxDephtPass;
 	    ComputeHeightFogVoxel m_ComputeHeightFogVoxel;
 	    ComputeLocalVolumetricFogVoxel m_ComputeLocalVolumetricFogVoxel;
-	    // DrawLocalVolumetricFog m_DrawLocalVolumetricFog;
+	    DrawLocalVolumetricFog m_DrawLocalVolumetricFog;
 	    ComputeVolumetricLighting m_ComputeVolumetricLighting;
 	    RenderAtmosphereScattering m_RenderAtmosphereScattering;
 	    
@@ -28,8 +30,15 @@ namespace Game.Core.PostProcessing
 	    
 	    List<OrientedBBox> m_VisibleVolumeBounds = null;
 	    List<LocalVolumetricFogEngineData> m_VisibleVolumeData = null;
-	    // internal static List<LocalVolumetricFog> m_VisibleLocalVolumetricFogVolumes = null;
 	    List<int> m_GlobalVolumeIndices = null;
+	    internal static List<LocalVolumetricFog> m_VisibleLocalVolumetricFogVolumes = null;
+	    NativeArray<uint> m_VolumetricFogSortKeys;
+	    NativeArray<uint> m_VolumetricFogSortKeysTemp;
+	    
+	    const int k_VolumetricFogPriorityMaxValue = 1048576; // 2^20 because there are 20 bits in the volumetric fog sort key
+	    
+	    internal static ComputeBuffer m_VisibleVolumeBoundsBuffer = null;
+	    internal static GraphicsBuffer m_VisibleVolumeGlobalIndices = null;
 	    
 	    public override ScriptableRenderPassInput input => ScriptableRenderPassInput.Depth;
 	    // public override bool renderToCamera => false;
@@ -46,25 +55,47 @@ namespace Game.Core.PostProcessing
 		    m_ComputeMaxDephtPass.renderPassEvent = RenderPassEvent.AfterRenderingTransparents;
 		    m_ComputeHeightFogVoxel = new ComputeHeightFogVoxel(postProcessData);
 		    m_ComputeHeightFogVoxel.renderPassEvent = RenderPassEvent.AfterRenderingTransparents;
-		    m_ComputeLocalVolumetricFogVoxel = new ComputeLocalVolumetricFogVoxel(postProcessData);
+		    m_ComputeLocalVolumetricFogVoxel = new ComputeLocalVolumetricFogVoxel(this);
 		    m_ComputeLocalVolumetricFogVoxel.renderPassEvent = RenderPassEvent.AfterRenderingTransparents;
-		    // m_DrawLocalVolumetricFog = new DrawLocalVolumetricFog();
-		    // m_DrawLocalVolumetricFog.renderPassEvent = RenderPassEvent.AfterRenderingTransparents;
+		    m_DrawLocalVolumetricFog = new DrawLocalVolumetricFog(postProcessData);
+		    m_DrawLocalVolumetricFog.renderPassEvent = RenderPassEvent.AfterRenderingTransparents;
 		    m_ComputeVolumetricLighting = new ComputeVolumetricLighting(postProcessData);
 		    m_ComputeVolumetricLighting.renderPassEvent = RenderPassEvent.AfterRenderingTransparents;
-		    m_RenderAtmosphereScattering = new RenderAtmosphereScattering();
+		    m_RenderAtmosphereScattering = new RenderAtmosphereScattering(postProcessData);
 		    m_RenderAtmosphereScattering.renderPassEvent = RenderPassEvent.BeforeRenderingPostProcessing;
+		    
+		    
+		    int maxLocalVolumetricFogs = 256;
+		    LocalVolumetricFogManager.manager.InitializeGraphicsBuffers(maxLocalVolumetricFogs);
+		    m_VisibleVolumeBounds = new List<OrientedBBox>();
+		    m_VisibleVolumeData = new List<LocalVolumetricFogEngineData>();
+		    m_GlobalVolumeIndices = new List<int>(maxLocalVolumetricFogs);
+		    m_VisibleLocalVolumetricFogVolumes = new List<LocalVolumetricFog>();
+		    m_VisibleVolumeBoundsBuffer = new ComputeBuffer(maxLocalVolumetricFogs, Marshal.SizeOf(typeof(OrientedBBox)));
+		    m_VisibleVolumeGlobalIndices = new GraphicsBuffer(GraphicsBuffer.Target.Raw, maxLocalVolumetricFogs, Marshal.SizeOf(typeof(uint)));
+
+		    m_VolumetricFogSortKeys = new NativeArray<uint>(maxLocalVolumetricFogs, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+		    m_VolumetricFogSortKeysTemp = new NativeArray<uint>(maxLocalVolumetricFogs, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
 	    }
 
 	    public override void Dispose(bool disposing)
 	    {
 		    m_ComputeMaxDephtPass?.Dispose();
 		    m_ComputeHeightFogVoxel?.Dispose();
+		    m_DrawLocalVolumetricFog?.Dispose();
 		    m_ComputeVolumetricLighting?.Dispose();
 		    m_RenderAtmosphereScattering?.Dispose();
 		    
 		    m_DensityBuffer?.Release();
 		    m_DensityBuffer = null;
+		    
+		    if (m_VolumetricFogSortKeys.IsCreated)
+			    m_VolumetricFogSortKeys.Dispose();
+		    if (m_VolumetricFogSortKeysTemp.IsCreated)
+			    m_VolumetricFogSortKeysTemp.Dispose();
+		    
+		    CoreUtils.SafeRelease(m_VisibleVolumeBoundsBuffer);
+		    CoreUtils.SafeRelease(m_VisibleVolumeGlobalIndices);
 	    }
 
 	    public override void Render(CommandBuffer cmd, RTHandle source, RTHandle destination, ref RenderingData renderingData)
@@ -105,13 +136,13 @@ namespace Game.Core.PostProcessing
 		    //计算高度雾体积
 		    renderer.EnqueuePass(m_ComputeHeightFogVoxel);
 		    //计算LocalFog体积
-		    // renderer.EnqueuePass(m_ComputeLocalVolumetricFogVoxel);
+		    renderer.EnqueuePass(m_ComputeLocalVolumetricFogVoxel);
 		    //将localfog渲染至densityBuffer
-		    // renderer.EnqueuePass(m_DrawLocalVolumetricFog);
+		    renderer.EnqueuePass(m_DrawLocalVolumetricFog);
 		    //光照计算
 		    renderer.EnqueuePass(m_ComputeVolumetricLighting);
 		    //大气散射
-		    // renderer.EnqueuePass(m_RenderAtmosphereScattering);
+		    renderer.EnqueuePass(m_RenderAtmosphereScattering);
 		    
 		    
 		    postProcessData.prevPos = renderingData.cameraData.camera.transform.position;
@@ -494,10 +525,76 @@ namespace Game.Core.PostProcessing
 		    Vector3 camPosition = hdCamera.camera.transform.position;
 		    Vector3 camOffset = Vector3.zero;// todo:相对相机渲染
 
-		    // m_VisibleVolumeBounds.Clear();
-		    // m_VisibleVolumeData.Clear();
-		    // m_VisibleLocalVolumetricFogVolumes.Clear();
-		    // m_GlobalVolumeIndices.Clear();
+		    m_VisibleVolumeBounds.Clear();
+		    m_VisibleVolumeData.Clear();
+		    m_VisibleLocalVolumetricFogVolumes.Clear();
+		    m_GlobalVolumeIndices.Clear();
+		    
+		    // Collect all visible finite volume data, and upload it to the GPU.
+		    var volumes = LocalVolumetricFogManager.manager.PrepareLocalVolumetricFogData(hdCamera);
+		    int maxLocalVolumetricFogOnScreen = 256;
+		    
+		    ulong cameraSceneCullingMask = VolumetricNormalFunctions.GetSceneCullingMaskFromCamera(hdCamera.camera);
+
+		    foreach (var volume in volumes)
+		    {
+			    Vector3 center = volume.transform.position * 2;
+			    
+			    // Reject volumes that are completely fade out or outside of the volumetric fog using bounding sphere
+			    float boundingSphereRadius = Vector3.Magnitude(volume.parameters.size * 2);
+			    float minObbDistance = Vector3.Magnitude(center - camPosition) - hdCamera.camera.nearClipPlane - boundingSphereRadius;
+			    if (minObbDistance > volume.parameters.distanceFadeEnd || minObbDistance > settings.depthExtent.value)
+				    continue;
+			    
+#if UNITY_EDITOR
+			    if ((volume.gameObject.sceneCullingMask & cameraSceneCullingMask) == 0)
+				    continue;
+#endif
+			    // Handle camera-relative rendering.
+			    center -= camOffset;
+			    
+			    var transform = volume.transform;
+			    var bounds = GeometryUtils.OBBToAABB(transform.right, transform.up, transform.forward, volume.parameters.size * 2, center);
+
+			    // Frustum cull on the CPU for now. TODO: do it on the GPU.
+			    // TODO: account for custom near and far planes of the V-Buffer's frustum.
+			    // It's typically much shorter (along the Z axis) than the camera's frustum.
+			    // We use AABB instead of OBB because the culling has to match what is done on the C++ side
+
+			    if (m_VisibleLocalVolumetricFogVolumes.Count >= maxLocalVolumetricFogOnScreen)
+			    {
+				    Debug.LogError($"The number of local volumetric fog in the view is above the limit: {m_VisibleLocalVolumetricFogVolumes.Count} instead of {maxLocalVolumetricFogOnScreen}. To fix this, please increase the maximum number of local volumetric fog in the view in the HDRP asset.");
+				    break;
+			    }
+			    
+			    // TODO: cache these?
+			    var obb = new OrientedBBox(Matrix4x4.TRS(transform.position * 2 - camOffset, transform.rotation, volume.parameters.size * 200000));
+			    m_VisibleVolumeBounds.Add(obb);
+			    m_GlobalVolumeIndices.Add(volume.GetGlobalIndex());
+			    var visibleData = volume.parameters.ConvertToEngineData();
+			    m_VisibleVolumeData.Add(visibleData);
+
+			    m_VisibleLocalVolumetricFogVolumes.Add(volume);
+		    }
+		    
+		    for (int i = 0; i < m_VisibleLocalVolumetricFogVolumes.Count; i++)
+			    m_VolumetricFogSortKeys[i] = PackFogVolumeSortKey(m_VisibleLocalVolumetricFogVolumes[i], i);
+
+		    // Stable sort to avoid flickering
+		    CoreUnsafeUtils.MergeSort(m_VolumetricFogSortKeys, m_VisibleLocalVolumetricFogVolumes.Count, ref m_VolumetricFogSortKeysTemp);
+
+		    m_VisibleVolumeBoundsBuffer.SetData(m_VisibleVolumeBounds);
+		    m_VisibleVolumeGlobalIndices.SetData(m_GlobalVolumeIndices);
+	    }
+	    
+	    uint PackFogVolumeSortKey(LocalVolumetricFog fog, int index)
+	    {
+		    // 12 bit index, 20 bit priority
+		    int halfMaxPriority = k_VolumetricFogPriorityMaxValue / 2;
+		    int clampedPriority = Mathf.Clamp(fog.parameters.priority, -halfMaxPriority, halfMaxPriority) + halfMaxPriority;
+		    uint priority = (uint)(clampedPriority & 0xFFFFF);
+		    uint fogIndex = (uint)(index & 0xFFF);
+		    return (priority << 12) | (fogIndex << 0);
 	    }
     }
 }

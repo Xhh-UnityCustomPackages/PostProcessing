@@ -12,7 +12,7 @@ namespace UnityEngine.Rendering
 
         bool IRenderPipelineGraphicsSettings.isAvailableInPlayerBuild => true;
 
-        // [SerializeField, ResourcePath("Runtime/Overrides/Volumes/VolumetricFogHDRP/Shaders/AtmosphereScattering.shader")]
+        [SerializeField, ResourcePath("Runtime/Overrides/Volumes/VolumetricFogHDRP/Shaders/DefaultFog.shader")]
         private Shader m_DefaultFogVolumeShader;
 
         public Shader defaultFogVolumeShader
@@ -21,7 +21,7 @@ namespace UnityEngine.Rendering
             set => this.SetValueAndNotify(ref m_DefaultFogVolumeShader, value);
         }
 
-        // [SerializeField, ResourcePath("Runtime/Overrides/Volumes/VolumetricFogHDRP/Shaders/AtmosphereScattering.shader")]
+        [SerializeField, ResourcePath("Runtime/Overrides/Volumes/VolumetricFogHDRP/Shaders/AtmosphereScattering.shader")]
         private Shader m_AtmosphereScattering;
 
         public Shader atmosphereScattering

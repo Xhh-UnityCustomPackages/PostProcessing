@@ -47,7 +47,6 @@ namespace Game.Core.PostProcessing
         
         public void UpadateSetVolumetricMainLightParams(ComputeCommandBuffer cmd, UniversalLightData lightData)
         {
-            
             float useVolumetric = 0;
             var lights = lightData.visibleLights;
             if (lights.Length == 0)
@@ -65,6 +64,8 @@ namespace Game.Core.PostProcessing
 
             if (mainLight != null)
             {
+                var setting = VolumeManager.instance.stack.GetComponent<VolumetricFogHDRP>();
+                
                 var mainLightParams = mainLight.GetUniversalAdditionalLightData();
                 // if (mainLightParams.useVolumetric)
                 // {
@@ -76,8 +77,8 @@ namespace Game.Core.PostProcessing
                 // }
 
                 cmd.SetGlobalFloat(VolumetricLightParamsBuffer._MainLightEnable, useVolumetric);
-                // cmd.SetGlobalFloat(VolumetricLightParamsBuffer._MainLightMultiplier, mainLightParams.volumetricMultiplier);
-                // cmd.SetGlobalFloat(VolumetricLightParamsBuffer._MainLightShadowDimmer, mainLightParams.shadowDimmer);
+                cmd.SetGlobalFloat(VolumetricLightParamsBuffer._MainLightMultiplier, setting.mainLightMultiplier.value);
+                cmd.SetGlobalFloat(VolumetricLightParamsBuffer._MainLightShadowDimmer, setting.mainLightShadowDimmer.value);
             }
             
         }
@@ -100,7 +101,8 @@ namespace Game.Core.PostProcessing
                 {
                     ref VisibleLight nowLightData = ref lights.UnsafeElementAtMutable(i);
                     Light light = nowLightData.light;
-                    var additionalLightData = light.GetUniversalAdditionalLightData();
+                    // light.gameObject.TryGetComponent<LocalVolumetricFog>(out var additionalLightData);
+                    // var additionalLightData = light.GetUniversalAdditionalLightData();
                     if (/*additionalLightData.useVolumetric &&*/ light.type != LightType.Rectangle && !light.bakingOutput.isBaked)
                     {
                         m_LightEnable[additionalIndex] = 1;
@@ -111,8 +113,8 @@ namespace Game.Core.PostProcessing
                         m_LightEnable[additionalIndex] = 0;
                     }
 
-                    // m_LightMultiplier[additionalIndex] = additionalLightData.volumetricMultiplier;
-                    // m_LightShadowDimmer[additionalIndex] = additionalLightData.shadowDimmer;
+                    m_LightMultiplier[additionalIndex] = 12;//additionalLightData.volumetricMultiplier;
+                    m_LightShadowDimmer[additionalIndex] = 1;//additionalLightData.shadowDimmer;
 
                     if (light.shadows == LightShadows.None)
                     {

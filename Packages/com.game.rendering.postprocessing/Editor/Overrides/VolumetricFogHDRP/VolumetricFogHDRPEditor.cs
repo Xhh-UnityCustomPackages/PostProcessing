@@ -5,7 +5,7 @@ using UnityEngine;
 namespace Game.Core.PostProcessing.UnityEditor
 {
     [CustomEditor(typeof(VolumetricFogHDRP))]
-    public class VolumetricFogEditor : VolumeComponentEditor
+    public class VolumetricFogHDRPEditor : VolumeComponentEditor
     {
         protected SerializedDataParameter m_Enabled;
         protected SerializedDataParameter m_MaxFogDistance;
@@ -33,6 +33,9 @@ namespace Game.Core.PostProcessing.UnityEditor
         protected SerializedDataParameter m_ResolutionDepthRatio;
         protected SerializedDataParameter m_DirectionalLightsOnly;
         protected SerializedDataParameter m_DenoisingMode;
+
+        protected SerializedDataParameter m_MainLightMultiplier;
+        protected SerializedDataParameter m_MainLightShadowDimmer;
 
         static GUIContent s_Enabled = new GUIContent("State", "When set to Enabled, HDRP renders fog in your scene.");
         static GUIContent s_AlbedoLabel = new GUIContent("Albedo", "Specifies the color this fog scatters light to.");
@@ -75,6 +78,9 @@ namespace Game.Core.PostProcessing.UnityEditor
             m_ResolutionDepthRatio = Unpack(o.Find(x => x.resolutionDepthRatio));
             m_DirectionalLightsOnly = Unpack(o.Find(x => x.directionalLightsOnly));
             m_DenoisingMode = Unpack(o.Find(x => x.denoisingMode));
+            
+            m_MainLightMultiplier = Unpack(o.Find(x => x.mainLightMultiplier));
+            m_MainLightShadowDimmer = Unpack(o.Find(x => x.mainLightShadowDimmer));
 
             base.OnEnable();
         }
@@ -168,7 +174,9 @@ namespace Game.Core.PostProcessing.UnityEditor
                         }
                         EndAdditionalPropertiesScope();
                     }
-
+                    
+                    PropertyField(m_MainLightMultiplier);
+                    PropertyField(m_MainLightShadowDimmer);
                 }
             }
             PropertyField(m_MultipleScatteringIntensity);

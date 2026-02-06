@@ -4,6 +4,7 @@ using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Rendering.Universal;
+using ShaderIDs = Game.Core.PostProcessing.VolumetricFogShaderIDs;
 
 namespace Game.Core.PostProcessing
 {
@@ -109,8 +110,8 @@ namespace Game.Core.PostProcessing
                 // --------------------------------------------------------------
                 // Compute Max Z (1/8 resolution)
 
-                cmd.SetComputeTextureParam(cs, kernel, VolumetricFogShaderIDs._OutputTexture, maxZ8xBuffer);
-                cmd.SetComputeTextureParam(cs, kernel, VolumetricFogShaderIDs._CameraDepthTexture, new RenderTargetIdentifier("_CameraDepthTexture"));
+                cmd.SetComputeTextureParam(cs, kernel, ShaderIDs._OutputTexture, maxZ8xBuffer);
+                cmd.SetComputeTextureParam(cs, kernel, ShaderIDs._CameraDepthTexture, new RenderTargetIdentifier("_CameraDepthTexture"));
 
                 cmd.DispatchCompute(cs, kernel, dispatchX, dispatchY, 1);
 
@@ -119,9 +120,9 @@ namespace Game.Core.PostProcessing
 
                 kernel = maxZDownsampleKernel;
 
-                cmd.SetComputeTextureParam(cs, kernel, VolumetricFogShaderIDs._InputTexture, maxZ8xBuffer);
-                cmd.SetComputeTextureParam(cs, kernel, VolumetricFogShaderIDs._OutputTexture, maxZBuffer);
-                cmd.SetComputeTextureParam(cs, kernel, VolumetricFogShaderIDs._CameraDepthTexture, new RenderTargetIdentifier("_CameraDepthTexture"));
+                cmd.SetComputeTextureParam(cs, kernel, ShaderIDs._InputTexture, maxZ8xBuffer);
+                cmd.SetComputeTextureParam(cs, kernel, ShaderIDs._OutputTexture, maxZBuffer);
+                cmd.SetComputeTextureParam(cs, kernel, ShaderIDs._CameraDepthTexture, new RenderTargetIdentifier("_CameraDepthTexture"));
 
                 Vector4 srcLimitAndDepthOffset = new Vector4(
                     maskW,
@@ -129,8 +130,8 @@ namespace Game.Core.PostProcessing
                     minDepthMipOffset.x,
                     minDepthMipOffset.y
                 );
-                cmd.SetComputeVectorParam(cs, VolumetricFogShaderIDs._SrcOffsetAndLimit, srcLimitAndDepthOffset);
-                cmd.SetComputeFloatParam(cs, VolumetricFogShaderIDs._DilationWidth, dilationWidth);
+                cmd.SetComputeVectorParam(cs, ShaderIDs._SrcOffsetAndLimit, srcLimitAndDepthOffset);
+                cmd.SetComputeFloatParam(cs, ShaderIDs._DilationWidth, dilationWidth);
 
                 int finalMaskW = Mathf.CeilToInt(maskW / 2.0f);
                 int finalMaskH = Mathf.CeilToInt(maskH / 2.0f);
@@ -144,13 +145,13 @@ namespace Game.Core.PostProcessing
                 // Dilate max Z and gradient.
                 kernel = dilateMaxZKernel;
 
-                cmd.SetComputeTextureParam(cs, kernel, VolumetricFogShaderIDs._InputTexture, maxZBuffer);
-                cmd.SetComputeTextureParam(cs, kernel, VolumetricFogShaderIDs._OutputTexture, dilatedMaxZBuffer);
-                cmd.SetComputeTextureParam(cs, kernel, VolumetricFogShaderIDs._CameraDepthTexture, new RenderTargetIdentifier("_CameraDepthTexture"));
+                cmd.SetComputeTextureParam(cs, kernel, ShaderIDs._InputTexture, maxZBuffer);
+                cmd.SetComputeTextureParam(cs, kernel, ShaderIDs._OutputTexture, dilatedMaxZBuffer);
+                cmd.SetComputeTextureParam(cs, kernel, ShaderIDs._CameraDepthTexture, new RenderTargetIdentifier("_CameraDepthTexture"));
 
                 srcLimitAndDepthOffset.x = finalMaskW;
                 srcLimitAndDepthOffset.y = finalMaskH;
-                cmd.SetComputeVectorParam(cs, VolumetricFogShaderIDs._SrcOffsetAndLimit, srcLimitAndDepthOffset);
+                cmd.SetComputeVectorParam(cs, ShaderIDs._SrcOffsetAndLimit, srcLimitAndDepthOffset);
                 cmd.DispatchCompute(cs, kernel, dispatchX, dispatchY, 1);
             }
             context.ExecuteCommandBuffer(cmd);
@@ -248,8 +249,8 @@ namespace Game.Core.PostProcessing
                         int dispatchY = maskH;
 
 
-                        ctx.cmd.SetComputeTextureParam(cs, kernel, VolumetricFogShaderIDs._OutputTexture, data.maxZ8xBuffer);
-                        ctx.cmd.SetComputeTextureParam(cs, kernel, VolumetricFogShaderIDs._CameraDepthTexture, data.depthTexture);
+                        ctx.cmd.SetComputeTextureParam(cs, kernel, ShaderIDs._OutputTexture, data.maxZ8xBuffer);
+                        ctx.cmd.SetComputeTextureParam(cs, kernel, ShaderIDs._CameraDepthTexture, data.depthTexture);
                         //Debug.Log("计算着色器尺寸X" + dispatchX.ToString() + "计算着色器尺寸Y：" + dispatchY.ToString() + "计算着色器尺寸Z:" + data.viewCount);
 
                         ctx.cmd.DispatchCompute(cs, kernel, dispatchX, dispatchY, 1);
@@ -259,9 +260,9 @@ namespace Game.Core.PostProcessing
 
                         kernel = data.maxZDownsampleKernel;
 
-                        ctx.cmd.SetComputeTextureParam(cs, kernel, VolumetricFogShaderIDs._InputTexture, data.maxZ8xBuffer);
-                        ctx.cmd.SetComputeTextureParam(cs, kernel, VolumetricFogShaderIDs._OutputTexture, data.maxZBuffer);
-                        ctx.cmd.SetComputeTextureParam(cs, kernel, VolumetricFogShaderIDs._CameraDepthTexture, data.depthTexture);
+                        ctx.cmd.SetComputeTextureParam(cs, kernel, ShaderIDs._InputTexture, data.maxZ8xBuffer);
+                        ctx.cmd.SetComputeTextureParam(cs, kernel, ShaderIDs._OutputTexture, data.maxZBuffer);
+                        ctx.cmd.SetComputeTextureParam(cs, kernel, ShaderIDs._CameraDepthTexture, data.depthTexture);
 
                         Vector4 srcLimitAndDepthOffset = new Vector4(
                             maskW,
@@ -269,8 +270,8 @@ namespace Game.Core.PostProcessing
                             data.minDepthMipOffset.x,
                             data.minDepthMipOffset.y
                         );
-                        ctx.cmd.SetComputeVectorParam(cs, VolumetricFogShaderIDs._SrcOffsetAndLimit, srcLimitAndDepthOffset);
-                        ctx.cmd.SetComputeFloatParam(cs, VolumetricFogShaderIDs._DilationWidth, data.dilationWidth);
+                        ctx.cmd.SetComputeVectorParam(cs, ShaderIDs._SrcOffsetAndLimit, srcLimitAndDepthOffset);
+                        ctx.cmd.SetComputeFloatParam(cs, ShaderIDs._DilationWidth, data.dilationWidth);
 
                         int finalMaskW = Mathf.CeilToInt(maskW / 2.0f);
                         int finalMaskH = Mathf.CeilToInt(maskH / 2.0f);
@@ -284,13 +285,13 @@ namespace Game.Core.PostProcessing
                         // Dilate max Z and gradient.
                         kernel = data.dilateMaxZKernel;
 
-                        ctx.cmd.SetComputeTextureParam(cs, kernel, VolumetricFogShaderIDs._InputTexture, data.maxZBuffer);
-                        ctx.cmd.SetComputeTextureParam(cs, kernel, VolumetricFogShaderIDs._OutputTexture, data.dilatedMaxZBuffer);
-                        ctx.cmd.SetComputeTextureParam(cs, kernel, VolumetricFogShaderIDs._CameraDepthTexture, data.depthTexture);
+                        ctx.cmd.SetComputeTextureParam(cs, kernel, ShaderIDs._InputTexture, data.maxZBuffer);
+                        ctx.cmd.SetComputeTextureParam(cs, kernel, ShaderIDs._OutputTexture, data.dilatedMaxZBuffer);
+                        ctx.cmd.SetComputeTextureParam(cs, kernel, ShaderIDs._CameraDepthTexture, data.depthTexture);
 
                         srcLimitAndDepthOffset.x = finalMaskW;
                         srcLimitAndDepthOffset.y = finalMaskH;
-                        ctx.cmd.SetComputeVectorParam(cs, VolumetricFogShaderIDs._SrcOffsetAndLimit, srcLimitAndDepthOffset);
+                        ctx.cmd.SetComputeVectorParam(cs, ShaderIDs._SrcOffsetAndLimit, srcLimitAndDepthOffset);
                         ctx.cmd.DispatchCompute(cs, kernel, dispatchX, dispatchY, 1);
                     }
                 );

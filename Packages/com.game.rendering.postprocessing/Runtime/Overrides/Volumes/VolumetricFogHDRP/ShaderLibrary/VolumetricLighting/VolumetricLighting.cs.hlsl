@@ -65,6 +65,21 @@ CBUFFER_START(ShaderVariablesVolumetric)
     uint _Padding2;
 CBUFFER_END
 
+// Generated from Game.Core.PostProcessing.VolumetricMaterialDataCBuffer
+// PackingRules = Exact
+CBUFFER_START(VolumetricMaterialDataCBuffer)
+    float4 _VolumetricMaterialObbRight;
+    float4 _VolumetricMaterialObbUp;
+    float4 _VolumetricMaterialObbExtents;
+    float4 _VolumetricMaterialObbCenter;
+    float4 _VolumetricMaterialRcpPosFaceFade;
+    float4 _VolumetricMaterialRcpNegFaceFade;
+    float _VolumetricMaterialInvertFade;
+    float _VolumetricMaterialRcpDistFadeLen;
+    float _VolumetricMaterialEndTimesRcpDistFadeLen;
+    float _VolumetricMaterialFalloffMode;
+CBUFFER_END
+
 // Generated from Game.Core.PostProcessing.VolumetricMaterialRenderingData
 // PackingRules = Exact
 struct VolumetricMaterialRenderingData

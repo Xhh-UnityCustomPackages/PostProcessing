@@ -92,6 +92,23 @@ namespace Game.Core.PostProcessing
         Exponential,
     }
     
+    // TODO: 16bit floats, Mathf.FloatToHalf
+    [GenerateHLSL(needAccessors = false, generateCBuffer = true)]
+    struct VolumetricMaterialDataCBuffer
+    {
+        public Vector4 _VolumetricMaterialObbRight;
+        public Vector4 _VolumetricMaterialObbUp;
+        public Vector4 _VolumetricMaterialObbExtents;
+        public Vector4 _VolumetricMaterialObbCenter;
+        public Vector4 _VolumetricMaterialRcpPosFaceFade;
+        public Vector4 _VolumetricMaterialRcpNegFaceFade;
+
+        public float _VolumetricMaterialInvertFade;
+        public float _VolumetricMaterialRcpDistFadeLen;
+        public float _VolumetricMaterialEndTimesRcpDistFadeLen;
+        public float _VolumetricMaterialFalloffMode;
+    }
+    
     /// <summary>Select which mask mode to use for the local volumetric fog.</summary>
     public enum LocalVolumetricFogMaskMode
     {

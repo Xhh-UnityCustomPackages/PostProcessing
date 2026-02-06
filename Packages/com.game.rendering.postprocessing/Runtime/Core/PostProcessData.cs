@@ -68,6 +68,7 @@ namespace Game.Core.PostProcessing
 
         BufferedRTHandleSystem m_HistoryRTSystem = new ();
 
+        public float time { get; private set; }
         public Camera camera { get; private set; }
         
         /// <summary>
@@ -168,6 +169,16 @@ namespace Game.Core.PostProcessing
                 m_FrameCount = 0;
             }
             
+            float newTime, deltaTime;
+#if UNITY_EDITOR
+            newTime = Application.isPlaying ? Time.time : Time.realtimeSinceStartup;
+            deltaTime = Application.isPlaying ? Time.deltaTime : 0.033f;
+#else
+            newTime = Time.time;
+            deltaTime = Time.deltaTime;
+#endif
+            time = newTime;
+            
             UpdateCameraData(renderingData.cameraData);
             UpdateRenderTextures(ref renderingData);
             UpdateVolumeParameters();
@@ -216,6 +227,17 @@ namespace Game.Core.PostProcessing
             {
                 m_FrameCount = 0;
             }
+            
+            float newTime, deltaTime;
+#if UNITY_EDITOR
+            newTime = Application.isPlaying ? Time.time : Time.realtimeSinceStartup;
+            deltaTime = Application.isPlaying ? Time.deltaTime : 0.033f;
+#else
+            newTime = Time.time;
+            deltaTime = Time.deltaTime;
+#endif
+            time = newTime;
+            
             UpdateCameraData(cameraData);
             UpdateRenderTextures(cameraData);
             UpdateVolumeParameters();

@@ -5,6 +5,8 @@ using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Rendering.Universal;
 
+using ShaderIDs = Game.Core.PostProcessing.VolumetricFogShaderIDs;
+
 namespace Game.Core.PostProcessing
 {
     public class ComputeVolumetricLighting : ScriptableRenderPass, IDisposable
@@ -226,31 +228,38 @@ namespace Game.Core.PostProcessing
             int threadX = PostProcessingUtils.DivRoundUp((int)data.resolution.x, 8);
             int threadY = PostProcessingUtils.DivRoundUp((int)data.resolution.y, 8);
             Vector4 groupSize = new Vector4(threadX, threadY, 0, 0);
-            //context.cmd.SetComputeTextureParam(data.volumetricLightingCS, data.volumetricLightingKernel, VolumetricFogShaderIDs._CameraDepthTexture, data.depthTexture);  // Read
-            context.cmd.SetComputeTextureParam(data.volumetricLightingCS, data.volumetricLightingKernel, VolumetricFogShaderIDs._VBufferDensity, data.densityBuffer); // Read
-            context.cmd.SetComputeTextureParam(data.volumetricLightingCS, data.volumetricLightingKernel, VolumetricFogShaderIDs._VBufferLighting, data.lightingBuffer); // Write
-            context.cmd.SetComputeFloatParam(data.volumetricLightingCS, volumetricNearPlaneID, data.nearPlane);
-            context.cmd.SetComputeVectorParam(data.volumetricLightingCS, goupsizeID, groupSize);
+            var computeShader = data.volumetricLightingCS;
+            //context.cmd.SetComputeTextureParam(data.volumetricLightingCS, data.volumetricLightingKernel, ShaderIDs._CameraDepthTexture, data.depthTexture);  // Read
+            context.cmd.SetComputeTextureParam(computeShader, data.volumetricLightingKernel, ShaderIDs._VBufferDensity, data.densityBuffer); // Read
+            context.cmd.SetComputeTextureParam(computeShader, data.volumetricLightingKernel, ShaderIDs._VBufferLighting, data.lightingBuffer); // Write
+            context.cmd.SetComputeFloatParam(computeShader, volumetricNearPlaneID, data.nearPlane);
+            context.cmd.SetComputeVectorParam(computeShader, goupsizeID, groupSize);
 
+            context.cmd.SetComputeIntParam(computeShader, ShaderIDs._VBufferSliceCount, (int)VolumetricFogHDRPRenderer.volumetricGlobalCB._VBufferSliceCount);
+            context.cmd.SetComputeVectorParam(computeShader, ShaderIDs._VBufferDistanceDecodingParams, VolumetricFogHDRPRenderer.volumetricGlobalCB._VBufferDistanceDecodingParams);
+            context.cmd.SetComputeFloatParam(computeShader, ShaderIDs._VBufferRcpSliceCount, VolumetricFogHDRPRenderer.volumetricGlobalCB._VBufferRcpSliceCount);
+            context.cmd.SetComputeVectorParam(computeShader, ShaderIDs._VBufferViewportSize, VolumetricFogHDRPRenderer.volumetricGlobalCB._VBufferViewportSize);
+            
+            
             if (data.enableReprojection)
             {
-                context.cmd.SetComputeVectorParam(data.volumetricLightingCS, VolumetricFogShaderIDs._PrevCamPosRWS, data.prevCameraPos);
-                context.cmd.SetComputeMatrixParam(data.volumetricLightingCS, VolumetricFogShaderIDs._PreVPMatrix, data.prevVP);
-                context.cmd.SetComputeTextureParam(data.volumetricLightingCS, data.volumetricLightingKernel, VolumetricFogShaderIDs._VBufferHistory, data.historyBuffer); // Read
-                context.cmd.SetComputeTextureParam(data.volumetricLightingCS, data.volumetricLightingKernel, VolumetricFogShaderIDs._VBufferFeedback, data.feedbackBuffer); // Write
+                context.cmd.SetComputeVectorParam(computeShader, ShaderIDs._PrevCamPosRWS, data.prevCameraPos);
+                context.cmd.SetComputeMatrixParam(computeShader, ShaderIDs._PreVPMatrix, data.prevVP);
+                context.cmd.SetComputeTextureParam(computeShader, data.volumetricLightingKernel, ShaderIDs._VBufferHistory, data.historyBuffer); // Read
+                context.cmd.SetComputeTextureParam(computeShader, data.volumetricLightingKernel, ShaderIDs._VBufferFeedback, data.feedbackBuffer); // Write
             }
 
-            ConstantBuffer.Push(data.volumetricCB, data.volumetricLightingCS, VolumetricFogShaderIDs._ShaderVariablesVolumetric);
+            ConstantBuffer.Push(data.volumetricCB, computeShader, ShaderIDs._ShaderVariablesVolumetric);
 
-            context.cmd.DispatchCompute(data.volumetricLightingCS, data.volumetricLightingKernel, threadX, threadY, data.viewCount);
+            context.cmd.DispatchCompute(computeShader, data.volumetricLightingKernel, threadX, threadY, data.viewCount);
 
             if (data.filterVolume)
             {
-                ConstantBuffer.Push(data.volumetricCB, data.volumetricLightingFilteringCS, VolumetricFogShaderIDs._ShaderVariablesVolumetric);
-                context.cmd.SetComputeTextureParam(data.volumetricLightingFilteringCS, data.volumetricFilteringKernel, VolumetricFogShaderIDs._VBufferLighting, data.lightingBuffer);
+                ConstantBuffer.Push(data.volumetricCB, data.volumetricLightingFilteringCS, ShaderIDs._ShaderVariablesVolumetric);
+                context.cmd.SetComputeTextureParam(data.volumetricLightingFilteringCS, data.volumetricFilteringKernel, ShaderIDs._VBufferLighting, data.lightingBuffer);
                 if (data.filteringNeedsExtraBuffer)
                 {
-                    context.cmd.SetComputeTextureParam(data.volumetricLightingFilteringCS, data.volumetricFilteringKernel, VolumetricFogShaderIDs._VBufferLightingFiltered, data.filteringOutputBuffer);
+                    context.cmd.SetComputeTextureParam(data.volumetricLightingFilteringCS, data.volumetricFilteringKernel, ShaderIDs._VBufferLightingFiltered, data.filteringOutputBuffer);
                 }
 
                 context.cmd.DispatchCompute(data.volumetricLightingFilteringCS, data.volumetricFilteringKernel, threadX, threadY, data.sliceCount);

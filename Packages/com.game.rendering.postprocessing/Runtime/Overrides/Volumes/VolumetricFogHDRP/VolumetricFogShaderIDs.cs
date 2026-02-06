@@ -16,6 +16,7 @@ namespace Game.Core.PostProcessing
         public static readonly int _PrevCamPosRWS = Shader.PropertyToID("_PrevCamPosRWS");
 
         public static readonly int _PreVPMatrix = Shader.PropertyToID("UNITY_MATRIX_PREV_VP");
+        public static readonly int _PixelCoordToViewDirWSID = Shader.PropertyToID("_PixelCoordToViewDirWS");
 
         //Volumetric Material
         public static readonly int _VolumetricFogGlobalIndex = Shader.PropertyToID("_VolumetricFogGlobalIndex");
@@ -32,11 +33,18 @@ namespace Game.Core.PostProcessing
         public static readonly int _VolumetricVisibleGlobalIndicesBuffer = Shader.PropertyToID("_VolumetricVisibleGlobalIndicesBuffer");
         public static readonly int _ShaderVariablesVolumetric = Shader.PropertyToID("ShaderVariablesVolumetric");
         public static readonly int _VolumetricGlobalParams = Shader.PropertyToID("VolumetricGlobalParams");
+        public static readonly int _EnableVolumetricFog = MemberNameHelpers.ShaderPropertyID();
         public static readonly int _VBufferSliceCount = MemberNameHelpers.ShaderPropertyID();
         public static readonly int _HeightFogBaseScattering = MemberNameHelpers.ShaderPropertyID();
         public static readonly int _HeightFogExponents = MemberNameHelpers.ShaderPropertyID();
         public static readonly int _HeightFogBaseHeight = MemberNameHelpers.ShaderPropertyID();
         public static readonly int _HeightFogBaseExtinction = MemberNameHelpers.ShaderPropertyID();
+        public static readonly int _VBufferDistanceDecodingParams = MemberNameHelpers.ShaderPropertyID();
+        public static readonly int _VBufferRcpSliceCount = MemberNameHelpers.ShaderPropertyID();
+        public static readonly int _VBufferViewportSize = MemberNameHelpers.ShaderPropertyID();
+        public static readonly int _VBufferDistanceEncodingParams = MemberNameHelpers.ShaderPropertyID();
+        public static readonly int _VBufferLightingViewportLimit = MemberNameHelpers.ShaderPropertyID();
+        public static readonly int _VBufferLightingViewportScale = MemberNameHelpers.ShaderPropertyID();
 
         //Volumetric Voxel
         public static readonly int _VolumetricMaterialObbRight = Shader.PropertyToID("_VolumetricMaterialObbRight");

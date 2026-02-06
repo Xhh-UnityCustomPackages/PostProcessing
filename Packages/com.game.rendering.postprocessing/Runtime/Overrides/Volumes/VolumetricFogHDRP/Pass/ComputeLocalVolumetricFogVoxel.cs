@@ -1,25 +1,26 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Rendering.Universal;
 
+using ShaderIDs = Game.Core.PostProcessing.VolumetricFogShaderIDs;
+
 namespace Game.Core.PostProcessing
 {
     public class ComputeLocalVolumetricFogVoxel : ScriptableRenderPass, IDisposable
     {
-        private PostProcessData postProcessData;
+        private VolumetricFogHDRPRenderer m_Renderer;
         private ComputeShader volumetricMaterial;
         
-        internal static ComputeBuffer m_VisibleVolumeBoundsBuffer = null;
-        internal static GraphicsBuffer m_VisibleVolumeGlobalIndices = null;
         
         static internal VolumetricLightsParams vLightParams;
         
-        public ComputeLocalVolumetricFogVoxel(PostProcessData postProcessData)
+        public ComputeLocalVolumetricFogVoxel(VolumetricFogHDRPRenderer renderer)
         {
-            this.postProcessData = postProcessData;
+            m_Renderer = renderer;
             
             var runtimeShaders = GraphicsSettings.GetRenderPipelineSettings<VolumetricFogHDRPResources>();
             volumetricMaterial = runtimeShaders.volumetricMaterial;
@@ -30,12 +31,13 @@ namespace Game.Core.PostProcessing
         
         public void Dispose()
         {
+           
         }
         
         
         class VolumetricFogVoxelizationPassData
         {
-            // public List<LocalVolumetricFog> volumetricFogs;
+            public List<LocalVolumetricFog> volumetricFogs;
             public int maxSliceCount;
             public int viewCount;
 
@@ -47,10 +49,10 @@ namespace Game.Core.PostProcessing
 
             // Regular fogs
             public ComputeShader volumetricMaterialCS;
-            // public GraphicsBuffer globalIndirectBuffer;
-            // public GraphicsBuffer globalIndirectionBuffer;
-            // public GraphicsBuffer materialDataBuffer;
-            // public GraphicsBuffer visibleVolumeGlobalIndices;
+            public GraphicsBuffer globalIndirectBuffer;
+            public GraphicsBuffer globalIndirectionBuffer;
+            public GraphicsBuffer materialDataBuffer;
+            public GraphicsBuffer visibleVolumeGlobalIndices;
             public int computeRenderingParametersKernel;
             public ComputeBuffer visibleVolumeBoundsBuffer;
             public UniversalLightData lightData;
@@ -83,14 +85,14 @@ namespace Game.Core.PostProcessing
                 passData.fogOverdrawDebugEnabled = fogOverdrawDebugEnabled;
                 passData.volumetricMaterialCS = volumetricMaterial;
                 passData.computeRenderingParametersKernel = passData.volumetricMaterialCS.FindKernel("ComputeVolumetricMaterialRenderingParameters");
-                passData.visibleVolumeBoundsBuffer = m_VisibleVolumeBoundsBuffer;
-                // passData.globalIndirectBuffer = LocalVolumetricFogManager.manager.globalIndirectBuffer;
-                // passData.globalIndirectionBuffer = LocalVolumetricFogManager.manager.globalIndirectionBuffer;
-                // passData.volumetricFogs = m_VisibleLocalVolumetricFogVolumes;
-                // passData.materialDataBuffer = LocalVolumetricFogManager.manager.volumetricMaterialDataBuffer;
+                passData.visibleVolumeBoundsBuffer = VolumetricFogHDRPRenderer.m_VisibleVolumeBoundsBuffer;
+                passData.globalIndirectBuffer = LocalVolumetricFogManager.manager.globalIndirectBuffer;
+                passData.globalIndirectionBuffer = LocalVolumetricFogManager.manager.globalIndirectionBuffer;
+                passData.volumetricFogs = VolumetricFogHDRPRenderer.m_VisibleLocalVolumetricFogVolumes;
+                passData.materialDataBuffer = LocalVolumetricFogManager.manager.volumetricMaterialDataBuffer;
                 passData.maxSliceCount = (int)m_ShaderVariablesVolumetricCB._MaxSliceCount;
                 passData.viewCount = 1;
-                // passData.visibleVolumeGlobalIndices = m_VisibleVolumeGlobalIndices;
+                passData.visibleVolumeGlobalIndices = VolumetricFogHDRPRenderer.m_VisibleVolumeGlobalIndices;
                 passData.volumetricGlobalCB = VolumetricFogHDRPRenderer.volumetricGlobalCB;
                 builder.SetRenderFunc((VolumetricFogVoxelizationPassData data, ComputeGraphContext context) => ExecutePass(data, context));
             }
@@ -98,30 +100,28 @@ namespace Game.Core.PostProcessing
 
         static void ExecutePass(VolumetricFogVoxelizationPassData data, ComputeGraphContext context)
         {
-            int volumeCount = 0;
+            int volumeCount = data.volumetricFogs.Count;
 
             var computeShader = data.volumetricMaterialCS;
             int kernel = data.computeRenderingParametersKernel;
-            context.cmd.SetComputeBufferParam(computeShader, kernel, VolumetricFogShaderIDs._VolumeBounds, data.visibleVolumeBoundsBuffer);
-            // context.cmd.SetComputeBufferParam(computeShader, kernel, VolumetricFogShaderIDs._VolumetricGlobalIndirectArgsBuffer, data.globalIndirectBuffer);
-            // context.cmd.SetComputeBufferParam(computeShader, kernel, VolumetricFogShaderIDs._VolumetricGlobalIndirectionBuffer, data.globalIndirectionBuffer);
-            // context.cmd.SetComputeBufferParam(computeShader, kernel, VolumetricFogShaderIDs._VolumetricVisibleGlobalIndicesBuffer, data.visibleVolumeGlobalIndices);
-            // context.cmd.SetComputeBufferParam(computeShader, kernel, VolumetricFogShaderIDs._VolumetricMaterialData, data.materialDataBuffer);
-            context.cmd.SetComputeIntParam(computeShader, VolumetricFogShaderIDs._VolumeCount, volumeCount);
-            context.cmd.SetComputeIntParam(computeShader, VolumetricFogShaderIDs._MaxSliceCount, data.maxSliceCount);
-            context.cmd.SetComputeIntParam(computeShader, VolumetricFogShaderIDs._VolumetricViewCount, data.viewCount);
+            context.cmd.SetComputeBufferParam(computeShader, kernel, ShaderIDs._VolumeBounds, data.visibleVolumeBoundsBuffer);
+            context.cmd.SetComputeBufferParam(computeShader, kernel, ShaderIDs._VolumetricGlobalIndirectArgsBuffer, data.globalIndirectBuffer);
+            context.cmd.SetComputeBufferParam(computeShader, kernel, ShaderIDs._VolumetricGlobalIndirectionBuffer, data.globalIndirectionBuffer);
+            context.cmd.SetComputeBufferParam(computeShader, kernel, ShaderIDs._VolumetricVisibleGlobalIndicesBuffer, data.visibleVolumeGlobalIndices);
+            context.cmd.SetComputeBufferParam(computeShader, kernel, ShaderIDs._VolumetricMaterialData, data.materialDataBuffer);
+            context.cmd.SetComputeIntParam(computeShader, ShaderIDs._VolumeCount, volumeCount);
+            context.cmd.SetComputeIntParam(computeShader, ShaderIDs._MaxSliceCount, data.maxSliceCount);
+            context.cmd.SetComputeIntParam(computeShader, ShaderIDs._VolumetricViewCount, data.viewCount);
             //更新光源组件体积光部分传入GPU的数据
             vLightParams.UpadateSetVolumetricMainLightParams(context.cmd, data.lightData);
             vLightParams.UpadateSetVolumetricAdditionalLightParams(context.cmd, data.lightData);
 
-            // ConstantBuffer.PushGlobal(data.volumetricCB, VolumetricFogShaderIDs._ShaderVariablesVolumetric);
+            // ConstantBuffer.PushGlobal(data.volumetricCB, ShaderIDs._ShaderVariablesVolumetric);
             int dispatchXCount = Mathf.Max(1, Mathf.CeilToInt((float)(volumeCount * data.viewCount) / 32.0f));
             context.cmd.DispatchCompute(data.volumetricMaterialCS, data.computeRenderingParametersKernel, dispatchXCount, 1, 1);
-            // ConstantBuffer.PushGlobal(data.volumetricGlobalCB, VolumetricFogShaderIDs._VolumetricGlobalParams);
+            // ConstantBuffer.PushGlobal(data.volumetricGlobalCB, ShaderIDs._VolumetricGlobalParams);
 
-            //Debug.Log(data.volumetricGlobalCB._VBufferSliceCount);
-
-            // context.cmd.SetGlobalBuffer(VolumetricFogShaderIDs._VolumetricGlobalIndirectionBuffer, data.globalIndirectionBuffer);
+            // context.cmd.SetGlobalBuffer(ShaderIDs._VolumetricGlobalIndirectionBuffer, data.globalIndirectionBuffer);
         }
 
     }

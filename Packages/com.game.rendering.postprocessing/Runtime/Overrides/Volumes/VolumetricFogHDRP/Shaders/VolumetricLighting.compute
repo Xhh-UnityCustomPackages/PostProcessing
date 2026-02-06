@@ -71,7 +71,7 @@
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 // #include "Packages/com.unity.render-pipelines.universal/Runtime/Extensions/HotFix/Features/VolumetricFog/ShaderLibrary/VolumetricLighting/VoxelRealtimeLights.hlsl"
 //#include "Packages/com.unity.render-pipelines.universal/Shaders/Utils/StencilDeferred.hlsl"
-// #include "Packages/com.unity.render-pipelines.universal/Runtime/Extensions/HotFix/Features/VolumetricFog/ShaderLibrary/VolumetricLighting/VBuffer.hlsl"
+#include "../ShaderLibrary/VolumetricLighting/VBuffer.hlsl"
 //--------------------------------------------------------------------------------------------------
 // Inputs & outputs
 //--------------------------------------------------------------------------------------------------
@@ -183,7 +183,8 @@ float ComputeHistoryWeight()
     return historyWeight;
 }
 
-VoxelLighting ComputeVoxelLightingDirectional(uint featureFlags, PositionInputs posInput, float3 centerWS,JitteredRay ray, float t0, float t1, float dt, float rndVal, float extinction, float anisotropy)
+VoxelLighting ComputeVoxelLightingDirectional(uint featureFlags, PositionInputs posInput, float3 centerWS, JitteredRay ray, float t0, float t1, float dt, float rndVal, float extinction,
+                                              float anisotropy)
 {
     VoxelLighting lighting;
     ZERO_INITIALIZE(VoxelLighting, lighting);

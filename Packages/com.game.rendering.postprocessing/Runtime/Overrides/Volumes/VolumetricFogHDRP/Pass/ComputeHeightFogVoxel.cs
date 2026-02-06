@@ -5,6 +5,8 @@ using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Rendering.Universal;
 
+using ShaderIDs = Game.Core.PostProcessing.VolumetricFogShaderIDs;
+
 namespace Game.Core.PostProcessing
 {
     public class ComputeHeightFogVoxel : ScriptableRenderPass, IDisposable
@@ -58,13 +60,13 @@ namespace Game.Core.PostProcessing
             var cmd = CommandBufferPool.Get("VolumetricFog");
             using (new ProfilingScope(cmd, profilingSampler))
             {
-                cmd.SetComputeTextureParam(voxelizationCS, voxelizationKernel, VolumetricFogShaderIDs._VBufferDensity, VolumetricFogHDRPRenderer.m_DensityBuffer);
+                cmd.SetComputeTextureParam(voxelizationCS, voxelizationKernel, ShaderIDs._VBufferDensity, VolumetricFogHDRPRenderer.m_DensityBuffer);
                 
-                cmd.SetComputeIntParam(voxelizationCS, VolumetricFogShaderIDs._VBufferSliceCount, (int)VolumetricFogHDRPRenderer.volumetricGlobalCB._VBufferSliceCount);
-                cmd.SetComputeVectorParam(voxelizationCS, VolumetricFogShaderIDs._HeightFogBaseScattering, VolumetricFogHDRPRenderer.volumetricGlobalCB._HeightFogBaseScattering);
-                cmd.SetComputeVectorParam(voxelizationCS, VolumetricFogShaderIDs._HeightFogExponents, VolumetricFogHDRPRenderer.volumetricGlobalCB._HeightFogExponents);
-                cmd.SetComputeFloatParam(voxelizationCS, VolumetricFogShaderIDs._HeightFogBaseHeight, VolumetricFogHDRPRenderer.volumetricGlobalCB._HeightFogBaseHeight);
-                cmd.SetComputeFloatParam(voxelizationCS, VolumetricFogShaderIDs._HeightFogBaseExtinction, VolumetricFogHDRPRenderer.volumetricGlobalCB._HeightFogBaseExtinction);
+                cmd.SetComputeIntParam(voxelizationCS, ShaderIDs._VBufferSliceCount, (int)VolumetricFogHDRPRenderer.volumetricGlobalCB._VBufferSliceCount);
+                cmd.SetComputeVectorParam(voxelizationCS, ShaderIDs._HeightFogBaseScattering, VolumetricFogHDRPRenderer.volumetricGlobalCB._HeightFogBaseScattering);
+                cmd.SetComputeVectorParam(voxelizationCS, ShaderIDs._HeightFogExponents, VolumetricFogHDRPRenderer.volumetricGlobalCB._HeightFogExponents);
+                cmd.SetComputeFloatParam(voxelizationCS, ShaderIDs._HeightFogBaseHeight, VolumetricFogHDRPRenderer.volumetricGlobalCB._HeightFogBaseHeight);
+                cmd.SetComputeFloatParam(voxelizationCS, ShaderIDs._HeightFogBaseExtinction, VolumetricFogHDRPRenderer.volumetricGlobalCB._HeightFogBaseExtinction);
                 
                 cmd.DispatchCompute(voxelizationCS, voxelizationKernel, ((int)resolution.x + 7) / 8, ((int)resolution.y + 7) / 8, 1);
             }
@@ -132,13 +134,13 @@ namespace Game.Core.PostProcessing
                     {
                         var computeShader = data.voxelizationCS;
                         int kernel = data.voxelizationKernel;
-                        ctx.cmd.SetComputeTextureParam(computeShader, kernel, VolumetricFogShaderIDs._VBufferDensity, data.densityBuffer);
+                        ctx.cmd.SetComputeTextureParam(computeShader, kernel, ShaderIDs._VBufferDensity, data.densityBuffer);
 
-                        ctx.cmd.SetComputeIntParam(computeShader, VolumetricFogShaderIDs._VBufferSliceCount, (int)VolumetricFogHDRPRenderer.volumetricGlobalCB._VBufferSliceCount);
-                        ctx.cmd.SetComputeVectorParam(computeShader, VolumetricFogShaderIDs._HeightFogBaseScattering, VolumetricFogHDRPRenderer.volumetricGlobalCB._HeightFogBaseScattering);
-                        ctx.cmd.SetComputeVectorParam(computeShader, VolumetricFogShaderIDs._HeightFogExponents, VolumetricFogHDRPRenderer.volumetricGlobalCB._HeightFogExponents);
-                        ctx.cmd.SetComputeFloatParam(computeShader, VolumetricFogShaderIDs._HeightFogBaseHeight, VolumetricFogHDRPRenderer.volumetricGlobalCB._HeightFogBaseHeight);
-                        ctx.cmd.SetComputeFloatParam(computeShader, VolumetricFogShaderIDs._HeightFogBaseExtinction, VolumetricFogHDRPRenderer.volumetricGlobalCB._HeightFogBaseExtinction);
+                        ctx.cmd.SetComputeIntParam(computeShader, ShaderIDs._VBufferSliceCount, (int)VolumetricFogHDRPRenderer.volumetricGlobalCB._VBufferSliceCount);
+                        ctx.cmd.SetComputeVectorParam(computeShader, ShaderIDs._HeightFogBaseScattering, VolumetricFogHDRPRenderer.volumetricGlobalCB._HeightFogBaseScattering);
+                        ctx.cmd.SetComputeVectorParam(computeShader, ShaderIDs._HeightFogExponents, VolumetricFogHDRPRenderer.volumetricGlobalCB._HeightFogExponents);
+                        ctx.cmd.SetComputeFloatParam(computeShader, ShaderIDs._HeightFogBaseHeight, VolumetricFogHDRPRenderer.volumetricGlobalCB._HeightFogBaseHeight);
+                        ctx.cmd.SetComputeFloatParam(computeShader, ShaderIDs._HeightFogBaseExtinction, VolumetricFogHDRPRenderer.volumetricGlobalCB._HeightFogBaseExtinction);
 
                         ctx.cmd.DispatchCompute(computeShader, kernel, ((int)data.resolution.x + 7) / 8, ((int)data.resolution.y + 7) / 8, 1);
                     }
