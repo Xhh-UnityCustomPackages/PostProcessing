@@ -95,14 +95,11 @@ namespace Game.Core.PostProcessing
             public static readonly int Parameters3ID = Shader.PropertyToID("_ContactShadowParamsParameters3");
             public static readonly int TextureUAVID = Shader.PropertyToID("_ContactShadowTextureUAV");
         }
-
         
         public RTHandle m_ContactShadowsTexture;
-        private readonly RenderContactShadowPassData m_PassData = new();
         
         private ComputeShader m_ContactShadowCS;
         
-   
         private DiffuseShadowDenoisePass m_DiffuseShadowDenoisePass;
         
         public override bool renderToCamera => false;
@@ -149,22 +146,21 @@ namespace Game.Core.PostProcessing
 
         public override void Render(CommandBuffer cmd, RTHandle source, RTHandle destination, ref RenderingData renderingData)
         {
-            RenderContractShadows(m_PassData);
-            m_PassData.contactShadowsCS = m_ContactShadowCS;
-            var computeShader = m_PassData.contactShadowsCS;
-            m_PassData.deferredContactShadowKernel = computeShader.FindKernel("ContactShadowMap");
+            RenderContractShadows(out var params1, out var params2, out var params3);
+            var computeShader = m_ContactShadowCS;
+            var deferredContactShadowKernel = computeShader.FindKernel("ContactShadowMap");
 
-            cmd.SetComputeVectorParam(computeShader, ShaderConstants.ParametersID, m_PassData.params1);
-            cmd.SetComputeVectorParam(computeShader, ShaderConstants.Parameters2ID, m_PassData.params2);
-            cmd.SetComputeVectorParam(computeShader, ShaderConstants.Parameters3ID, m_PassData.params3);
-            cmd.SetComputeTextureParam(computeShader, m_PassData.deferredContactShadowKernel, ShaderConstants.TextureUAVID, m_ContactShadowsTexture);
+            cmd.SetComputeVectorParam(computeShader, ShaderConstants.ParametersID, params1);
+            cmd.SetComputeVectorParam(computeShader, ShaderConstants.Parameters2ID, params2);
+            cmd.SetComputeVectorParam(computeShader, ShaderConstants.Parameters3ID, params3);
+            cmd.SetComputeTextureParam(computeShader, deferredContactShadowKernel, ShaderConstants.TextureUAVID, m_ContactShadowsTexture);
 
             int width = renderingData.cameraData.cameraTargetDescriptor.width;
             int height = renderingData.cameraData.cameraTargetDescriptor.height;
-            cmd.DispatchCompute(computeShader, m_PassData.deferredContactShadowKernel, Mathf.CeilToInt(width / 8.0f), Mathf.CeilToInt(height / 8.0f), 1);
+            cmd.DispatchCompute(computeShader, deferredContactShadowKernel, Mathf.CeilToInt(width / 8.0f), Mathf.CeilToInt(height / 8.0f), 1);
         }
 
-        void RenderContractShadows(RenderContactShadowPassData passData)
+        void RenderContractShadows(out Vector4 params1, out Vector4 params2, out Vector4 params3)
         {
             float contactShadowRange = Mathf.Clamp(settings.fadeDistance.value, 0.0f, settings.maxDistance.value);
             float contactShadowFadeEnd = settings.maxDistance.value;
@@ -173,9 +169,9 @@ namespace Game.Core.PostProcessing
             float contactShadowMinDist = Mathf.Min(settings.minDistance.value, contactShadowFadeEnd);
             float contactShadowFadeIn = Mathf.Clamp(settings.fadeInDistance.value, 1e-6f, contactShadowFadeEnd);
 
-            passData.params1 = new Vector4(settings.length.value, settings.distanceScaleFactor.value, contactShadowFadeEnd, contactShadowOneOverFadeRange);
-            passData.params2 = new Vector4(0, contactShadowMinDist, contactShadowFadeIn, settings.rayBias.value * 0.01f);
-            passData.params3 = new Vector4(settings.sampleCount.value, settings.thicknessScale.value * 10.0f, 0.0f, 0.0f);
+            params1 = new Vector4(settings.length.value, settings.distanceScaleFactor.value, contactShadowFadeEnd, contactShadowOneOverFadeRange);
+            params2 = new Vector4(0, contactShadowMinDist, contactShadowFadeIn, settings.rayBias.value * 0.01f);
+            params3 = new Vector4(settings.sampleCount.value, settings.thicknessScale.value * 10.0f, 0.0f, 0.0f);
         }
 
         public override void Dispose(bool disposing)

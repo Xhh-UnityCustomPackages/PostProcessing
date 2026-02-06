@@ -12,7 +12,6 @@ namespace Game.Core.PostProcessing
 	[PostProcess("Volumetric Fog HDRP", PostProcessInjectionPoint.AfterRenderingSkybox)]
 	public partial class VolumetricFogHDRPRenderer : PostProcessVolumeRenderer<VolumetricFogHDRP>
     {
-	    internal static Matrix4x4[] m_PixelCoordToViewDirWS = new Matrix4x4[1];
 	    internal static Vector3Int s_CurrentVolumetricBufferSize;
 	    
 	    internal static Vector2[] m_xySeq = new Vector2[7];
@@ -377,13 +376,11 @@ namespace Game.Core.PostProcessing
 		    var gpuAspect = VolumetricNormalFunctions.ProjectionMatrixAspect(hdCamera.camera.projectionMatrix);
 		    int frameIndex = (int)VolumetricFrameIndex(hdCamera);
 
-		    hdCamera.GetPixelCoordToViewDirWS(resolution, gpuAspect, ref m_PixelCoordToViewDirWS);
-		    //m_PixelCoordToViewDirWS[0].SetColumn(1, -m_PixelCoordToViewDirWS[0].GetColumn(1));
-		    for (int i = 0; i < m_PixelCoordToViewDirWS.Length; ++i)
-				for (int j = 0; j < 16; ++j)
-					cb._VBufferCoordToViewDirWS[i * 16 + j] = m_PixelCoordToViewDirWS[i][j];
+		    hdCamera.GetPixelCoordToViewDirWS(resolution, gpuAspect);
+		    for (int j = 0; j < 16; ++j)
+			    cb._VBufferCoordToViewDirWS[j] = hdCamera.pixelCoordToViewDirWS[j];
 		    cb._VBufferUnitDepthTexelSpacing = VolumetricNormalFunctions.ComputZPlaneTexelSpacing(1.0f, vFoV, resolution.y);
-		    cb._NumVisibleLocalVolumetricFog = 0;//(uint)m_VisibleLocalVolumetricFogVolumes.Count;
+		    cb._NumVisibleLocalVolumetricFog = (uint)m_VisibleLocalVolumetricFogVolumes.Count;
 		    cb._CornetteShanksConstant = CornetteShanksPhasePartConstant(fog.anisotropy.value);
 		    cb._VBufferHistoryIsValid = hdCamera.IsVolumetricReprojectionEnabled() ? 1u : 0u;
 

@@ -33,7 +33,10 @@ namespace Game.Core.PostProcessing
             
             using (var builder = renderGraph.AddComputePass<RenderContactShadowPassData>(profilingSampler.name, out var passData))
             {
-                RenderContractShadows(passData);
+                RenderContractShadows(out var params1, out var params2, out var params3);
+                passData.params1 = params1;
+                passData.params2 = params2;
+                passData.params3 = params3;
 
                 var desc = cameraData.cameraTargetDescriptor;
                 var format = SystemInfo.IsFormatSupported(GraphicsFormat.R8_UNorm, GraphicsFormatUsage.Linear | GraphicsFormatUsage.Render)

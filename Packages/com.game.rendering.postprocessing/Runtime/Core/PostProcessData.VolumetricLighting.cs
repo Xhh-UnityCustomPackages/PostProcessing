@@ -24,9 +24,9 @@ namespace Game.Core.PostProcessing
             return a && b && d;
         }
         
-        internal void GetPixelCoordToViewDirWS(Vector4 resolution, float aspect, ref Matrix4x4[] transforms)
+        internal void GetPixelCoordToViewDirWS(Vector4 resolution, float aspect)
         { 
-            transforms[0] = ComputePixelCoordToWorldSpaceViewDirectionMatrix(resolution, aspect);
+            pixelCoordToViewDirWS = ComputePixelCoordToWorldSpaceViewDirectionMatrix(resolution, aspect);
         }
 
         Matrix4x4 ComputePixelCoordToWorldSpaceViewDirectionMatrix(Vector4 resolution, float aspect = -1)
