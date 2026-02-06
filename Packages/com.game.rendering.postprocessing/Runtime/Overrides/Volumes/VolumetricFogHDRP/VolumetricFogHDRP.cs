@@ -94,16 +94,16 @@ namespace Game.Core.PostProcessing
         internal const float maxFogScreenResolutionPercentage = 0.5f * 100;
         internal const int maxFogSliceCount = 512;
         
-        // [AdditionalProperty]
+        [AdditionalProperty]
         [Tooltip("Specifies which method to use to control the performance and quality of the volumetric fog.")]
         public EnumParameter<FogControl> fogControlMode = new (FogControl.Balance);
 		
         /// <summary>Stores the resolution of the volumetric buffer (3D texture) along the x-axis and y-axis relative to the resolution of the screen.</summary>
-        // [AdditionalProperty]
+        [AdditionalProperty]
         [Tooltip("Controls the resolution of the volumetric buffer (3D texture) along the x-axis and y-axis relative to the resolution of the screen.")]
         public ClampedFloatParameter screenResolutionPercentage = new ClampedFloatParameter(optimalFogScreenResolutionPercentage, minFogScreenResolutionPercentage, maxFogScreenResolutionPercentage);
         /// <summary>Number of slices of the volumetric buffer (3D texture) along the camera's focal axis.</summary>
-        // [AdditionalProperty]
+        [AdditionalProperty]
         [Tooltip("Controls the number of slices to use the volumetric buffer (3D texture) along the camera's focal axis.")]
         public ClampedIntParameter volumeSliceCount = new ClampedIntParameter(64, 1, maxFogSliceCount);
 

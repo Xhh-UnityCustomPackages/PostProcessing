@@ -145,43 +145,32 @@ namespace Game.Core.PostProcessing
             RTHandle source = cameraColorTarget;
             RTHandle target = m_TempRT0;
 
+            int lastCameraIndex = -1;
+            for (int i = 0; i < m_ActivePostProcessRenderers.Count; ++i)
+            {
+                if (m_ActivePostProcessRenderers[i].renderToCamera)
+                    lastCameraIndex = i;
+            }
+
             for (int index = 0; index < m_ActivePostProcessRenderers.Count; ++index)
             {
                 var renderer = m_ActivePostProcessRenderers[index];
 
                 if (!renderer.renderToCamera)
                 {
-                    // 不需要渲染到最终摄像机 就无所谓RT切换 (注意: 最终输出完全取决于内部 如果在队列最后一个 可能会导致RT没能切回摄像机)
                     using (new ProfilingScope(cmd, renderer.profilingSampler))
                     {
                         renderer.Render(cmd, source, null, ref renderingData);
                     }
 
-                    //如果最后一个是 renderToCamera 的话 
-                    if (index == m_ActivePostProcessRenderers.Count - 1)
-                    {
-                        if (!renderer.dontCareSourceTargetCopy)
-                        {
-                            // blit source: m_CameraColorTarget target: m_TempRT
-                            // copy
-                            // swap source: m_TempRT target: m_CameraColorTarget
-                            Blit(cmd, source, cameraColorTarget);
-                        }
-                    }
-
                     continue;
                 }
 
-                // --------------------------------------------------------------------------
-                if (index == m_ActivePostProcessRenderers.Count - 1)
+                bool isLastCamera = index == lastCameraIndex;
+                if (isLastCamera)
                 {
-                    // 最后一个 target 正常必须是 m_CameraColorTarget
-                    // 如果 source == m_CameraColorTarget 则需要把 m_CameraColorTarget copyto RT
                     if (source == cameraColorTarget && !renderer.dontCareSourceTargetCopy)
                     {
-                        // blit source: m_CameraColorTarget target: m_TempRT
-                        // copy
-                        // swap source: m_TempRT target: m_CameraColorTarget
                         Blit(cmd, source, target);
                         CoreUtils.Swap(ref source, ref target);
                     }
@@ -189,8 +178,6 @@ namespace Game.Core.PostProcessing
                 }
                 else
                 {
-                    // 不是最后一个时 如果 target == m_CameraColorTarget 就改成非souce的那个RT
-                    // source: lastRT target: nextRT
                     if (target == cameraColorTarget)
                     {
                         target = source == m_TempRT0 ? m_TempRT1 : m_TempRT0;

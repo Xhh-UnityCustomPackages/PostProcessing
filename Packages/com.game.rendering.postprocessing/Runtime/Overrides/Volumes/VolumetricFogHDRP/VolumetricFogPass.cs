@@ -41,8 +41,10 @@ namespace Game.Core.PostProcessing
 	    internal static GraphicsBuffer m_VisibleVolumeGlobalIndices = null;
 	    
 	    public override ScriptableRenderPassInput input => ScriptableRenderPassInput.Depth;
-	    // public override bool renderToCamera => false;
-
+	    public override bool renderToCamera => false;
+	    // public override bool dontCareSourceTargetCopy => true;
+	    
+	    
 	    static internal RTHandle m_MaxZHandle;
 	    static internal RTHandle m_DensityBuffer;
 	    static internal RTHandle m_LightingBuffer;
