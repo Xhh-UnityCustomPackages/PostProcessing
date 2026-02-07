@@ -19,7 +19,7 @@ namespace Game.Core.PostProcessing
         
         public override ScriptableRenderPassInput input => ScriptableRenderPassInput.Normal;
 
-        public override void Setup()
+        protected override void Setup()
         {
             var runtimeShaders = GraphicsSettings.GetRenderPipelineSettings<GroundTruthAmbientOcclusionResources>();
             m_GTAOCS = runtimeShaders.GTAOCS;

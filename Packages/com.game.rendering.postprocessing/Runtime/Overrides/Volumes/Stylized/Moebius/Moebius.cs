@@ -57,7 +57,7 @@ namespace Game.Core.PostProcessing
         private Material m_Material;
         private RTHandle m_SobelResultRT;
 
-        public override void Setup()
+        protected override void Setup()
         {
             var runtimeResources = GraphicsSettings.GetRenderPipelineSettings<MoebiusResources>();
             m_Material = GetMaterial(runtimeResources.MoebiusPS);

@@ -7,27 +7,49 @@ namespace Game.Core.PostProcessing
 {
     public partial class BloomConvolutionRenderer : PostProcessVolumeRenderer<BloomConvolution>
     {
+        private class BrightMaskPassData
+        {
+            internal Material BrightMaskMaterial;
+            internal Vector2 FFTExtend;
+            internal float Threshold;
+            internal float ThresholdKnee;
+            internal float MaxClamp;
+            internal Vector4 TexelSize;
+            internal TextureHandle Source;
+        }
+        
+        private class ConvolutionPassData
+        {
+            internal FFTKernel FFTKernel;
+            internal TextureHandle Target;
+            internal TextureHandle Filter;
+            internal bool HighQuality;
+            internal bool DisableDispatchMergeOptimization;
+            internal bool DisableReadWriteOptimization;
+            internal Vector2Int Size;
+        }
+
+        private class BloomBlendPassData
+        {
+            internal Material BloomBlendMaterial;
+            internal Vector2 FFTExtend;
+            internal float Intensity;
+            internal TextureHandle Source;
+        }
+        
+        private class OTFUpdatePassData
+        {
+            internal Material PsfRemapMaterial;
+            internal Material PsfGeneratorMaterial;
+            internal bool HighQuality;
+            internal FFTKernel FFTKernel;
+            internal TextureHandle OtfTextureHandle;
+            internal TextureHandle ImagePsfTexture;
+        }
+
         public override void DoRenderGraph(RenderGraph renderGraph, TextureHandle source, TextureHandle destination, ContextContainer frameData)
         {
-            UniversalResourceData resourcesData = frameData.Get<UniversalResourceData>();
-            UniversalCameraData cameraData = frameData.Get<UniversalCameraData>();
-            
-            float threshold = settings.threshold.value;
-            float thresholdKnee = settings.scatter.value;
-            float clampMax = settings.clamp.value;
-            float intensity = settings.intensity.value;
-            var fftExtend = settings.fftExtend.value;
-            bool highQuality = settings.quality.value == BloomConvolution.ConvolutionBloomQuality.High;
-            
-            UpdateRenderTextureSize();
-            
-            var targetX = cameraData.camera.pixelWidth;
-            var targetY = cameraData.camera.pixelHeight;
-            // if (settings.IsParamUpdated())
-            // {
-            //     OpticalTransferFunctionUpdate(cmd, settings, new Vector2Int(targetX, targetY), highQuality);
-            // }
-            
+            // UpdateRenderTextureSize(bloomParams);
         }
     }
 }

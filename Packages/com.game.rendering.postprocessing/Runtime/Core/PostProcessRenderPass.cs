@@ -69,8 +69,7 @@ namespace Game.Core.PostProcessing
 
         public void AddRenderPasses(ref RenderingData renderingData, ref PostProcessPassInput postProcessPassInput)
         {
-            if (!Setup(ref renderingData, ref postProcessPassInput))
-                return;
+            if (!Setup(ref renderingData, ref postProcessPassInput)) return;
 
             renderingData.cameraData.renderer.EnqueuePass(this);
         }
@@ -83,6 +82,8 @@ namespace Game.Core.PostProcessing
         {
             if (isSceneView && !postProcessRenderer.visibleInSceneView) return false;
 
+            if (!CheckRenderingMode(postProcessRenderer)) return false;
+            
             if (postProcessRenderer.IsActive(ref renderingData))
             {
                 postProcessRenderer.SetupInternal(this, ref renderingData, m_PostProcessFeatureData, m_Data);
@@ -93,6 +94,18 @@ namespace Game.Core.PostProcessing
                 postProcessPassInput |= postProcessRenderer.postProcessPassInput;
             }
             postProcessRenderer.ShowHideInternal(ref renderingData);
+
+            return true;
+        }
+
+        bool CheckRenderingMode(PostProcessRenderer postProcessRenderer)
+        {
+            var renderingMode = m_Data.renderingMode;
+            var supportRenderPath = postProcessRenderer.supportRenderPath;
+            // 检查是否支持当前 RenderingMode
+            if (renderingMode == RenderingMode.Deferred && (supportRenderPath & SupportRenderPath.Deferred) == 0) return false;
+            if (renderingMode == RenderingMode.Forward && (supportRenderPath & SupportRenderPath.Forward) == 0) return false;
+            if (renderingMode == RenderingMode.ForwardPlus && (supportRenderPath & SupportRenderPath.Forward) == 0) return false;
 
             return true;
         }

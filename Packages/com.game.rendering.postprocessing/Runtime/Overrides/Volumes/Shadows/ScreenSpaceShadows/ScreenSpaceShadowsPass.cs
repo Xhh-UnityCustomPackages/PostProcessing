@@ -142,7 +142,7 @@ namespace Game.Core.PostProcessing
                  //     : _rendererData.ContactShadowsRT;
                  // // data.material.SetTexture();
              }
-             CoreUtils.SetKeyword(cmd, ShaderKeywords._CONTACT_SHADOWS, contactShadowParam.enable.value);
+             CoreUtils.SetKeyword(cmd, PipelineKeywords._CONTACT_SHADOWS, contactShadowParam.enable.value);
              
              Blitter.BlitTexture(cmd, target, Vector2.one, data.material, 0);
              cmd.SetKeyword(ShaderGlobalKeywords.MainLightShadows, false);

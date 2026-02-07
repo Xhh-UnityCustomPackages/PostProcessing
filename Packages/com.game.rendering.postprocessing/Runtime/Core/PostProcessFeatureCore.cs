@@ -2,7 +2,7 @@
 
 namespace Game.Core.PostProcessing
 {
-    public static class ShaderKeywords
+    public static class PipelineKeywords
     {
         public const string _CONTACT_SHADOWS = "_CONTACT_SHADOWS";
         public const string _DEFERRED_RENDERING_PATH = "_DEFERRED_RENDERING_PATH";//用来给那些支持多个渲染路径的效果 提供关键字

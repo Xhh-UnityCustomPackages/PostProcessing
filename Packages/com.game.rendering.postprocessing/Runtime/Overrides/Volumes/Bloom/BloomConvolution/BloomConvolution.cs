@@ -100,7 +100,7 @@ namespace Game.Core.PostProcessing
 
         public override ScriptableRenderPassInput input => ScriptableRenderPassInput.Color;
 
-        public override void Setup()
+        protected override void Setup()
         {
             var runtimeResources = GraphicsSettings.GetRenderPipelineSettings<BloomConvolutionResources>();
             _fftKernel = new FFTKernel(runtimeResources.fastFourierTransformCS, runtimeResources.fastFourierConvolveCS);

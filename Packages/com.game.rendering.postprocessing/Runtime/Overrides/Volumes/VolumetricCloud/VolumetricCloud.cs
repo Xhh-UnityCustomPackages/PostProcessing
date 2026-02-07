@@ -109,7 +109,7 @@ namespace Game.Core.PostProcessing
         RTHandle bloomRT_Temp0;
         RTHandle bloomRT_Temp1;
 
-        public override void Setup()
+        protected override void Setup()
         {
             m_Material = GetMaterial(postProcessFeatureData.shaders.volumetricCloudPS);
         }

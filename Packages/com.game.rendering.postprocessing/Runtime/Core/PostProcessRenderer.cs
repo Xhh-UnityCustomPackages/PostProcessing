@@ -12,17 +12,22 @@ namespace Game.Core.PostProcessing
         bool m_Initialized = false;
         bool m_ShowHide = false;
 
-        //是否在SceneView可见
-        public virtual bool visibleInSceneView => true;
 
         protected PostProcessRenderPass m_RenderPass;
         public ProfilingSampler profilingSampler;
 
         protected PostProcessFeatureData postProcessFeatureData { get; private set; }
         protected PostProcessData postProcessData { get; private set; }
-
+        
+        //是否在SceneView可见
+        public virtual bool visibleInSceneView => true;
+        //有些插入时机 2种渲染路径都有 但是具体还需要控制支持情况
+        public virtual SupportRenderPath supportRenderPath => SupportRenderPath.Forward | SupportRenderPath.Deferred;
+        //需要的管线特性
         public virtual ScriptableRenderPassInput input => ScriptableRenderPassInput.None;
+        //需要的后效管线特性
         public virtual PostProcessPassInput postProcessPassInput => PostProcessPassInput.None;
+       
         // 默认最后都需要渲染到Camera
         public virtual bool renderToCamera => true;
         // 如果明确知道该效果不会出现把source同时作为target的情况
@@ -44,7 +49,7 @@ namespace Game.Core.PostProcessing
         }
 
         // 只会调用一次
-        public virtual void Setup() { }
+        protected virtual void Setup() { }
         
         [Obsolete]
         public abstract void Render(CommandBuffer cmd, RTHandle source, RTHandle destination, ref RenderingData renderingData);

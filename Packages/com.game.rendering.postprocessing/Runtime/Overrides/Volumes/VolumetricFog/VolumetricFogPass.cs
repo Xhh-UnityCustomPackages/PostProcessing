@@ -53,7 +53,7 @@ namespace Game.Core.PostProcessing
         
         private readonly ProfilingSampler m_BlurSampler = new("Volumetric Fog Blur");
         
-        public override void Setup()
+        protected override void Setup()
         {
             var runtimeShaders = GraphicsSettings.GetRenderPipelineSettings<VolumetricFogResources>();
             

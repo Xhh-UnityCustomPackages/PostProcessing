@@ -83,7 +83,7 @@ namespace Game.Core.PostProcessing
         private RTHandle m_LightShaftRT1;
         private LightShaftInclude m_LightShaftInclude = new();
 
-        public override void Setup()
+        protected override void Setup()
         {
             if (m_Material == null)
             {

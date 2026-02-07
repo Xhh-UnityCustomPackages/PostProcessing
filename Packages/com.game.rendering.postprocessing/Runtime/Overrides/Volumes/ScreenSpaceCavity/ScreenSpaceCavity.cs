@@ -134,7 +134,7 @@ namespace Game.Core.PostProcessing
 
         public override bool renderToCamera => settings.output.value == ScreenSpaceCavity.OutputEffectTo.Screen;
 
-        public override void Setup()
+        protected override void Setup()
         {
             var runtimeResources = GraphicsSettings.GetRenderPipelineSettings<ScreenSpaceCavityResources>();
             m_Material = GetMaterial(runtimeResources.ScreenSpaceCavityPS);

@@ -32,6 +32,7 @@ namespace Game.Core.PostProcessing
         public static readonly int _VolumetricGlobalIndirectionBuffer = Shader.PropertyToID("_VolumetricGlobalIndirectionBuffer");
         public static readonly int _VolumetricVisibleGlobalIndicesBuffer = Shader.PropertyToID("_VolumetricVisibleGlobalIndicesBuffer");
         public static readonly int _ShaderVariablesVolumetric = Shader.PropertyToID("ShaderVariablesVolumetric");
+        public static readonly int _VBufferSampleOffset = Shader.PropertyToID("_VBufferSampleOffset");
         public static readonly int _VolumetricGlobalParams = Shader.PropertyToID("VolumetricGlobalParams");
         public static readonly int _EnableVolumetricFog = MemberNameHelpers.ShaderPropertyID();
         public static readonly int _VBufferSliceCount = MemberNameHelpers.ShaderPropertyID();

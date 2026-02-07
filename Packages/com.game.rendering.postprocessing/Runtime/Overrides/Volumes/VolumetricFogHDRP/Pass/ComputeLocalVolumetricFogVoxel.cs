@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using UnityEngine;
+using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Rendering.Universal;
@@ -63,8 +64,8 @@ namespace Game.Core.PostProcessing
                 cmd.SetComputeIntParam(volumetricMaterial, ShaderIDs._VolumetricViewCount, viewCount);
 
                 // 更新光源组件体积光部分传入GPU的数据
-                // vLightParams.UpadateSetVolumetricMainLightParams(cmd, lightData);
-                // vLightParams.UpadateSetVolumetricAdditionalLightParams(cmd, lightData);
+                vLightParams.UpadateSetVolumetricMainLightParams(cmd, lightData.universalLightData);
+                vLightParams.UpadateSetVolumetricAdditionalLightParams(cmd, lightData.universalLightData);
 
                 // Dispatch
                 int dispatchXCount = Mathf.Max(1, Mathf.CeilToInt((float)(volumeCount * viewCount) / 32.0f));
@@ -154,8 +155,9 @@ namespace Game.Core.PostProcessing
             context.cmd.SetComputeIntParam(computeShader, ShaderIDs._MaxSliceCount, data.maxSliceCount);
             context.cmd.SetComputeIntParam(computeShader, ShaderIDs._VolumetricViewCount, data.viewCount);
             //更新光源组件体积光部分传入GPU的数据
-            vLightParams.UpadateSetVolumetricMainLightParams(context.cmd, data.lightData);
-            vLightParams.UpadateSetVolumetricAdditionalLightParams(context.cmd, data.lightData);
+            var cmd = CommandBufferHelpersExtensions.GetNativeCommandBuffer(context.cmd);
+            vLightParams.UpadateSetVolumetricMainLightParams(cmd, data.lightData);
+            vLightParams.UpadateSetVolumetricAdditionalLightParams(cmd, data.lightData);
 
             // ConstantBuffer.PushGlobal(data.volumetricCB, ShaderIDs._ShaderVariablesVolumetric);
             int dispatchXCount = Mathf.Max(1, Mathf.CeilToInt((float)(volumeCount * data.viewCount) / 32.0f));

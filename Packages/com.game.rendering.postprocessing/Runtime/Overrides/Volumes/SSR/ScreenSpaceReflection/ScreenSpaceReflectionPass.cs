@@ -103,7 +103,7 @@ namespace Game.Core.PostProcessing
         private readonly ProfilingSampler m_ReprojectionSampler = new("SSR Reprojection");
         private readonly ProfilingSampler m_AccumulationSampler = new("SSR Accumulation");
         
-
+        public override SupportRenderPath supportRenderPath => SupportRenderPath.Deferred;
         public override bool visibleInSceneView => settings.visibleInSceneView.value;
         public override ScriptableRenderPassInput input => ScriptableRenderPassInput.Depth | ScriptableRenderPassInput.Normal | ScriptableRenderPassInput.Motion;
         public override PostProcessPassInput postProcessPassInput
@@ -122,10 +122,8 @@ namespace Game.Core.PostProcessing
             }
         }
 
-        public override void Setup()
+        protected override void Setup()
         {
-            base.Setup();
-
             if (m_ScreenSpaceReflectionMaterial == null)
             {
                 var runtimeResources = GraphicsSettings.GetRenderPipelineSettings<ScreenSpaceReflectionResources>();

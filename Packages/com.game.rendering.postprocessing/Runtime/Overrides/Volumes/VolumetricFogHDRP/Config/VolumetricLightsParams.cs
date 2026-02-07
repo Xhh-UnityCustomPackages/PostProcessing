@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using Unity.Collections;
+using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
@@ -45,7 +46,7 @@ namespace Game.Core.PostProcessing
             m_UseCurrentShadow = new float[maxLights];  
         }
         
-        public void UpadateSetVolumetricMainLightParams(ComputeCommandBuffer cmd, UniversalLightData lightData)
+        public void UpadateSetVolumetricMainLightParams(CommandBuffer cmd, UniversalLightData lightData)
         {
             float useVolumetric = 0;
             var lights = lightData.visibleLights;
@@ -80,10 +81,9 @@ namespace Game.Core.PostProcessing
                 cmd.SetGlobalFloat(VolumetricLightParamsBuffer._MainLightMultiplier, setting.mainLightMultiplier.value);
                 cmd.SetGlobalFloat(VolumetricLightParamsBuffer._MainLightShadowDimmer, setting.mainLightShadowDimmer.value);
             }
-            
         }
 
-        public void UpadateSetVolumetricAdditionalLightParams(ComputeCommandBuffer cmd, UniversalLightData lightData)
+        public void UpadateSetVolumetricAdditionalLightParams(CommandBuffer cmd, UniversalLightData lightData)
         {
             var lights = lightData.visibleLights;
             int addlightCount = lightData.additionalLightsCount;

@@ -48,7 +48,7 @@ namespace Game.Core.PostProcessing
 	    static internal RTHandle m_DensityBuffer;
 	    static internal RTHandle m_LightingBuffer;
 	    
-	    public override void Setup()
+	    protected override void Setup()
 	    {
 		    profilingSampler = new ProfilingSampler("Volumetric Fog");
 		    
@@ -419,7 +419,7 @@ namespace Game.Core.PostProcessing
 
 		    cb._MaxSliceCount = (uint)maxSliceCount;
 		    cb._MaxVolumetricFogDistance = fog.depthExtent.value;
-		    cb._VolumeCount = 0;//(uint)m_VisibleLocalVolumetricFogVolumes.Count;
+		    cb._VolumeCount = (uint)m_VisibleLocalVolumetricFogVolumes.Count;
 
 		    if (updateVoxelizationFields)
 		    {

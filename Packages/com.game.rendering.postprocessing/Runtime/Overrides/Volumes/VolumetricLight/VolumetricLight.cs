@@ -101,7 +101,7 @@ namespace Game.Core.PostProcessing
         private Vector4[] frustumCorners = new Vector4[4];
 
 
-        public override void Setup()
+        protected override void Setup()
         {
 
         }

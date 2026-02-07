@@ -70,7 +70,7 @@ namespace Game.Core.PostProcessing
 
         public float time { get; private set; }
         public Camera camera { get; private set; }
-        
+        public RenderingMode renderingMode { get; set; }
         /// <summary>
         /// Color texture before post-processing of previous frame
         /// </summary>

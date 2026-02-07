@@ -84,7 +84,7 @@ namespace Game.Core.PostProcessing
         
         DynamicExposureData m_DynamicExposureData;
         
-        public override void Setup()
+        protected override void Setup()
         {
             m_DynamicExposureData = new();
         }

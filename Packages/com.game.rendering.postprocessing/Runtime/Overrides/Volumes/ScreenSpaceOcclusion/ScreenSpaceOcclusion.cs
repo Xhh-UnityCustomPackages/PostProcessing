@@ -249,7 +249,7 @@ namespace Game.Core.PostProcessing
             }
         }
 
-        public override void Setup()
+        protected override void Setup()
         {
 
             // TODO 移动端默认如果是 B10G11R11_UFloatPack32 传递深度精度会不太够

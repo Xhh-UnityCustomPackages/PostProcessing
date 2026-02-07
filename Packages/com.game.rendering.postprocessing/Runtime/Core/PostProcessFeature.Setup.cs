@@ -27,6 +27,7 @@ namespace Game.Core.PostProcessing
             {
                 using (new ProfilingScope((CommandBuffer)null, profilingSampler))
                 {
+                    m_Context.renderingMode = m_RendererFeature.RenderingMode;
                     m_RendererFeature.PerformSetup(frameData, m_Context);
                 }
             }
@@ -35,6 +36,7 @@ namespace Game.Core.PostProcessing
             {
                 using (new ProfilingScope((CommandBuffer)null, profilingSampler))
                 {
+                    m_Context.renderingMode = m_RendererFeature.RenderingMode;
                     m_RendererFeature.PerformSetup(ref renderingData, m_Context);
                 }
             }

@@ -73,16 +73,19 @@ namespace Game.Core.PostProcessing
         }
 
         [SerializeField] public PostProcessSettings m_Settings = new PostProcessSettings();
-
-        private PostProcessFeatureRuntimeResources m_RuntimeResources;
+        
         private PostProcessRenderPass m_BeforeRenderingGBuffer, m_BeforeRenderingDeferredLights;
         private PostProcessRenderPass m_BeforeRenderingOpaques, m_AfterRenderingOpaques;
         private PostProcessRenderPass m_AfterRenderingSkybox, m_BeforeRenderingPostProcessing, m_AfterRenderingPostProcessing;
         UberPostProcess m_UberPostProcessing;
         private PostProcessData m_Data;
         
+        //------------
         private SetupPass m_SetupPass;
         private SetGlobalVariablesPass m_SetGlobalVariablesPass;
+        private SetKeywordPass m_SetKeywordPass;
+        //------------
+        
         private ColorPyramidPass m_ColorPyramidPass;
         private DepthPyramidPass m_DepthPyramidPass;
         private CopyHistoryColorPass m_CopyHistoryColorPass;
@@ -101,8 +104,6 @@ namespace Game.Core.PostProcessing
 
         public override void Create()
         {
-            m_RuntimeResources = GraphicsSettings.GetRenderPipelineSettings<PostProcessFeatureRuntimeResources>();
-            
             var postProcessFeatureData = m_Settings.m_PostProcessFeatureData;
             m_Data = new ();
             
@@ -133,6 +134,7 @@ namespace Game.Core.PostProcessing
 
             m_UberPostProcessing = new UberPostProcess(postProcessFeatureData);
             m_SetGlobalVariablesPass = new SetGlobalVariablesPass(m_Data);
+            m_SetKeywordPass = new SetKeywordPass(this);
             m_SetupPass = new(this, m_Data);
             
 #if UNITY_EDITOR
@@ -172,7 +174,7 @@ namespace Game.Core.PostProcessing
             
             // Setup pass must run first (handles configuration for both Unity 2022 and 2023)
             renderer.EnqueuePass(m_SetupPass);
-            
+            renderer.EnqueuePass(m_SetKeywordPass);
             // AfterRenderingPrePasses
             renderer.EnqueuePass(m_SetGlobalVariablesPass);
             
@@ -284,6 +286,7 @@ namespace Game.Core.PostProcessing
             SafeDispose(ref m_ColorPyramidPass);
             SafeDispose(ref m_Data);
             SafeDispose(ref m_SetupPass);
+            SafeDispose(ref m_SetKeywordPass);
             
 #if UNITY_EDITOR
             SafeDispose(ref m_DebugHandler);

@@ -137,7 +137,7 @@ namespace Game.Core.PostProcessing
         public override bool renderToCamera => false;
         public override bool dontCareSourceTargetCopy => true;
 
-        public override void Setup()
+        protected override void Setup()
         {
             profilingSampler = new ProfilingSampler("Screen Space Global Illumination");
             var runtimeShaders = GraphicsSettings.GetRenderPipelineSettings<ScreenSpaceGlobalIlluminationResources>();

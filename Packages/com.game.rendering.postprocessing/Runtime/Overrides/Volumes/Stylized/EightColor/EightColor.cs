@@ -58,7 +58,7 @@ namespace Game.Core.PostProcessing
     {
         private Material m_Material;
 
-        public override void Setup()
+        protected override void Setup()
         {
             var runtimeResources = GraphicsSettings.GetRenderPipelineSettings<EightColorResources>();
             m_Material = GetMaterial(runtimeResources.EightColorPS);

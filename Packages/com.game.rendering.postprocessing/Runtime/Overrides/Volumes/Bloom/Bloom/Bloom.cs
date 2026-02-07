@@ -95,7 +95,7 @@ namespace Game.Core.PostProcessing
         private int m_MipmapCount;
         bool m_UseRGBM;
 
-        public override void Setup()
+        protected override void Setup()
         {
             ShaderConstants._BloomMipUp = new int[k_MaxPyramidSize];
             ShaderConstants._BloomMipDown = new int[k_MaxPyramidSize];
