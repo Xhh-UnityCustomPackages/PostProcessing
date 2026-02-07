@@ -56,7 +56,7 @@ namespace Game.Core.PostProcessing
 		    m_ComputeMaxDephtPass.renderPassEvent = RenderPassEvent.AfterRenderingTransparents;
 		    m_ComputeHeightFogVoxel = new ComputeHeightFogVoxel(postProcessData);
 		    m_ComputeHeightFogVoxel.renderPassEvent = RenderPassEvent.AfterRenderingTransparents;
-		    m_ComputeLocalVolumetricFogVoxel = new ComputeLocalVolumetricFogVoxel(this);
+		    m_ComputeLocalVolumetricFogVoxel = new ComputeLocalVolumetricFogVoxel();
 		    m_ComputeLocalVolumetricFogVoxel.renderPassEvent = RenderPassEvent.AfterRenderingTransparents;
 		    m_DrawLocalVolumetricFog = new DrawLocalVolumetricFog(postProcessData);
 		    m_DrawLocalVolumetricFog.renderPassEvent = RenderPassEvent.AfterRenderingTransparents;

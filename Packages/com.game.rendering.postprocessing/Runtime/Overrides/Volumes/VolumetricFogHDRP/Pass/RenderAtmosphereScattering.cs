@@ -24,8 +24,36 @@ namespace Game.Core.PostProcessing
         {
             CoreUtils.Destroy(AtmospherMat);
         }
-        
-        
+
+        public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
+        {
+            var cmd = CommandBufferPool.Get("RenderAtmosphereScattering");
+
+            RTHandle source = renderingData.cameraData.renderer.cameraColorTargetHandle;
+            RTHandle destination = source;
+
+            // 设置 Render Target
+            CoreUtils.SetRenderTarget(cmd, destination);
+
+            // 设置材质属性
+            var mpb = new MaterialPropertyBlock();
+            mpb.SetMatrix(ShaderIDs._PixelCoordToViewDirWSID, m_PostProcessData.pixelCoordToViewDirWS);
+            mpb.SetFloat(ShaderIDs._EnableVolumetricFog, VolumetricFogHDRPRenderer.volumetricGlobalCB._EnableVolumetricFog);
+            mpb.SetFloat(ShaderIDs._VBufferRcpSliceCount, VolumetricFogHDRPRenderer.volumetricGlobalCB._VBufferRcpSliceCount);
+            mpb.SetVector(ShaderIDs._VBufferDistanceEncodingParams, VolumetricFogHDRPRenderer.volumetricGlobalCB._VBufferDistanceEncodingParams);
+            mpb.SetVector(ShaderIDs._VBufferLightingViewportLimit, VolumetricFogHDRPRenderer.volumetricGlobalCB._VBufferLightingViewportLimit);
+            mpb.SetVector(ShaderIDs._VBufferLightingViewportScale, VolumetricFogHDRPRenderer.volumetricGlobalCB._VBufferLightingViewportScale);
+            mpb.SetFloat(ShaderIDs._MaxFogDistance, VolumetricFogHDRPRenderer.volumetricGlobalCB._MaxFogDistance);
+
+            cmd.SetGlobalTexture(ShaderIDs._VolumetricLighting, VolumetricFogHDRPRenderer.m_LightingBuffer);
+            
+            // 绘制全屏三角形
+            cmd.DrawProcedural(Matrix4x4.identity, AtmospherMat, 0, MeshTopology.Triangles, 3, 1, mpb);
+
+            context.ExecuteCommandBuffer(cmd);
+            CommandBufferPool.Release(cmd);
+        }
+
         class AtmosphereParams
         {
             public TextureHandle volumetricLighting;
@@ -33,21 +61,6 @@ namespace Game.Core.PostProcessing
             public TextureHandle depthTexture;
             public TextureHandle ColorTex;
             public Material mat;
-        }
-
-        static void ExecutePass(AtmosphereParams data, RasterGraphContext context)
-        {
-            var mpb = context.renderGraphPool.GetTempMaterialPropertyBlock();
-            //mpb.SetTexture(VolumetricFogShaderIDs._CameraDepthTexture, data.depthTexture);
-            mpb.SetMatrix(ShaderIDs._PixelCoordToViewDirWSID, data.pixelCoordToViewDirWS);
-            mpb.SetFloat(ShaderIDs._EnableVolumetricFog, VolumetricFogHDRPRenderer.volumetricGlobalCB._EnableVolumetricFog);
-            mpb.SetFloat(ShaderIDs._VBufferRcpSliceCount, VolumetricFogHDRPRenderer.volumetricGlobalCB._VBufferRcpSliceCount);
-            mpb.SetVector(ShaderIDs._VBufferDistanceEncodingParams, VolumetricFogHDRPRenderer.volumetricGlobalCB._VBufferDistanceEncodingParams);
-            mpb.SetVector(ShaderIDs._VBufferLightingViewportLimit, VolumetricFogHDRPRenderer.volumetricGlobalCB._VBufferLightingViewportLimit);
-            mpb.SetVector(ShaderIDs._VBufferLightingViewportScale, VolumetricFogHDRPRenderer.volumetricGlobalCB._VBufferLightingViewportScale);
-            //mpb.SetTexture("_ColorTex", data.ColorTex);
-            context.cmd.SetGlobalTexture(ShaderIDs._VolumetricLighting, data.volumetricLighting);
-            context.cmd.DrawProcedural(Matrix4x4.identity, data.mat, 0, MeshTopology.Triangles, 3, 1, mpb);
         }
         
         public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
@@ -83,5 +96,22 @@ namespace Game.Core.PostProcessing
                 builder.SetRenderFunc((AtmosphereParams data, RasterGraphContext context) => ExecutePass(data, context));
             }
         }
+        
+        static void ExecutePass(AtmosphereParams data, RasterGraphContext context)
+        {
+            var mpb = context.renderGraphPool.GetTempMaterialPropertyBlock();
+            //mpb.SetTexture(VolumetricFogShaderIDs._CameraDepthTexture, data.depthTexture);
+            mpb.SetMatrix(ShaderIDs._PixelCoordToViewDirWSID, data.pixelCoordToViewDirWS);
+            mpb.SetFloat(ShaderIDs._EnableVolumetricFog, VolumetricFogHDRPRenderer.volumetricGlobalCB._EnableVolumetricFog);
+            mpb.SetFloat(ShaderIDs._VBufferRcpSliceCount, VolumetricFogHDRPRenderer.volumetricGlobalCB._VBufferRcpSliceCount);
+            mpb.SetVector(ShaderIDs._VBufferDistanceEncodingParams, VolumetricFogHDRPRenderer.volumetricGlobalCB._VBufferDistanceEncodingParams);
+            mpb.SetVector(ShaderIDs._VBufferLightingViewportLimit, VolumetricFogHDRPRenderer.volumetricGlobalCB._VBufferLightingViewportLimit);
+            mpb.SetVector(ShaderIDs._VBufferLightingViewportScale, VolumetricFogHDRPRenderer.volumetricGlobalCB._VBufferLightingViewportScale);
+            mpb.SetFloat(ShaderIDs._MaxFogDistance, VolumetricFogHDRPRenderer.volumetricGlobalCB._MaxFogDistance);
+            //mpb.SetTexture("_ColorTex", data.ColorTex);
+            context.cmd.SetGlobalTexture(ShaderIDs._VolumetricLighting, data.volumetricLighting);
+            context.cmd.DrawProcedural(Matrix4x4.identity, data.mat, 0, MeshTopology.Triangles, 3, 1, mpb);
+        }
+        
     }
 }

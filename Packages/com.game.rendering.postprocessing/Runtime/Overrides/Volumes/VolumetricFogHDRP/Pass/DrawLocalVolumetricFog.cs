@@ -21,7 +21,39 @@ namespace Game.Core.PostProcessing
         public void Dispose()
         {
         }
-        
+
+        public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
+        {
+            if (!SystemInfo.supportsRenderTargetArrayIndexFromVertexShader)
+            {
+                Debug.LogError("Hardware not supported for Volumetric Materials");
+                return;
+            }
+
+            var cmd = CommandBufferPool.Get("DrawLocalFogVoxel");
+
+            int frameIndex = (int)VolumetricFogHDRPRenderer.VolumetricFrameIndex(postProcessData);
+            var currIdx = (frameIndex + 0) & 1;
+            var currParams = postProcessData.vBufferParams[currIdx];
+
+            CoreUtils.SetRenderTarget(cmd, VolumetricFogHDRPRenderer.m_DensityBuffer);
+            cmd.SetViewport(new Rect(0, 0, currParams.viewportSize.x, currParams.viewportSize.y));
+
+            var vfxFogVolumeRendererListDesc = new RendererListDesc(s_VolumetricFogPassNames, renderingData.cullResults, postProcessData.camera)
+            {
+                rendererConfiguration = PerObjectData.None,
+                renderQueueRange = RenderQueueRange.all,
+                sortingCriteria = SortingCriteria.RendererPriority,
+                excludeObjectMotionVectors = false
+            };
+
+            RendererList rendererList = context.CreateRendererList(vfxFogVolumeRendererListDesc);
+            cmd.DrawRendererList(rendererList);
+
+            context.ExecuteCommandBuffer(cmd);
+            CommandBufferPool.Release(cmd);
+        }
+
         class LocalVolumetricFogParams
         {
             public Vector3Int viewportSize;

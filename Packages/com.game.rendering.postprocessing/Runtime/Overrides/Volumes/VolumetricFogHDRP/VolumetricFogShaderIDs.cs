@@ -45,6 +45,7 @@ namespace Game.Core.PostProcessing
         public static readonly int _VBufferDistanceEncodingParams = MemberNameHelpers.ShaderPropertyID();
         public static readonly int _VBufferLightingViewportLimit = MemberNameHelpers.ShaderPropertyID();
         public static readonly int _VBufferLightingViewportScale = MemberNameHelpers.ShaderPropertyID();
+        public static readonly int _MaxFogDistance = MemberNameHelpers.ShaderPropertyID();
 
         //Volumetric Voxel
         public static readonly int _VolumetricMaterialObbRight = Shader.PropertyToID("_VolumetricMaterialObbRight");

@@ -24,13 +24,18 @@ namespace Game.Core.PostProcessing
             m_VolumetricLightingFilteringCS = runtimeShaders.volumetricLightingFilter;
         }
         
+        private RTHandle m_IntermediateLightingBuffer;
+
         public void Dispose()
         {
-            
+            m_IntermediateLightingBuffer?.Release();
+            m_IntermediateLightingBuffer = null;
         }
 
         public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
         {
+            var cmd = CommandBufferPool.Get("VolumetricFog");
+
             int frameIndex = (int)VolumetricFogHDRPRenderer.VolumetricFrameIndex(postProcessData);
             var currIdx = (frameIndex + 0) & 1;
             var prevIdx = (frameIndex + 1) & 1;
@@ -68,15 +73,97 @@ namespace Game.Core.PostProcessing
             var volumetricFilteringKernel = volumetricLightingFilteringCS.FindKernel("FilterVolumetricLighting");
 
             var cvp = currParams.viewportSize;
+            var resolution = new Vector4(cvp.x, cvp.y, 1.0f / cvp.x, 1.0f / cvp.y);
+            bool filterVolume = ((int)fog.denoisingMode.value & (int)VolumetricFogHDRP.FogDenoisingMode.Gaussian) != 0;
+            int sliceCount = (int)(cvp.z);
+            bool filteringNeedsExtraBuffer = !(SystemInfo.IsFormatSupported(GraphicsFormat.R16G16B16A16_SFloat, GraphicsFormatUsage.LoadStore));
 
-            
-            // var maxZBuffer = m_MaxZHandle;
-            // var densityBuffer = m_DensityBuffer;
-            // builder.UseTexture(passData.densityBuffer, AccessFlags.Read);
-            // passData.lightingBuffer = renderGraph.CreateTexture(new TextureDesc(s_CurrentVolumetricBufferSize.x, s_CurrentVolumetricBufferSize.y, false, false)
-            //     { slices = s_CurrentVolumetricBufferSize.z, format = GraphicsFormat.R16G16B16A16_SFloat, dimension = TextureDimension.Tex3D, enableRandomWrite = true, name = "VBufferLighting" });
-            // builder.UseTexture(passData.lightingBuffer, AccessFlags.Write);
-            
+            var s_CurrentVolumetricBufferSize = VolumetricFogHDRPRenderer.s_CurrentVolumetricBufferSize;
+            RenderTextureDescriptor desc = new RenderTextureDescriptor(s_CurrentVolumetricBufferSize.x, s_CurrentVolumetricBufferSize.y, GraphicsFormat.R16G16B16A16_SFloat, 0);
+            desc.dimension = TextureDimension.Tex3D;
+            desc.volumeDepth = s_CurrentVolumetricBufferSize.z;
+            desc.enableRandomWrite = true;
+            desc.msaaSamples = 1;
+
+            RTHandle lightingBufferHandle = null;
+            RTHandle filteringBufferHandle = null;
+
+            if (filterVolume && filteringNeedsExtraBuffer)
+            {
+                RenderingUtils.ReAllocateHandleIfNeeded(ref m_IntermediateLightingBuffer, desc, FilterMode.Bilinear, TextureWrapMode.Clamp, name: "VBufferLighting");
+                RenderingUtils.ReAllocateHandleIfNeeded(ref VolumetricFogHDRPRenderer.m_LightingBuffer, desc, FilterMode.Bilinear, TextureWrapMode.Clamp, name: "VBufferLightingFiltered");
+                
+                lightingBufferHandle = m_IntermediateLightingBuffer;
+                filteringBufferHandle = VolumetricFogHDRPRenderer.m_LightingBuffer;
+
+                CoreUtils.SetKeyword(volumetricLightingFilteringCS, "NEED_SEPARATE_OUTPUT", true);
+            }
+            else
+            {
+                RenderingUtils.ReAllocateHandleIfNeeded(ref VolumetricFogHDRPRenderer.m_LightingBuffer, desc, FilterMode.Bilinear, TextureWrapMode.Clamp, name: "VBufferLighting");
+                lightingBufferHandle = VolumetricFogHDRPRenderer.m_LightingBuffer;
+                
+                CoreUtils.SetKeyword(volumetricLightingFilteringCS, "NEED_SEPARATE_OUTPUT", false);
+            }
+
+            if (enableReprojection)
+            {
+                if (postProcessData.volumetricValidFrames > 1)
+                    postProcessData.volumetricHistoryIsValid = true; // For the next frame..
+                else
+                    postProcessData.volumetricValidFrames++;
+            }
+
+            using (new ProfilingScope(cmd, profilingSampler))
+            {
+                // Dispatch Volumetric Lighting
+                int volumetricNearPlaneID = Shader.PropertyToID("_VolumetricNearPlane");
+                int goupsizeID = Shader.PropertyToID("_LightingGroupSize");
+                int threadX = PostProcessingUtils.DivRoundUp((int)resolution.x, 8);
+                int threadY = PostProcessingUtils.DivRoundUp((int)resolution.y, 8);
+                Vector4 groupSize = new Vector4(threadX, threadY, 0, 0);
+
+                cmd.SetComputeTextureParam(volumetricLightingCS, volumetricLightingKernel, ShaderIDs._VBufferDensity, VolumetricFogHDRPRenderer.m_DensityBuffer); // Read
+                cmd.SetComputeTextureParam(volumetricLightingCS, volumetricLightingKernel, ShaderIDs._VBufferLighting, lightingBufferHandle); // Write
+                cmd.SetComputeFloatParam(volumetricLightingCS, volumetricNearPlaneID, nearPlane);
+                cmd.SetComputeVectorParam(volumetricLightingCS, goupsizeID, groupSize);
+
+                cmd.SetComputeIntParam(volumetricLightingCS, ShaderIDs._VBufferSliceCount, (int)VolumetricFogHDRPRenderer.volumetricGlobalCB._VBufferSliceCount);
+                cmd.SetComputeVectorParam(volumetricLightingCS, ShaderIDs._VBufferDistanceDecodingParams, VolumetricFogHDRPRenderer.volumetricGlobalCB._VBufferDistanceDecodingParams);
+                cmd.SetComputeFloatParam(volumetricLightingCS, ShaderIDs._VBufferRcpSliceCount, VolumetricFogHDRPRenderer.volumetricGlobalCB._VBufferRcpSliceCount);
+                cmd.SetComputeVectorParam(volumetricLightingCS, ShaderIDs._VBufferViewportSize, VolumetricFogHDRPRenderer.volumetricGlobalCB._VBufferViewportSize);
+
+                if (enableReprojection)
+                {
+                    var feedbackBuffer = postProcessData.volumetricHistoryBuffers[currIdx];
+                    var historyBuffer = postProcessData.volumetricHistoryBuffers[prevIdx];
+
+                    cmd.SetComputeVectorParam(volumetricLightingCS, ShaderIDs._PrevCamPosRWS, prevCameraPos);
+                    cmd.SetComputeMatrixParam(volumetricLightingCS, ShaderIDs._PreVPMatrix, prevVP);
+                    cmd.SetComputeTextureParam(volumetricLightingCS, volumetricLightingKernel, ShaderIDs._VBufferHistory, historyBuffer); // Read
+                    cmd.SetComputeTextureParam(volumetricLightingCS, volumetricLightingKernel, ShaderIDs._VBufferFeedback, feedbackBuffer); // Write
+                }
+
+                ConstantBuffer.Push(VolumetricFogHDRPRenderer.m_ShaderVariablesVolumetricCB, volumetricLightingCS, ShaderIDs._ShaderVariablesVolumetric);
+
+                cmd.DispatchCompute(volumetricLightingCS, volumetricLightingKernel, threadX, threadY, 1);
+
+                // Dispatch Filtering
+                if (filterVolume)
+                {
+                    ConstantBuffer.Push(VolumetricFogHDRPRenderer.m_ShaderVariablesVolumetricCB, volumetricLightingFilteringCS, ShaderIDs._ShaderVariablesVolumetric);
+                    cmd.SetComputeTextureParam(volumetricLightingFilteringCS, volumetricFilteringKernel, ShaderIDs._VBufferLighting, lightingBufferHandle);
+                    if (filteringNeedsExtraBuffer)
+                    {
+                        cmd.SetComputeTextureParam(volumetricLightingFilteringCS, volumetricFilteringKernel, ShaderIDs._VBufferLightingFiltered, filteringBufferHandle);
+                    }
+
+                    cmd.DispatchCompute(volumetricLightingFilteringCS, volumetricFilteringKernel, threadX, threadY, sliceCount);
+                }
+            }
+
+            context.ExecuteCommandBuffer(cmd);
+            CommandBufferPool.Release(cmd);
         }
 
         class VolumetricLightingPassData

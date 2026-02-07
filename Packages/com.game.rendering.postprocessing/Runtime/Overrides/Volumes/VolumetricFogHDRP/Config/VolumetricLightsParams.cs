@@ -101,7 +101,7 @@ namespace Game.Core.PostProcessing
                 {
                     ref VisibleLight nowLightData = ref lights.UnsafeElementAtMutable(i);
                     Light light = nowLightData.light;
-                    // light.gameObject.TryGetComponent<LocalVolumetricFog>(out var additionalLightData);
+                    light.gameObject.TryGetComponent<VolumetricAdditionalLight>(out var additionalLightData);
                     // var additionalLightData = light.GetUniversalAdditionalLightData();
                     if (/*additionalLightData.useVolumetric &&*/ light.type != LightType.Rectangle && !light.bakingOutput.isBaked)
                     {
@@ -113,8 +113,8 @@ namespace Game.Core.PostProcessing
                         m_LightEnable[additionalIndex] = 0;
                     }
 
-                    m_LightMultiplier[additionalIndex] = 12;//additionalLightData.volumetricMultiplier;
-                    m_LightShadowDimmer[additionalIndex] = 1;//additionalLightData.shadowDimmer;
+                    m_LightMultiplier[additionalIndex] = additionalLightData.Scattering;//additionalLightData.volumetricMultiplier;
+                    m_LightShadowDimmer[additionalIndex] = additionalLightData.Radius;//additionalLightData.shadowDimmer;
 
                     if (light.shadows == LightShadows.None)
                     {

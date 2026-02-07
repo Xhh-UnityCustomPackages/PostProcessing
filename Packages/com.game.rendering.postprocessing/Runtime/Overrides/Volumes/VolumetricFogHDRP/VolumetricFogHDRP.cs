@@ -16,7 +16,7 @@ namespace Game.Core.PostProcessing
 		    displayName = "体积雾HDRP (Volumetric Fog HDRP)";
 	    }
 	    
-	    public override bool IsActive() => enabled.value;
+	    public override bool IsActive() => enabled.value && enableVolumetricFog.value;
 	    
         [Tooltip("Disabling this will completely remove any feature from the volumetric fog from being rendered at all.")]
 		public BoolParameter enabled = new(false, BoolParameter.DisplayType.EnumPopup);

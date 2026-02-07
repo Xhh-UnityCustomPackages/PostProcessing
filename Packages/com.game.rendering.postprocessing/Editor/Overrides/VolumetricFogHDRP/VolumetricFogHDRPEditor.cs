@@ -88,6 +88,7 @@ namespace Game.Core.PostProcessing.UnityEditor
          public override void OnInspectorGUI()
         {
             // HDEditorUtils.EnsureFrameSetting(FrameSettingsField.AtmosphericScattering);
+            EditorGUILayout.LabelField("多光源体积光需要挂<VolumetricAdditionalLight>");
 
             PropertyField(m_Enabled, s_Enabled);
 

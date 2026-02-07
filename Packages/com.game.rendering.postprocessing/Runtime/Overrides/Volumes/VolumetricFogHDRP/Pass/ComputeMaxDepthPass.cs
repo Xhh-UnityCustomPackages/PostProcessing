@@ -30,7 +30,7 @@ namespace Game.Core.PostProcessing
             dilatedMaxZBuffer?.Release();
             dilatedMaxZBuffer = null;
         }
-
+        
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
         {
             var desc = renderingData.cameraData.cameraTargetDescriptor;
