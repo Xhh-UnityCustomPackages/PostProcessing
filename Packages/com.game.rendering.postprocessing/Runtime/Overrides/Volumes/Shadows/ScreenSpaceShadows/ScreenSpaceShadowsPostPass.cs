@@ -15,7 +15,7 @@ namespace Game.Core.PostProcessing
                 profilingSampler = new ProfilingSampler("Set Screen Space Shadow Keywords");
             }
 
-            [Obsolete(DeprecationMessage.CompatibilityScriptingAPIObsolete, false)]
+          
             public override void Configure(CommandBuffer cmd, RenderTextureDescriptor cameraTextureDescriptor)
             {
                 // Disable obsolete warning for internal usage
@@ -39,7 +39,6 @@ namespace Game.Core.PostProcessing
                 cmd.SetKeyword(ShaderGlobalKeywords.MainLightShadowCascades, receiveShadowsCascades);
             }
 
-            [Obsolete(DeprecationMessage.CompatibilityScriptingAPIObsolete, false)]
             public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
             {
                 var cmd = renderingData.commandBuffer;

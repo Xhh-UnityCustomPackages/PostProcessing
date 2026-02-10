@@ -14,6 +14,7 @@
 // Warning: clamping to border may not work as expected with the quadratic filter due to its extent.
 //
 // if (biasLookup), we apply a constant bias to the look-up to avoid light leaks through geometry.
+#if UNITY_VERSION < 202320
 real2 BSpline2Left(real2 x)
 {
     return 0.5 * x * x;
@@ -38,7 +39,7 @@ void BiquadraticFilter(float2 fracCoord, out float2 weights[2], out float2 offse
     offsets[0] = -0.5 + 0.5 * m * rcp(weights[0]);
     offsets[1] =  0.5 + r * rcp(weights[1]);
 }
-
+#endif
 
 float4 SampleVBuffer(TEXTURE3D_PARAM(VBuffer, clampSampler),
                      float2 positionNDC,
